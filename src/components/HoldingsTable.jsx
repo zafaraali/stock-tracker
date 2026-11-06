@@ -1,18 +1,32 @@
 import React, { useState } from 'react';
-import { Trash2, Plus, ArrowUpRight, ArrowDownRight, FileSpreadsheet, Edit2, Check } from 'lucide-react';
+import { Trash2, Plus, ArrowUpRight, ArrowDownRight, FileSpreadsheet, Edit2, Check, FileText } from 'lucide-react';
+import { INITIAL_CATEGORIES } from '../data/mockData';
 
-export function HoldingsTable({ summary, symbol, onAddHolding, onUpdateHoldingPrice, onRemoveHolding, onExportCSV }) {
+export function HoldingsTable({ summary, symbol, onAddHolding, onUpdateHoldingPrice, onUpdateHoldingNotes, onRemoveHolding, onExportCSV }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [editPriceVal, setEditPriceVal] = useState('');
 
-  const [formData, setFormData] = useState({ symbol: '', shares: '', avgCost: '', currentPrice: '' });
+  const [notesModalId, setNotesModalId] = useState(null);
+  const [notesVal, setNotesVal] = useState('');
+
+  const [formData, setFormData] = useState({
+    symbol: '',
+    name: '',
+    shares: '',
+    avgCost: '',
+    currentPrice: '',
+    category: 'Tech',
+    dividendYield: '',
+    targetPercent: '',
+    notes: ''
+  });
 
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!formData.symbol || !formData.shares || !formData.avgCost) return;
     onAddHolding(formData);
-    setFormData({ symbol: '', shares: '', avgCost: '', currentPrice: '' });
+    setFormData({ symbol: '', name: '', shares: '', avgCost: '', currentPrice: '', category: 'Tech', dividendYield: '', targetPercent: '', notes: '' });
     setIsModalOpen(false);
   };
 
@@ -24,14 +38,20 @@ export function HoldingsTable({ summary, symbol, onAddHolding, onUpdateHoldingPr
     setEditPriceVal('');
   };
 
+  const handleSaveNotes = (id) => {
+    onUpdateHoldingNotes(id, notesVal);
+    setNotesModalId(null);
+    setNotesVal('');
+  };
+
   return (
     <div className="bg-slate-900 border border-slate-800/80 rounded-2xl overflow-hidden shadow-xl mb-16 sm:mb-8">
       
       {/* Header Bar */}
       <div className="p-5 border-b border-slate-800 flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h2 className="text-lg font-bold text-white">Manual Portfolio Holdings</h2>
-          <p className="text-xs text-slate-400">Check current prices on Google Finance and update them anytime</p>
+          <h2 className="text-lg font-bold text-white">Portfolio Holdings & Dividend Tracker</h2>
+          <p className="text-xs text-slate-400">Track asset sectors, passive dividend income, targets, and manual market prices</p>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -54,13 +74,13 @@ export function HoldingsTable({ summary, symbol, onAddHolding, onUpdateHoldingPr
         <table className="w-full text-left text-sm text-slate-300">
           <thead className="bg-slate-950/60 text-slate-400 uppercase text-[11px] tracking-wider border-b border-slate-800">
             <tr>
-              <th className="py-3.5 px-4 font-semibold">Asset</th>
+              <th className="py-3.5 px-4 font-semibold">Asset / Sector</th>
               <th className="py-3.5 px-4 font-semibold">Shares</th>
-              <th className="py-3.5 px-4 font-semibold">Buy Price</th>
-              <th className="py-3.5 px-4 font-semibold">Current Price (Manual)</th>
+              <th className="py-3.5 px-4 font-semibold">Buy / Current Price</th>
+              <th className="py-3.5 px-4 font-semibold">Target & Dividend</th>
               <th className="py-3.5 px-4 font-semibold">Total Value</th>
               <th className="py-3.5 px-4 font-semibold">Gain / Loss</th>
-              <th className="py-3.5 px-4 font-semibold text-right">Action</th>
+              <th className="py-3.5 px-4 font-semibold text-right">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-800/60">
@@ -76,45 +96,49 @@ export function HoldingsTable({ summary, symbol, onAddHolding, onUpdateHoldingPr
                 return (
                   <tr key={item.id} className="hover:bg-slate-800/40 transition">
                     <td className="py-3.5 px-4">
-                      <div className="font-bold text-white">{item.symbol}</div>
-                      <div className="text-xs text-slate-500">{item.name}</div>
-                    </td>
-                    <td className="py-3.5 px-4 font-medium">{item.shares}</td>
-                    <td className="py-3.5 px-4">{symbol}{item.avgCost.toFixed(2)}</td>
-                    <td className="py-3.5 px-4">
-                      {isEditing ? (
-                        <div className="flex items-center gap-1">
-                          <input
-                            type="number"
-                            step="any"
-                            value={editPriceVal}
-                            onChange={(e) => setEditPriceVal(e.target.value)}
-                            placeholder={item.currentPriceUSD}
-                            className="w-24 bg-slate-950 border border-slate-700 rounded px-2 py-1 text-xs text-white focus:outline-none"
-                            autoFocus
-                          />
-                          <button
-                            onClick={() => handleSaveInlinePrice(item.id)}
-                            className="p-1 bg-emerald-600 text-white rounded hover:bg-emerald-500"
-                          >
-                            <Check className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-2 group">
-                          <span className="font-semibold text-white">{symbol}{item.currentPrice.toFixed(2)}</span>
-                          <button
-                            onClick={() => {
-                              setEditingId(item.id);
-                              setEditPriceVal(item.currentPriceUSD);
-                            }}
-                            className="text-slate-500 hover:text-indigo-400 transition"
-                            title="Update current price"
-                          >
-                            <Edit2 className="w-3.5 h-3.5" />
-                          </button>
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-white text-base">{item.symbol}</span>
+                        <span className="text-[10px] bg-indigo-500/10 text-indigo-300 border border-indigo-500/30 px-2 py-0.5 rounded-full">{item.category}</span>
+                      </div>
+                      <div className="text-xs text-slate-400 truncate max-w-[160px]">{item.name}</div>
+                      {item.notes && (
+                        <div className="text-[11px] text-slate-500 italic mt-0.5 truncate max-w-[180px]" title={item.notes}>
+                          "{item.notes}"
                         </div>
                       )}
+                    </td>
+                    <td className="py-3.5 px-4 font-medium">{item.shares}</td>
+                    <td className="py-3.5 px-4">
+                      <div className="text-xs text-slate-400">Buy: {symbol}{item.avgCost.toFixed(2)}</div>
+                      <div className="flex items-center gap-1.5 mt-0.5">
+                        {isEditing ? (
+                          <div className="flex items-center gap-1">
+                            <input
+                              type="number"
+                              step="any"
+                              value={editPriceVal}
+                              onChange={(e) => setEditPriceVal(e.target.value)}
+                              placeholder={item.currentPriceUSD}
+                              className="w-20 bg-slate-950 border border-slate-700 rounded px-1.5 py-0.5 text-xs text-white focus:outline-none"
+                              autoFocus
+                            />
+                            <button onClick={() => handleSaveInlinePrice(item.id)} className="p-1 bg-emerald-600 text-white rounded">
+                              <Check className="w-3 h-3" />
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1.5 font-semibold text-white">
+                            <span>Now: {symbol}{item.currentPrice.toFixed(2)}</span>
+                            <button onClick={() => { setEditingId(item.id); setEditPriceVal(item.currentPriceUSD); }} className="text-indigo-400 hover:text-indigo-300" title="Edit current price">
+                              <Edit2 className="w-3 h-3" />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </td>
+                    <td className="py-3.5 px-4">
+                      <div className="text-xs text-indigo-300">Target: {item.targetPercent || 0}% (Actual: {item.actualPercent.toFixed(1)}%)</div>
+                      <div className="text-[11px] text-emerald-400 mt-0.5">{item.dividendYield || 0}% Yield (+{symbol}{item.annualDividend.toFixed(2)}/yr)</div>
                     </td>
                     <td className="py-3.5 px-4 font-bold text-white">{symbol}{item.totalValue.toFixed(2)}</td>
                     <td className="py-3.5 px-4">
@@ -124,12 +148,22 @@ export function HoldingsTable({ summary, symbol, onAddHolding, onUpdateHoldingPr
                       </div>
                     </td>
                     <td className="py-3.5 px-4 text-right">
-                      <button
-                        onClick={() => onRemoveHolding(item.id)}
-                        className="p-1.5 hover:bg-rose-500/10 text-slate-400 hover:text-rose-400 rounded-lg transition"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      <div className="flex items-center justify-end gap-1.5">
+                        <button
+                          onClick={() => { setNotesModalId(item.id); setNotesVal(item.notes || ''); }}
+                          className={`p-1.5 rounded-lg transition ${item.notes ? 'text-indigo-400 bg-indigo-500/10' : 'text-slate-500 hover:text-slate-300'}`}
+                          title="Investment Notes / Journal"
+                        >
+                          <FileText className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => onRemoveHolding(item.id)}
+                          className="p-1.5 hover:bg-rose-500/10 text-slate-400 hover:text-rose-400 rounded-lg transition"
+                          title="Delete Position"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );
@@ -151,20 +185,22 @@ export function HoldingsTable({ summary, symbol, onAddHolding, onUpdateHoldingPr
             return (
               <div key={item.id} className="p-4 space-y-3">
                 <div className="flex items-center justify-between">
-                  <div>
+                  <div className="flex items-center gap-2">
                     <span className="font-bold text-base text-white">{item.symbol}</span>
-                    <span className="text-xs text-slate-500 ml-2">{item.name}</span>
+                    <span className="text-[10px] bg-indigo-500/10 text-indigo-300 px-2 py-0.5 rounded-full border border-indigo-500/30">{item.category}</span>
                   </div>
-                  <button
-                    onClick={() => onRemoveHolding(item.id)}
-                    className="p-2 text-rose-400 hover:bg-rose-500/10 rounded-lg"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                  <div className="flex items-center gap-1">
+                    <button onClick={() => { setNotesModalId(item.id); setNotesVal(item.notes || ''); }} className="p-2 text-indigo-400"><FileText className="w-4 h-4" /></button>
+                    <button onClick={() => onRemoveHolding(item.id)} className="p-2 text-rose-400"><Trash2 className="w-4 h-4" /></button>
+                  </div>
                 </div>
+
+                <div className="text-xs text-slate-400">{item.name}</div>
+                {item.notes && <div className="text-xs text-slate-500 italic bg-slate-950 p-2 rounded">"{item.notes}"</div>}
+
                 <div className="grid grid-cols-2 gap-2 text-xs bg-slate-950 p-3 rounded-xl border border-slate-800/60">
                   <div>
-                    <span className="text-slate-500 block">Shares & Buy:</span>
+                    <span className="text-slate-500 block">Shares / Buy:</span>
                     <span className="font-semibold text-white">{item.shares} @ {symbol}{item.avgCost.toFixed(2)}</span>
                   </div>
                   <div>
@@ -176,23 +212,20 @@ export function HoldingsTable({ summary, symbol, onAddHolding, onUpdateHoldingPr
                           step="any"
                           value={editPriceVal}
                           onChange={(e) => setEditPriceVal(e.target.value)}
-                          className="w-20 bg-slate-900 border border-slate-700 rounded px-1.5 py-0.5 text-xs text-white"
+                          className="w-20 bg-slate-900 border border-slate-700 rounded px-1 py-0.5 text-xs text-white"
                           autoFocus
                         />
-                        <button onClick={() => handleSaveInlinePrice(item.id)} className="p-1 bg-emerald-600 text-white rounded">
-                          <Check className="w-3 h-3" />
-                        </button>
+                        <button onClick={() => handleSaveInlinePrice(item.id)} className="p-1 bg-emerald-600 text-white rounded"><Check className="w-3 h-3" /></button>
                       </div>
                     ) : (
-                      <div className="flex items-center gap-1.5 font-bold text-white">
+                      <div className="flex items-center gap-1 font-bold text-white">
                         <span>{symbol}{item.currentPrice.toFixed(2)}</span>
-                        <button onClick={() => { setEditingId(item.id); setEditPriceVal(item.currentPriceUSD); }} className="text-indigo-400">
-                          <Edit2 className="w-3 h-3" />
-                        </button>
+                        <button onClick={() => { setEditingId(item.id); setEditPriceVal(item.currentPriceUSD); }} className="text-indigo-400"><Edit2 className="w-3 h-3" /></button>
                       </div>
                     )}
                   </div>
                 </div>
+
                 <div className="flex items-center justify-between text-xs pt-1">
                   <span className="text-slate-400">Total Value: <strong className="text-white">{symbol}{item.totalValue.toFixed(2)}</strong></span>
                   <span className={`font-semibold flex items-center gap-1 ${isPositive ? 'text-emerald-400' : 'text-rose-400'}`}>
@@ -209,73 +242,145 @@ export function HoldingsTable({ summary, symbol, onAddHolding, onUpdateHoldingPr
       {/* Add Position Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-md p-6 shadow-2xl">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-lg p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
             <h3 className="text-lg font-bold text-white mb-4">Add Asset Position</h3>
             <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-slate-400 uppercase mb-1">Ticker Symbol</label>
-                <input
-                  type="text"
-                  placeholder="e.g. AAPL, MSFT, BTC"
-                  value={formData.symbol}
-                  onChange={e => setFormData({ ...formData, symbol: e.target.value })}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 uppercase"
-                  required
-                />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-400 uppercase mb-1">Ticker Symbol</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. AAPL, VTI"
+                    value={formData.symbol}
+                    onChange={e => setFormData({ ...formData, symbol: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white uppercase"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-400 uppercase mb-1">Asset Name</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Apple Inc."
+                    value={formData.name}
+                    onChange={e => setFormData({ ...formData, name: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white"
+                  />
+                </div>
               </div>
-              <div>
-                <label className="block text-xs font-semibold text-slate-400 uppercase mb-1">Shares / Quantity</label>
-                <input
-                  type="number"
-                  step="any"
-                  placeholder="e.g. 10"
-                  value={formData.shares}
-                  onChange={e => setFormData({ ...formData, shares: e.target.value })}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  required
-                />
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-400 uppercase mb-1">Category / Sector</label>
+                  <select
+                    value={formData.category}
+                    onChange={e => setFormData({ ...formData, category: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white"
+                  >
+                    {INITIAL_CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-400 uppercase mb-1">Shares / Quantity</label>
+                  <input
+                    type="number"
+                    step="any"
+                    placeholder="e.g. 10"
+                    value={formData.shares}
+                    onChange={e => setFormData({ ...formData, shares: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white"
+                    required
+                  />
+                </div>
               </div>
-              <div>
-                <label className="block text-xs font-semibold text-slate-400 uppercase mb-1">Average Buy Price (USD)</label>
-                <input
-                  type="number"
-                  step="any"
-                  placeholder="e.g. 150.25"
-                  value={formData.avgCost}
-                  onChange={e => setFormData({ ...formData, avgCost: e.target.value })}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  required
-                />
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-400 uppercase mb-1">Average Buy Price ($)</label>
+                  <input
+                    type="number"
+                    step="any"
+                    placeholder="e.g. 150.25"
+                    value={formData.avgCost}
+                    onChange={e => setFormData({ ...formData, avgCost: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-400 uppercase mb-1">Current Price ($)</label>
+                  <input
+                    type="number"
+                    step="any"
+                    placeholder="Defaults to buy price"
+                    value={formData.currentPrice}
+                    onChange={e => setFormData({ ...formData, currentPrice: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white"
+                  />
+                </div>
               </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-400 uppercase mb-1">Dividend Yield (%)</label>
+                  <input
+                    type="number"
+                    step="any"
+                    placeholder="e.g. 2.5"
+                    value={formData.dividendYield}
+                    onChange={e => setFormData({ ...formData, dividendYield: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-400 uppercase mb-1">Target Allocation (%)</label>
+                  <input
+                    type="number"
+                    step="any"
+                    placeholder="e.g. 20"
+                    value={formData.targetPercent}
+                    onChange={e => setFormData({ ...formData, targetPercent: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white"
+                  />
+                </div>
+              </div>
+
               <div>
-                <label className="block text-xs font-semibold text-slate-400 uppercase mb-1">Current Market Price (USD)</label>
-                <input
-                  type="number"
-                  step="any"
-                  placeholder="Leave blank to default to buy price"
-                  value={formData.currentPrice}
-                  onChange={e => setFormData({ ...formData, currentPrice: e.target.value })}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                <label className="block text-xs font-semibold text-slate-400 uppercase mb-1">Investment Notes / Thesis</label>
+                <textarea
+                  placeholder="Why did you buy this asset? Target price or strategy..."
+                  value={formData.notes}
+                  onChange={e => setFormData({ ...formData, notes: e.target.value })}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white h-20 resize-none"
                 />
-                <span className="text-[10px] text-slate-500 mt-1 block">Check Google Finance and enter the latest price.</span>
               </div>
 
               <div className="flex items-center justify-end gap-3 pt-3">
-                <button
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 text-slate-400 hover:text-slate-200 text-xs font-semibold"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold shadow-lg shadow-indigo-500/20"
-                >
-                  Save Position
-                </button>
+                <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-slate-400 hover:text-slate-200 text-xs font-semibold">Cancel</button>
+                <button type="submit" className="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold shadow-lg">Save Position</button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Notes Modal */}
+      {notesModalId && (
+        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-md p-6 shadow-2xl">
+            <h3 className="text-lg font-bold text-white mb-2">Investment Notes & Journal</h3>
+            <p className="text-xs text-slate-400 mb-4">Record your thesis, strategy, or target milestones for this asset.</p>
+            <textarea
+              value={notesVal}
+              onChange={e => setNotesVal(e.target.value)}
+              className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-white h-32 focus:outline-none focus:ring-2 focus:ring-indigo-500 mb-4 resize-none"
+              placeholder="Enter notes here..."
+              autoFocus
+            />
+            <div className="flex items-center justify-end gap-3">
+              <button onClick={() => setNotesModalId(null)} className="px-4 py-2 text-slate-400 text-xs font-semibold">Cancel</button>
+              <button onClick={() => handleSaveNotes(notesModalId)} className="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold shadow-lg">Save Notes</button>
+            </div>
           </div>
         </div>
       )}
