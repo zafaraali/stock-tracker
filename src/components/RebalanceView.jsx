@@ -57,6 +57,8 @@ export function RebalanceView({ summary, symbol, onUpdateTarget }) {
                           <input
                             type="number"
                             step="any"
+                            min="0"
+                            max="100"
                             value={item.targetPercent}
                             onChange={(e) => onUpdateTarget(item.id, e.target.value)}
                             className="w-20 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-xs text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"

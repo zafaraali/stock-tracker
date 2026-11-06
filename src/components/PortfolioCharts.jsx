@@ -1,33 +1,17 @@
 import React from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, AreaChart, Area, XAxis, YAxis, CartesianGrid } from 'recharts';
 
-const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ec4899', '#8b5cf6', '#06b6d4', '#f97316', '#3b82f6'];
+const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#14b8a6', '#8b5cf6', '#06b6d4', '#f97316', '#3b82f6'];
 
-export function PortfolioCharts({ summary, transactions, symbol, rate, theme }) {
+export function PortfolioCharts({ summary, snapshots, symbol, rate, theme }) {
   const isLight = theme === 'light';
 
-  const holdingIds = new Set(summary.items.map(item => item.id));
-  const holdingSymbols = new Set(summary.items.map(item => item.symbol));
-  const transactionTotalsByDate = transactions.reduce((totals, transaction) => {
-    const belongsToPortfolio = transaction.holdingId
-      ? holdingIds.has(transaction.holdingId)
-      : holdingSymbols.has(transaction.symbol);
-    if (!belongsToPortfolio || !transaction.date) return totals;
-
-    totals[transaction.date] = (totals[transaction.date] || 0) + Number(transaction.total);
-    return totals;
-  }, {});
-  let investedValue = 0;
-  const growthHistory = Object.entries(transactionTotalsByDate)
-    .sort(([dateA], [dateB]) => dateA.localeCompare(dateB))
-    .map(([date, total]) => {
-      investedValue += total;
-      return {
-        date,
-        value: investedValue * rate
-      };
-    });
-  growthHistory.push({ date: 'Today', value: summary.totalValue });
+  const growthHistory = [...snapshots]
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .map(snapshot => ({
+      date: snapshot.date,
+      value: Number(snapshot.valueUSD) * rate
+    }));
 
   const assetPieData = summary.items.map(item => ({
     name: item.symbol,
@@ -64,8 +48,13 @@ export function PortfolioCharts({ summary, transactions, symbol, rate, theme }) 
       <div className={`${cardBg} border p-5 rounded-2xl lg:col-span-1 transition-colors`}>
         <h3 className={`text-xs font-semibold ${headingColor} mb-4 tracking-wider uppercase`}>Portfolio Growth</h3>
         <div className="h-64 w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={growthHistory}>
+          {growthHistory.length === 0 ? (
+            <div className="h-full flex items-center justify-center text-slate-500 text-sm text-center">
+              A portfolio snapshot will be saved when you open the app.
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={growthHistory}>
               <defs>
                 <linearGradient id="colorVal" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="#6366f1" stopOpacity={0.4}/>
@@ -76,11 +65,12 @@ export function PortfolioCharts({ summary, transactions, symbol, rate, theme }) 
               <XAxis dataKey="date" stroke={isLight ? '#64748b' : '#64748b'} fontSize={11} />
               <YAxis stroke={isLight ? '#64748b' : '#64748b'} fontSize={11} tickFormatter={(v) => `${symbol}${v}`} />
               <Tooltip content={<CustomTooltip />} />
-              <Area type="monotone" dataKey="value" stroke="#6366f1" strokeWidth={3} fillOpacity={1} fill="url(#colorVal)" />
-            </AreaChart>
-          </ResponsiveContainer>
+              <Area type="monotone" dataKey="value" stroke="#6366f1" strokeWidth={3} dot={growthHistory.length === 1} fillOpacity={1} fill="url(#colorVal)" />
+              </AreaChart>
+            </ResponsiveContainer>
+          )}
         </div>
-        <p className="text-[10px] text-slate-500 mt-1">Historical points show cumulative recorded buys; Today reflects current holdings.</p>
+        <p className="text-[10px] text-slate-500 mt-1">Actual portfolio values are saved once per day when you open the app. Older history is unavailable.</p>
       </div>
 
       {/* Asset Allocation Pie Chart */}

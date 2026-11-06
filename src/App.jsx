@@ -14,6 +14,7 @@ export default function App() {
     holdings,
     watchlist,
     transactions,
+    snapshots,
     currency,
     setCurrency,
     theme,
@@ -26,6 +27,9 @@ export default function App() {
     updateHoldingNotes,
     updateHoldingTarget,
     removeHolding,
+    saveTransaction,
+    deleteTransaction,
+    deleteAllData,
     addWatchlistItem,
     updateWatchlistPrice,
     removeWatchlistItem,
@@ -55,6 +59,7 @@ export default function App() {
         exportJSON={exportJSON}
         exportCSV={exportCSV}
         importJSON={importJSON}
+        onDeleteAllData={deleteAllData}
       />
 
       {/* Main Container */}
@@ -80,7 +85,7 @@ export default function App() {
         </div>
 
         {/* KPI Summary Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
           
           <div className={`${isLight ? 'bg-white border-slate-200 shadow-md' : 'bg-slate-900 border-slate-800/80 shadow-xl'} border p-5 rounded-2xl flex items-center justify-between transition-colors`}>
             <div>
@@ -91,6 +96,18 @@ export default function App() {
             </div>
             <div className="p-3 bg-indigo-500/10 text-indigo-500 dark:text-indigo-400 rounded-xl">
               <Wallet className="w-6 h-6" />
+            </div>
+          </div>
+
+          <div className={`${isLight ? 'bg-white border-slate-200 shadow-md' : 'bg-slate-900 border-slate-800/80 shadow-xl'} border p-5 rounded-2xl flex items-center justify-between transition-colors`}>
+            <div>
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Realized P/L</p>
+              <h2 className={`text-2xl font-bold mt-1 ${portfolioSummary.realizedGainLoss >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
+                {portfolioSummary.realizedGainLoss >= 0 ? '+' : ''}{symbol}{portfolioSummary.realizedGainLoss.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </h2>
+            </div>
+            <div className="p-3 bg-indigo-500/10 text-indigo-400 rounded-xl">
+              <ArrowUpRight className="w-6 h-6" />
             </div>
           </div>
 
@@ -128,6 +145,7 @@ export default function App() {
                 {symbol}{portfolioSummary.annualDividend.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 <span className="text-[10px] text-slate-400 font-normal">({portfolioSummary.portfolioYield.toFixed(2)}%)</span>
               </h2>
+              <p className="text-[10px] text-slate-400 mt-1">Received: {symbol}{portfolioSummary.dividendsReceived.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
             </div>
             <div className="p-3 bg-emerald-500/10 text-emerald-500 dark:text-emerald-400 rounded-xl">
               <TrendingUp className="w-6 h-6" />
@@ -139,7 +157,7 @@ export default function App() {
         {/* Tab Switcher Content */}
         {activeTab === 'dashboard' && (
           <>
-            <PortfolioCharts summary={portfolioSummary} transactions={transactions} symbol={symbol} rate={rate} theme={theme} />
+            <PortfolioCharts summary={portfolioSummary} snapshots={snapshots} symbol={symbol} rate={rate} theme={theme} />
             <HoldingsTable
               summary={portfolioSummary}
               symbol={symbol}
@@ -191,6 +209,10 @@ export default function App() {
         {activeTab === 'history' && (
           <HistoryView
             transactions={transactions}
+            holdings={holdings}
+            summary={portfolioSummary}
+            onSaveTransaction={saveTransaction}
+            onDeleteTransaction={deleteTransaction}
             symbol={symbol}
             theme={theme}
           />

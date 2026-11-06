@@ -22,16 +22,25 @@ export function WatchlistView({ watchlist, symbol, rate, onAddWatchlistItem, onU
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!formData.symbol || !formData.currentPrice) return;
+    const currentPrice = Number(formData.currentPrice);
+    const targetBuyPrice = formData.targetBuyPrice === '' ? currentPrice : Number(formData.targetBuyPrice);
+    if (!formData.symbol.trim() || !Number.isFinite(currentPrice) || currentPrice <= 0 ||
+      !Number.isFinite(targetBuyPrice) || targetBuyPrice <= 0) {
+      alert('Enter a ticker and current/target prices greater than zero.');
+      return;
+    }
     onAddWatchlistItem(formData);
     setFormData({ symbol: '', name: '', currentPrice: '', targetBuyPrice: '', category: 'Tech', notes: '' });
     setIsModalOpen(false);
   };
 
   const handleSaveInlinePrice = (id) => {
-    if (editPriceVal !== '') {
-      onUpdateWatchlistPrice(id, editPriceVal);
+    const price = Number(editPriceVal);
+    if (!Number.isFinite(price) || price <= 0) {
+      alert('Current price must be greater than zero.');
+      return;
     }
+    onUpdateWatchlistPrice(id, price);
     setEditingId(null);
     setEditPriceVal('');
   };
@@ -45,11 +54,17 @@ export function WatchlistView({ watchlist, symbol, rate, onAddWatchlistItem, onU
   const handleConfirmConvert = (e) => {
     e.preventDefault();
     if (!convertToHoldingItem) return;
+    const shares = Number(convertShares);
+    const buyPrice = Number(convertBuyPrice);
+    if (!Number.isFinite(shares) || shares <= 0 || !Number.isFinite(buyPrice) || buyPrice <= 0) {
+      alert('Enter shares and a buy price greater than zero.');
+      return;
+    }
     onAddHolding({
       symbol: convertToHoldingItem.symbol,
       name: convertToHoldingItem.name,
-      shares: convertShares,
-      avgCost: convertBuyPrice,
+      shares,
+      avgCost: buyPrice,
       currentPrice: convertToHoldingItem.currentPrice,
       category: convertToHoldingItem.category,
       dividendYield: 0,
@@ -117,6 +132,7 @@ export function WatchlistView({ watchlist, symbol, rate, onAddWatchlistItem, onU
                             <input
                               type="number"
                               step="any"
+                              min="0.00000001"
                               value={editPriceVal}
                               onChange={(e) => setEditPriceVal(e.target.value)}
                               placeholder={item.currentPrice}
@@ -220,6 +236,7 @@ export function WatchlistView({ watchlist, symbol, rate, onAddWatchlistItem, onU
                   <input
                     type="number"
                     step="any"
+                    min="0.00000001"
                     placeholder="e.g. 150.00"
                     value={formData.currentPrice}
                     onChange={e => setFormData({ ...formData, currentPrice: e.target.value })}
@@ -234,6 +251,7 @@ export function WatchlistView({ watchlist, symbol, rate, onAddWatchlistItem, onU
                 <input
                   type="number"
                   step="any"
+                  min="0.00000001"
                   placeholder="e.g. 140.00"
                   value={formData.targetBuyPrice}
                   onChange={e => setFormData({ ...formData, targetBuyPrice: e.target.value })}
@@ -272,6 +290,7 @@ export function WatchlistView({ watchlist, symbol, rate, onAddWatchlistItem, onU
                 <input
                   type="number"
                   step="any"
+                  min="0.00000001"
                   value={convertShares}
                   onChange={e => setConvertShares(e.target.value)}
                   className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white"
@@ -283,6 +302,7 @@ export function WatchlistView({ watchlist, symbol, rate, onAddWatchlistItem, onU
                 <input
                   type="number"
                   step="any"
+                  min="0.00000001"
                   value={convertBuyPrice}
                   onChange={e => setConvertBuyPrice(e.target.value)}
                   className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white"

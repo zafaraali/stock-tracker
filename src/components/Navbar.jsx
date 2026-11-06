@@ -1,8 +1,8 @@
 import React from 'react';
-import { TrendingUp, PieChart as PieIcon, ArrowDownUp, Sliders, History, Eye, Download, Upload, Sun, Moon } from 'lucide-react';
+import { TrendingUp, PieChart as PieIcon, ArrowDownUp, Sliders, History, Eye, Download, Upload, Sun, Moon, Trash2 } from 'lucide-react';
 import { CURRENCY_RATES } from '../data/mockData';
 
-export function Navbar({ activeTab, setActiveTab, currency, setCurrency, theme, toggleTheme, exportJSON, exportCSV, importJSON }) {
+export function Navbar({ activeTab, setActiveTab, currency, setCurrency, theme, toggleTheme, exportJSON, exportCSV, importJSON, onDeleteAllData }) {
   const isLight = theme === 'light';
 
   return (
@@ -87,6 +87,15 @@ export function Navbar({ activeTab, setActiveTab, currency, setCurrency, theme, 
           </button>
 
           <div className="flex items-center gap-1">
+            <button
+              onClick={onDeleteAllData}
+              title="Delete all saved data"
+              aria-label="Delete all saved data"
+              className="p-2 rounded-xl text-xs font-medium transition flex items-center gap-1 border bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border-rose-500/30"
+            >
+              <Trash2 className="w-4 h-4" />
+              <span className="hidden lg:inline">Delete all</span>
+            </button>
             <button
               onClick={exportJSON}
               title="Backup JSON"

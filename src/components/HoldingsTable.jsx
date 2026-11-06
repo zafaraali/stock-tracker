@@ -6,6 +6,8 @@ export function HoldingsTable({ summary, symbol, onAddHolding, onUpdateHoldingPr
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [editPriceVal, setEditPriceVal] = useState('');
+  const [filter, setFilter] = useState('');
+  const [sortBy, setSortBy] = useState('symbol');
 
   const [notesModalId, setNotesModalId] = useState(null);
   const [notesVal, setNotesVal] = useState('');
@@ -21,19 +23,41 @@ export function HoldingsTable({ summary, symbol, onAddHolding, onUpdateHoldingPr
     targetPercent: '',
     notes: ''
   });
+  const visibleItems = [...summary.items]
+    .filter(item => item.symbol.toLowerCase().includes(filter.toLowerCase()) ||
+      (item.name || '').toLowerCase().includes(filter.toLowerCase()))
+    .sort((a, b) => sortBy === 'value'
+      ? b.totalValue - a.totalValue
+      : sortBy === 'gain'
+        ? b.gainLoss - a.gainLoss
+        : a.symbol.localeCompare(b.symbol));
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!formData.symbol || !formData.shares || !formData.avgCost) return;
+    const shares = Number(formData.shares);
+    const avgCost = Number(formData.avgCost);
+    const currentPrice = formData.currentPrice === '' ? avgCost : Number(formData.currentPrice);
+    const dividendYield = Number(formData.dividendYield || 0);
+    const targetPercent = Number(formData.targetPercent || 0);
+    if (!formData.symbol.trim() || !Number.isFinite(shares) || shares <= 0 ||
+      !Number.isFinite(avgCost) || avgCost <= 0 || !Number.isFinite(currentPrice) || currentPrice <= 0 ||
+      !Number.isFinite(dividendYield) || dividendYield < 0 || dividendYield > 100 ||
+      !Number.isFinite(targetPercent) || targetPercent < 0 || targetPercent > 100) {
+      alert('Enter a ticker, positive shares and prices, and percentages between 0 and 100.');
+      return;
+    }
     onAddHolding(formData);
     setFormData({ symbol: '', name: '', shares: '', avgCost: '', currentPrice: '', category: 'Tech', dividendYield: '', targetPercent: '', notes: '' });
     setIsModalOpen(false);
   };
 
   const handleSaveInlinePrice = (id) => {
-    if (editPriceVal !== '') {
-      onUpdateHoldingPrice(id, editPriceVal);
+    const price = Number(editPriceVal);
+    if (!Number.isFinite(price) || price <= 0) {
+      alert('Current price must be greater than zero.');
+      return;
     }
+    onUpdateHoldingPrice(id, price);
     setEditingId(null);
     setEditPriceVal('');
   };
@@ -52,6 +76,25 @@ export function HoldingsTable({ summary, symbol, onAddHolding, onUpdateHoldingPr
         <div>
           <h2 className="text-lg font-bold text-white">Portfolio Holdings & Dividend Tracker</h2>
           <p className="text-xs text-slate-400">Track asset sectors, passive dividend income, targets, and manual market prices</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <input
+            type="search"
+            value={filter}
+            onChange={event => setFilter(event.target.value)}
+            placeholder="Filter holdings"
+            className="bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white"
+          />
+          <select
+            value={sortBy}
+            onChange={event => setSortBy(event.target.value)}
+            aria-label="Sort holdings"
+            className="bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white"
+          >
+            <option value="symbol">Sort: Symbol</option>
+            <option value="value">Sort: Value</option>
+            <option value="gain">Sort: Gain</option>
+          </select>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -84,12 +127,12 @@ export function HoldingsTable({ summary, symbol, onAddHolding, onUpdateHoldingPr
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-800/60">
-            {summary.items.length === 0 ? (
+            {visibleItems.length === 0 ? (
               <tr>
-                <td colSpan={7} className="text-center py-12 text-slate-500">No positions found. Click "Add Position" to begin tracking.</td>
+                <td colSpan={7} className="text-center py-12 text-slate-500">{filter ? 'No matching holdings.' : 'No positions found. Click "Add Position" to begin tracking.'}</td>
               </tr>
             ) : (
-              summary.items.map((item) => {
+              visibleItems.map((item) => {
                 const isPositive = item.gainLoss >= 0;
                 const isEditing = editingId === item.id;
 
@@ -116,6 +159,7 @@ export function HoldingsTable({ summary, symbol, onAddHolding, onUpdateHoldingPr
                             <input
                               type="number"
                               step="any"
+                              min="0.00000001"
                               value={editPriceVal}
                               onChange={(e) => setEditPriceVal(e.target.value)}
                               placeholder={item.currentPriceUSD}
@@ -175,10 +219,10 @@ export function HoldingsTable({ summary, symbol, onAddHolding, onUpdateHoldingPr
 
       {/* Mobile Card View */}
       <div className="sm:hidden divide-y divide-slate-800">
-        {summary.items.length === 0 ? (
+        {visibleItems.length === 0 ? (
           <div className="text-center py-12 text-slate-500 text-sm">No positions found. Click "Add Position" below.</div>
         ) : (
-          summary.items.map((item) => {
+          visibleItems.map((item) => {
             const isPositive = item.gainLoss >= 0;
             const isEditing = editingId === item.id;
 
@@ -210,6 +254,7 @@ export function HoldingsTable({ summary, symbol, onAddHolding, onUpdateHoldingPr
                         <input
                           type="number"
                           step="any"
+                          min="0.00000001"
                           value={editPriceVal}
                           onChange={(e) => setEditPriceVal(e.target.value)}
                           className="w-20 bg-slate-900 border border-slate-700 rounded px-1 py-0.5 text-xs text-white"
@@ -285,6 +330,7 @@ export function HoldingsTable({ summary, symbol, onAddHolding, onUpdateHoldingPr
                   <input
                     type="number"
                     step="any"
+                    min="0.00000001"
                     placeholder="e.g. 10"
                     value={formData.shares}
                     onChange={e => setFormData({ ...formData, shares: e.target.value })}
@@ -300,6 +346,7 @@ export function HoldingsTable({ summary, symbol, onAddHolding, onUpdateHoldingPr
                   <input
                     type="number"
                     step="any"
+                    min="0.00000001"
                     placeholder="e.g. 150.25"
                     value={formData.avgCost}
                     onChange={e => setFormData({ ...formData, avgCost: e.target.value })}
@@ -312,6 +359,7 @@ export function HoldingsTable({ summary, symbol, onAddHolding, onUpdateHoldingPr
                   <input
                     type="number"
                     step="any"
+                    min="0.00000001"
                     placeholder="Defaults to buy price"
                     value={formData.currentPrice}
                     onChange={e => setFormData({ ...formData, currentPrice: e.target.value })}
@@ -326,6 +374,8 @@ export function HoldingsTable({ summary, symbol, onAddHolding, onUpdateHoldingPr
                   <input
                     type="number"
                     step="any"
+                    min="0"
+                    max="100"
                     placeholder="e.g. 2.5"
                     value={formData.dividendYield}
                     onChange={e => setFormData({ ...formData, dividendYield: e.target.value })}
@@ -337,6 +387,8 @@ export function HoldingsTable({ summary, symbol, onAddHolding, onUpdateHoldingPr
                   <input
                     type="number"
                     step="any"
+                    min="0"
+                    max="100"
                     placeholder="e.g. 20"
                     value={formData.targetPercent}
                     onChange={e => setFormData({ ...formData, targetPercent: e.target.value })}
