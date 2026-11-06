@@ -157,6 +157,7 @@ export function usePortfolio() {
 
     const tx = {
       id: 'tx-' + Date.now(),
+      holdingId: item.id,
       date: item.buyDate,
       type: 'BUY',
       symbol: sym,
@@ -180,7 +181,15 @@ export function usePortfolio() {
   };
 
   const removeHolding = (id) => {
+    const removedHolding = holdings.find(h => h.id === id);
     setHoldings(prev => prev.filter(h => h.id !== id));
+    if (removedHolding) {
+      setTransactions(prev => prev.filter(tx =>
+        tx.holdingId
+          ? tx.holdingId !== id
+          : tx.symbol?.toUpperCase() !== removedHolding.symbol.toUpperCase()
+      ));
+    }
   };
 
   // Watchlist actions

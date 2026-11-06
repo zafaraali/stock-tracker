@@ -139,7 +139,7 @@ export default function App() {
         {/* Tab Switcher Content */}
         {activeTab === 'dashboard' && (
           <>
-            <PortfolioCharts summary={portfolioSummary} symbol={symbol} theme={theme} />
+            <PortfolioCharts summary={portfolioSummary} transactions={transactions} symbol={symbol} rate={rate} theme={theme} />
             <HoldingsTable
               summary={portfolioSummary}
               symbol={symbol}

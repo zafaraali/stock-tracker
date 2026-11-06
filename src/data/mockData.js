@@ -95,11 +95,11 @@ export const INITIAL_WATCHLIST = [
 ];
 
 export const INITIAL_TRANSACTIONS = [
-  { id: 't-1', date: '2023-05-12', type: 'BUY', symbol: 'AAPL', shares: 15, price: 165.40, total: 2481.00 },
-  { id: 't-2', date: '2023-08-20', type: 'BUY', symbol: 'MSFT', shares: 8, price: 340.00, total: 2720.00 },
-  { id: 't-3', date: '2023-10-15', type: 'BUY', symbol: 'NVDA', shares: 5, price: 450.25, total: 2251.25 },
-  { id: 't-4', date: '2024-01-10', type: 'BUY', symbol: 'BTC', shares: 0.25, price: 42000.00, total: 10500.00 },
-  { id: 't-5', date: '2023-11-01', type: 'BUY', symbol: 'O', shares: 25, price: 52.50, total: 1312.50 }
+  { id: 't-1', holdingId: 'h-1', date: '2023-05-12', type: 'BUY', symbol: 'AAPL', shares: 15, price: 165.40, total: 2481.00 },
+  { id: 't-2', holdingId: 'h-2', date: '2023-08-20', type: 'BUY', symbol: 'MSFT', shares: 8, price: 340.00, total: 2720.00 },
+  { id: 't-3', holdingId: 'h-3', date: '2023-10-15', type: 'BUY', symbol: 'NVDA', shares: 5, price: 450.25, total: 2251.25 },
+  { id: 't-4', holdingId: 'h-4', date: '2024-01-10', type: 'BUY', symbol: 'BTC', shares: 0.25, price: 42000.00, total: 10500.00 },
+  { id: 't-5', holdingId: 'h-5', date: '2023-11-01', type: 'BUY', symbol: 'O', shares: 25, price: 52.50, total: 1312.50 }
 ];
 
 export const CURRENCY_RATES = {
@@ -109,13 +109,3 @@ export const CURRENCY_RATES = {
   CAD: { symbol: 'CA$', rate: 1.35, label: 'Canadian Dollar' },
   JPY: { symbol: '¥', rate: 151.4, label: 'Japanese Yen' }
 };
-
-export const PORTFOLIO_HISTORY = [
-  { date: 'Jan 01', value: 9200 },
-  { date: 'Jan 15', value: 9800 },
-  { date: 'Feb 01', value: 10400 },
-  { date: 'Feb 15', value: 10100 },
-  { date: 'Mar 01', value: 11200 },
-  { date: 'Mar 15', value: 11950 },
-  { date: 'Today', value: 15450 }
-];

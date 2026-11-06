@@ -1,11 +1,33 @@
 import React from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, AreaChart, Area, XAxis, YAxis, CartesianGrid } from 'recharts';
-import { PORTFOLIO_HISTORY } from '../data/mockData';
 
 const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ec4899', '#8b5cf6', '#06b6d4', '#f97316', '#3b82f6'];
 
-export function PortfolioCharts({ summary, symbol, theme }) {
+export function PortfolioCharts({ summary, transactions, symbol, rate, theme }) {
   const isLight = theme === 'light';
+
+  const holdingIds = new Set(summary.items.map(item => item.id));
+  const holdingSymbols = new Set(summary.items.map(item => item.symbol));
+  const transactionTotalsByDate = transactions.reduce((totals, transaction) => {
+    const belongsToPortfolio = transaction.holdingId
+      ? holdingIds.has(transaction.holdingId)
+      : holdingSymbols.has(transaction.symbol);
+    if (!belongsToPortfolio || !transaction.date) return totals;
+
+    totals[transaction.date] = (totals[transaction.date] || 0) + Number(transaction.total);
+    return totals;
+  }, {});
+  let investedValue = 0;
+  const growthHistory = Object.entries(transactionTotalsByDate)
+    .sort(([dateA], [dateB]) => dateA.localeCompare(dateB))
+    .map(([date, total]) => {
+      investedValue += total;
+      return {
+        date,
+        value: investedValue * rate
+      };
+    });
+  growthHistory.push({ date: 'Today', value: summary.totalValue });
 
   const assetPieData = summary.items.map(item => ({
     name: item.symbol,
@@ -24,14 +46,9 @@ export function PortfolioCharts({ summary, symbol, theme }) {
     if (active && payload && payload.length) {
       const data = payload[0];
       return (
-        <div 
-          className={`p-3 rounded-xl shadow-2xl border ${isLight ? 'bg-white border-slate-200 text-slate-900' : 'bg-slate-900 border-slate-700 text-white'}`} 
-          style={{ backgroundColor: isLight ? '#ffffff' : '#0f172a', color: isLight ? '#0f172a' : '#ffffff', borderColor: isLight ? '#cbd5e1' : '#334155' }}
-        >
-          <p className="text-xs font-bold" style={{ color: isLight ? '#0f172a' : '#ffffff' }}>
-            {data.name || label}
-          </p>
-          <p className={`text-sm font-semibold mt-1 ${isLight ? 'text-indigo-600' : 'text-indigo-400'}`} style={{ color: isLight ? '#4f46e5' : '#818cf8' }}>
+        <div className={`p-3 rounded-xl shadow-2xl border ${isLight ? 'bg-white border-slate-200 text-slate-900' : 'bg-slate-900 border-slate-700 text-white'}`} style={{ color: isLight ? '#0f172a' : '#ffffff' }}>
+          <p className="text-xs font-bold" style={{ color: isLight ? '#0f172a' : '#ffffff' }}>{data.name || label}</p>
+          <p className={`text-sm font-semibold mt-1 ${isLight ? 'text-indigo-600' : 'text-indigo-400'}`}>
             {symbol}{Number(data.value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </p>
         </div>
@@ -48,7 +65,7 @@ export function PortfolioCharts({ summary, symbol, theme }) {
         <h3 className={`text-xs font-semibold ${headingColor} mb-4 tracking-wider uppercase`}>Portfolio Growth</h3>
         <div className="h-64 w-full">
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={PORTFOLIO_HISTORY}>
+            <AreaChart data={growthHistory}>
               <defs>
                 <linearGradient id="colorVal" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="#6366f1" stopOpacity={0.4}/>
@@ -63,6 +80,7 @@ export function PortfolioCharts({ summary, symbol, theme }) {
             </AreaChart>
           </ResponsiveContainer>
         </div>
+        <p className="text-[10px] text-slate-500 mt-1">Historical points show cumulative recorded buys; Today reflects current holdings.</p>
       </div>
 
       {/* Asset Allocation Pie Chart */}
