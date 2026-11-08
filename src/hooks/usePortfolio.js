@@ -402,15 +402,18 @@ export function usePortfolio() {
   const addHolding = (newHolding) => {
     const sym = newHolding.symbol.toUpperCase();
     const shares = Number(newHolding.shares);
-    const avgCost = Number(newHolding.avgCost);
-    const currentPrice = newHolding.currentPrice !== '' && newHolding.currentPrice !== undefined ? Number(newHolding.currentPrice) : avgCost;
+    const hasCurrentPrice = newHolding.currentPrice !== '' && newHolding.currentPrice !== undefined;
+    const hasAvgCost = newHolding.avgCost !== '' && newHolding.avgCost !== undefined;
+    const currentPrice = hasCurrentPrice ? Number(newHolding.currentPrice) : hasAvgCost ? Number(newHolding.avgCost) : 0;
+    const avgCost = hasAvgCost ? Number(newHolding.avgCost) : currentPrice;
     const dividendYield = Number(newHolding.dividendYield || 0);
     const targetPercent = Number(newHolding.targetPercent || 0);
     if (!sym || !Number.isFinite(shares) || shares <= 0 ||
-      !Number.isFinite(avgCost) || avgCost <= 0 || !Number.isFinite(currentPrice) || currentPrice <= 0 ||
+      (hasAvgCost && (!Number.isFinite(avgCost) || avgCost <= 0)) ||
+      (hasCurrentPrice && (!Number.isFinite(currentPrice) || currentPrice <= 0)) ||
       !Number.isFinite(dividendYield) || dividendYield < 0 || dividendYield > 100 ||
       !Number.isFinite(targetPercent) || targetPercent < 0 || targetPercent > 100) {
-      setUiMessage('Enter valid shares and prices greater than zero, and percentages between 0 and 100.');
+      setUiMessage('Enter a valid ticker and positive shares. Prices are optional and can be filled from live market data.');
       return;
     }
 

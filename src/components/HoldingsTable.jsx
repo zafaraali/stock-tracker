@@ -63,15 +63,18 @@ export function HoldingsTable({ summary, symbol, onAddHolding, onUpdateHoldingPr
   const handleSubmit = (e) => {
     e.preventDefault();
     const shares = Number(formData.shares);
-    const avgCost = Number(formData.avgCost);
-    const currentPrice = formData.currentPrice === '' ? avgCost : Number(formData.currentPrice);
+    const hasCurrentPrice = formData.currentPrice !== '';
+    const hasAvgCost = formData.avgCost !== '';
+    const currentPrice = hasCurrentPrice ? Number(formData.currentPrice) : hasAvgCost ? Number(formData.avgCost) : 0;
+    const avgCost = hasAvgCost ? Number(formData.avgCost) : currentPrice;
     const dividendYield = Number(formData.dividendYield || 0);
     const targetPercent = Number(formData.targetPercent || 0);
     if (!formData.symbol.trim() || !Number.isFinite(shares) || shares <= 0 ||
-      !Number.isFinite(avgCost) || avgCost <= 0 || !Number.isFinite(currentPrice) || currentPrice <= 0 ||
+      (hasAvgCost && (!Number.isFinite(avgCost) || avgCost <= 0)) ||
+      (hasCurrentPrice && (!Number.isFinite(currentPrice) || currentPrice <= 0)) ||
       !Number.isFinite(dividendYield) || dividendYield < 0 || dividendYield > 100 ||
       !Number.isFinite(targetPercent) || targetPercent < 0 || targetPercent > 100) {
-      setFormError('Enter a ticker, positive shares and prices, and percentages between 0 and 100.');
+      setFormError('Enter a ticker and positive shares. Prices are optional and can be filled from live market data.');
       return;
     }
     onAddHolding(formData);
@@ -418,25 +421,24 @@ export function HoldingsTable({ summary, symbol, onAddHolding, onUpdateHoldingPr
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-400 uppercase mb-1">Average Buy Price ({formData.currency || 'USD'})</label>
+                  <label className="block text-xs font-semibold text-slate-400 uppercase mb-1">Average Buy Price ({formData.currency || 'USD'}) <span className="normal-case font-normal text-slate-500">optional</span></label>
+                  <input
+                    type="number"
+                    step="any"
+                    min="0.00000001"
+                    placeholder="Defaults to current price"
+                    value={formData.avgCost}
+                    onChange={e => setFormData({ ...formData, avgCost: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-400 uppercase mb-1">Current Price ({formData.currency || 'USD'}) <span className="normal-case font-normal text-slate-500">optional</span></label>
                   <input
                     type="number"
                     step="any"
                     min="0.00000001"
                     placeholder="e.g. 150.25"
-                    value={formData.avgCost}
-                    onChange={e => setFormData({ ...formData, avgCost: e.target.value })}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-400 uppercase mb-1">Current Price ({formData.currency || 'USD'})</label>
-                  <input
-                    type="number"
-                    step="any"
-                    min="0.00000001"
-                    placeholder="Defaults to buy price"
                     value={formData.currentPrice}
                     onChange={e => setFormData({ ...formData, currentPrice: e.target.value })}
                     className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white"
