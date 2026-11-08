@@ -1,8 +1,16 @@
 import React from 'react';
 import { Sliders, ArrowUpRight, ArrowDownRight, CheckCircle2 } from 'lucide-react';
+import { isTseSymbol } from '../services/marketApi';
+import { EmptyState } from './EmptyState';
 
 export function RebalanceView({ summary, symbol, onUpdateTarget }) {
   const totalTarget = summary.items.reduce((acc, item) => acc + (Number(item.targetPercent) || 0), 0);
+  const required = summary.items.reduce((balances, item) => {
+    const change = item.rebalanceAction === 'BUY' ? item.rebalanceDiffValue : item.rebalanceAction === 'SELL' ? -item.rebalanceDiffValue : 0;
+    const native = item.currentPrice > 0 ? change / item.currentPrice * item.nativeCurrentPrice : 0;
+    balances[item.currency] = (balances[item.currency] || 0) + native;
+    return balances;
+  }, {});
 
   return (
     <div className="space-y-6">
@@ -23,22 +31,27 @@ export function RebalanceView({ summary, symbol, onUpdateTarget }) {
         </div>
       </div>
 
+      <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 text-sm space-y-2">
+        <p>Targets include holdings and available cash. Sales can fund buys in the same currency; these estimates exclude fees.</p>
+        {Object.entries(required).map(([code, amount]) => <p key={code}>{code}: cash available {Number(summary.cashBalances[code] || 0).toFixed(2)} · net cash required {Math.max(0, amount).toFixed(2)} · <strong className={amount > (summary.cashBalances[code] || 0) + 0.01 ? 'text-amber-400' : 'text-emerald-400'}>{amount > (summary.cashBalances[code] || 0) + 0.01 ? `shortfall ${(amount - (summary.cashBalances[code] || 0)).toFixed(2)}; deposit or convert funds first` : 'covered by cash and proposed sales'}</strong></p>)}
+        {Math.abs(totalTarget - 100) >= 0.1 && <p className="text-amber-400">Complete your targets to 100% before using these provisional trade amounts.</p>}
+      </div>
       {/* Rebalance Table */}
       <div className="bg-slate-900 border border-slate-800/80 rounded-2xl overflow-hidden shadow-xl">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm text-slate-300">
+          <table className="financial-table responsive-table w-full text-left text-sm text-slate-300">
             <thead className="bg-slate-950/60 text-slate-400 uppercase text-[11px] tracking-wider border-b border-slate-800">
               <tr>
-                <th className="py-3.5 px-4 font-semibold">Asset</th>
-                <th className="py-3.5 px-4 font-semibold">Current Value</th>
-                <th className="py-3.5 px-4 font-semibold">Actual %</th>
-                <th className="py-3.5 px-4 font-semibold">Target % (Editable)</th>
-                <th className="py-3.5 px-4 font-semibold">Rebalance Action</th>
+                <th data-label="Asset" className="py-3.5 px-4 font-semibold">Asset</th>
+                <th data-label="Current Value" className="py-3.5 px-4 font-semibold">Current Value</th>
+                <th data-label="Actual %" className="py-3.5 px-4 font-semibold">Actual %</th>
+                <th data-label="Target % (Editable)" className="py-3.5 px-4 font-semibold">Target % (Editable)</th>
+                <th data-label="Rebalance Action" className="py-3.5 px-4 font-semibold">Rebalance Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/60">
               {summary.items.length === 0 ? (
-                <tr><td colSpan={5} className="text-center py-12 text-slate-500">No positions found. Add holdings first.</td></tr>
+                <tr><td colSpan={5}><EmptyState compact title="Nothing to rebalance" description="Add holdings and target allocations to see recommended trades." /></td></tr>
               ) : (
                 summary.items.map(item => {
                   const isBuy = item.rebalanceAction === 'BUY';
@@ -46,15 +59,23 @@ export function RebalanceView({ summary, symbol, onUpdateTarget }) {
 
                   return (
                     <tr key={item.id} className="hover:bg-slate-800/40 transition">
-                      <td className="py-3.5 px-4">
-                        <div className="font-bold text-white text-base">{item.symbol}</div>
+                      <td data-label="Asset" className="py-3.5 px-4">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-white text-base">{item.symbol}</span>
+                          {(item.currency === 'CAD' || isTseSymbol(item.symbol)) && (
+                            <span className="text-[10px] bg-red-500/10 text-red-400 border border-red-500/30 px-1.5 py-0.5 rounded-full font-bold">
+                              TSE · CAD
+                            </span>
+                          )}
+                        </div>
                         <div className="text-xs text-slate-400">{item.name}</div>
                       </td>
-                      <td className="py-3.5 px-4 font-bold text-white">{symbol}{item.totalValue.toFixed(2)}</td>
-                      <td className="py-3.5 px-4 font-semibold text-indigo-300">{item.actualPercent.toFixed(1)}%</td>
-                      <td className="py-3.5 px-4">
+                      <td data-label="Current Value" className="py-3.5 px-4 font-bold text-white">{symbol}{item.totalValue.toFixed(2)}</td>
+                      <td data-label="Actual %" className="py-3.5 px-4 font-semibold text-indigo-300">{item.actualPercent.toFixed(1)}%</td>
+                      <td data-label="Target %" className="py-3.5 px-4">
                         <div className="flex items-center gap-2">
                           <input
+                            aria-label={`Target allocation for ${item.symbol}`}
                             type="number"
                             step="any"
                             min="0"
@@ -66,7 +87,7 @@ export function RebalanceView({ summary, symbol, onUpdateTarget }) {
                           <span className="text-xs text-slate-400">%</span>
                         </div>
                       </td>
-                      <td className="py-3.5 px-4">
+                      <td data-label="Rebalance Action" className="py-3.5 px-4">
                         {item.rebalanceAction === 'HOLD' ? (
                           <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-slate-800 text-slate-300 rounded-lg text-xs font-semibold">
                             <CheckCircle2 className="w-3.5 h-3.5 text-slate-400" /> Balanced (Hold)

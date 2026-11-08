@@ -1,11 +1,19 @@
+import { Modal, FormError } from './Modal';
+import { PriceStatus } from './PriceStatus';
 import React, { useState } from 'react';
 import { Eye, Plus, Trash2, Edit2, Check, ArrowRight, ExternalLink } from 'lucide-react';
 import { INITIAL_CATEGORIES } from '../data/mockData';
+import { TickerAutocomplete } from './TickerAutocomplete';
+import { isTseSymbol, detectSymbolCurrency } from '../services/marketApi';
+import { toUSD } from '../hooks/usePortfolio';
+import { EmptyState } from './EmptyState';
 
-export function WatchlistView({ watchlist, symbol, rate, onAddWatchlistItem, onUpdateWatchlistPrice, onRemoveWatchlistItem, onAddHolding }) {
+export function WatchlistView({ watchlist, symbol, rate, fxRates, onAddWatchlistItem, onUpdateWatchlistPrice, onRemoveWatchlistItem, onAddHolding, globalFilter = '' }) {
+  const [formError, setFormError] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [editPriceVal, setEditPriceVal] = useState('');
+  const [filter, setFilter] = useState('');
 
   const [convertToHoldingItem, setConvertToHoldingItem] = useState(null);
   const [convertShares, setConvertShares] = useState('10');
@@ -17,8 +25,33 @@ export function WatchlistView({ watchlist, symbol, rate, onAddWatchlistItem, onU
     currentPrice: '',
     targetBuyPrice: '',
     category: 'Tech',
-    notes: ''
+    notes: '',
+    currency: 'USD'
   });
+  const visibleItems = watchlist.filter(item => {
+    const query = (globalFilter || filter).toLowerCase();
+    return !query || item.symbol.toLowerCase().includes(query) || (item.name || '').toLowerCase().includes(query) || (item.notes || '').toLowerCase().includes(query);
+  });
+
+  const handleSymbolChange = (sym) => {
+    const isCad = isTseSymbol(sym);
+    setFormData(prev => ({
+      ...prev,
+      symbol: sym,
+      currency: isCad ? 'CAD' : prev.currency
+    }));
+  };
+
+  const handleTickerSelect = (ticker) => {
+    const isCad = isTseSymbol(ticker.symbol) || ticker.currency === 'CAD';
+    setFormData(prev => ({
+      ...prev,
+      symbol: ticker.symbol,
+      name: ticker.name,
+      category: ticker.category,
+      currency: isCad ? 'CAD' : (ticker.currency || 'USD')
+    }));
+  };
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -26,18 +59,18 @@ export function WatchlistView({ watchlist, symbol, rate, onAddWatchlistItem, onU
     const targetBuyPrice = formData.targetBuyPrice === '' ? currentPrice : Number(formData.targetBuyPrice);
     if (!formData.symbol.trim() || !Number.isFinite(currentPrice) || currentPrice <= 0 ||
       !Number.isFinite(targetBuyPrice) || targetBuyPrice <= 0) {
-      alert('Enter a ticker and current/target prices greater than zero.');
+      setFormError('Enter a ticker and current/target prices greater than zero.');
       return;
     }
     onAddWatchlistItem(formData);
-    setFormData({ symbol: '', name: '', currentPrice: '', targetBuyPrice: '', category: 'Tech', notes: '' });
+    setFormData({ symbol: '', name: '', currentPrice: '', targetBuyPrice: '', category: 'Tech', notes: '', currency: 'USD' });
     setIsModalOpen(false);
   };
 
   const handleSaveInlinePrice = (id) => {
     const price = Number(editPriceVal);
     if (!Number.isFinite(price) || price <= 0) {
-      alert('Current price must be greater than zero.');
+      setFormError('Current price must be greater than zero.');
       return;
     }
     onUpdateWatchlistPrice(id, price);
@@ -57,9 +90,10 @@ export function WatchlistView({ watchlist, symbol, rate, onAddWatchlistItem, onU
     const shares = Number(convertShares);
     const buyPrice = Number(convertBuyPrice);
     if (!Number.isFinite(shares) || shares <= 0 || !Number.isFinite(buyPrice) || buyPrice <= 0) {
-      alert('Enter shares and a buy price greater than zero.');
+      setFormError('Enter shares and a buy price greater than zero.');
       return;
     }
+    const itemCurrency = convertToHoldingItem.currency || detectSymbolCurrency(convertToHoldingItem.symbol);
     onAddHolding({
       symbol: convertToHoldingItem.symbol,
       name: convertToHoldingItem.name,
@@ -69,6 +103,7 @@ export function WatchlistView({ watchlist, symbol, rate, onAddWatchlistItem, onU
       category: convertToHoldingItem.category,
       dividendYield: 0,
       targetPercent: 10,
+      currency: itemCurrency,
       notes: convertToHoldingItem.notes || 'Converted from Watchlist'
     });
     onRemoveWatchlistItem(convertToHoldingItem.id);
@@ -84,49 +119,60 @@ export function WatchlistView({ watchlist, symbol, rate, onAddWatchlistItem, onU
           <h2 className="text-lg font-bold text-white flex items-center gap-2">
             <Eye className="w-5 h-5 text-indigo-400" /> Asset Watchlist & Investment Ideas
           </h2>
+          <FormError message={formError} />
           <p className="text-xs text-slate-400 mt-1">Monitor stocks, cryptos, and ETFs before adding them to your portfolio.</p>
         </div>
-        <button
+        <div className="flex items-center gap-2"><input type="search" value={filter} onChange={event => setFilter(event.target.value)} placeholder="Filter watchlist" aria-label="Filter watchlist" className="bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white" /><button
           onClick={() => setIsModalOpen(true)}
           className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold shadow-lg shadow-indigo-500/20 transition"
         >
           <Plus className="w-4 h-4" /> Add Watchlist Item
-        </button>
+        </button></div>
       </div>
 
       {/* Watchlist Table */}
       <div className="bg-slate-900 border border-slate-800/80 rounded-2xl overflow-hidden shadow-xl">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm text-slate-300">
+          <table className="financial-table responsive-table w-full text-left text-sm text-slate-300">
             <thead className="bg-slate-950/60 text-slate-400 uppercase text-[11px] tracking-wider border-b border-slate-800">
               <tr>
-                <th className="py-3.5 px-4 font-semibold">Asset / Sector</th>
-                <th className="py-3.5 px-4 font-semibold">Current Price</th>
-                <th className="py-3.5 px-4 font-semibold">Target Buy Price</th>
-                <th className="py-3.5 px-4 font-semibold">Notes / Thesis</th>
-                <th className="py-3.5 px-4 font-semibold text-right">Actions</th>
+                <th data-label="Asset / Sector" className="py-3.5 px-4 font-semibold">Asset / Sector</th>
+                <th data-label="Current Price" className="py-3.5 px-4 font-semibold">Current Price</th>
+                <th data-label="Target Buy Price" className="py-3.5 px-4 font-semibold">Target Buy Price</th>
+                <th data-label="Notes / Thesis" className="py-3.5 px-4 font-semibold">Notes / Thesis</th>
+                <th data-label="Actions" className="py-3.5 px-4 font-semibold text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/60">
-              {watchlist.length === 0 ? (
-                <tr><td colSpan={5} className="text-center py-12 text-slate-500">No watchlist items found. Click "Add Watchlist Item" to begin tracking.</td></tr>
+              {visibleItems.length === 0 ? (
+                <tr><td colSpan={5}><EmptyState compact title={filter || globalFilter ? 'No matching ideas' : 'Your watchlist is empty'} description={filter || globalFilter ? 'Try a different search term.' : 'Save an asset here before adding it to your portfolio.'} actionLabel={!filter && !globalFilter ? 'Add watchlist item' : undefined} onAction={!filter && !globalFilter ? () => setIsModalOpen(true) : undefined} /></td></tr>
               ) : (
-                watchlist.map(item => {
+                visibleItems.map(item => {
                   const isEditing = editingId === item.id;
-                  const curPriceNum = item.currentPrice * rate;
-                  const targetNum = item.targetBuyPrice * rate;
+                  const itemCurrency = item.currency || detectSymbolCurrency(item.symbol);
+                  const curPriceUSD = toUSD(item.currentPrice, itemCurrency, fxRates);
+                  const targetBuyPriceUSD = toUSD(item.targetBuyPrice, itemCurrency, fxRates);
+                  const curPriceNum = curPriceUSD * rate;
+                  const targetNum = targetBuyPriceUSD * rate;
                   const isNearTarget = item.currentPrice <= item.targetBuyPrice;
+                  const isCad = itemCurrency === 'CAD' || isTseSymbol(item.symbol);
 
                   return (
                     <tr key={item.id} className="hover:bg-slate-800/40 transition">
-                      <td className="py-3.5 px-4">
+                      <td data-label="Asset / Sector" className="py-3.5 px-4">
                         <div className="flex items-center gap-2">
                           <span className="font-bold text-white text-base">{item.symbol}</span>
                           <span className="text-[10px] bg-indigo-500/10 text-indigo-300 border border-indigo-500/30 px-2 py-0.5 rounded-full">{item.category}</span>
+                          {isCad && (
+                            <span className="text-[10px] bg-red-500/10 text-red-400 border border-red-500/30 px-1.5 py-0.5 rounded-full font-bold">
+                              TSE · CAD
+                            </span>
+                          )}
                         </div>
                         <div className="text-xs text-slate-400">{item.name}</div>
+                        <PriceStatus item={item} />
                       </td>
-                      <td className="py-3.5 px-4">
+                      <td data-label="Current Price" className="py-3.5 px-4">
                         {isEditing ? (
                           <div className="flex items-center gap-1">
                             <input
@@ -139,31 +185,44 @@ export function WatchlistView({ watchlist, symbol, rate, onAddWatchlistItem, onU
                               className="w-20 bg-slate-950 border border-slate-700 rounded px-1.5 py-0.5 text-xs text-white"
                               autoFocus
                             />
-                            <button onClick={() => handleSaveInlinePrice(item.id)} className="p-1 bg-emerald-600 text-white rounded">
+                            <span className="text-[10px] text-slate-400 font-bold">{itemCurrency}</span>
+                            <button onClick={() => handleSaveInlinePrice(item.id)} aria-label="Save current price" className="p-1 bg-emerald-600 text-white rounded">
                               <Check className="w-3 h-3" />
                             </button>
                           </div>
                         ) : (
                           <div className="flex items-center gap-1.5 font-bold text-white">
                             <span>{symbol}{curPriceNum.toFixed(2)}</span>
+                            {isCad && (
+                              <span className="text-[10px] text-slate-400 font-normal">
+                                (CA${Number(item.currentPrice).toFixed(2)})
+                              </span>
+                            )}
                             <button onClick={() => { setEditingId(item.id); setEditPriceVal(item.currentPrice); }} className="text-indigo-400 hover:text-indigo-300" title="Edit price">
                               <Edit2 className="w-3 h-3" />
                             </button>
                           </div>
                         )}
                       </td>
-                      <td className="py-3.5 px-4">
-                        <div className="text-xs text-slate-300 font-medium">{symbol}{targetNum.toFixed(2)}</div>
+                      <td data-label="Target Buy Price" className="py-3.5 px-4">
+                        <div className="text-xs text-slate-300 font-medium">
+                          {symbol}{targetNum.toFixed(2)}
+                          {isCad && (
+                            <span className="text-[10px] text-slate-400 font-normal ml-1">
+                              (CA${Number(item.targetBuyPrice).toFixed(2)})
+                            </span>
+                          )}
+                        </div>
                         {isNearTarget && (
                           <span className="text-[10px] bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded border border-emerald-500/30 mt-0.5 inline-block">
-                            🎯 Reached Target!
+                            Target reached
                           </span>
                         )}
                       </td>
-                      <td className="py-3.5 px-4 text-xs text-slate-400 max-w-xs truncate" title={item.notes}>
+                      <td data-label="Notes / Thesis" className="py-3.5 px-4 text-xs text-slate-400 max-w-xs truncate" title={item.notes}>
                         {item.notes || 'No notes'}
                       </td>
-                      <td className="py-3.5 px-4 text-right">
+                      <td data-label="Actions" className="py-3.5 px-4 text-right">
                         <div className="flex items-center justify-end gap-2">
                           <button
                             onClick={() => handleOpenConvert(item)}
@@ -192,21 +251,22 @@ export function WatchlistView({ watchlist, symbol, rate, onAddWatchlistItem, onU
 
       {/* Add Watchlist Item Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <Modal title="Add watchlist asset" onClose={() => { setIsModalOpen(false); setFormError(''); }}>
           <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-md p-6 shadow-2xl">
-            <h3 className="text-lg font-bold text-white mb-4">Add Watchlist Asset</h3>
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onChange={() => setFormError('')} onSubmit={handleSubmit} className="space-y-4">
+              <FormError message={formError} />
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-slate-400 uppercase mb-1">Ticker Symbol</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. GOOGL"
+                  <TickerAutocomplete
                     value={formData.symbol}
-                    onChange={e => setFormData({ ...formData, symbol: e.target.value })}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white uppercase"
-                    required
+                    onChange={handleSymbolChange}
+                    onSelect={handleTickerSelect}
+                    placeholder="Search GOOGL, SHOP.TO, or TSE:RY"
                   />
+                  {isTseSymbol(formData.symbol) && (
+                    <span className="text-[10px] text-red-400 font-semibold mt-1 block">TSE/TSX stock detected (CAD)</span>
+                  )}
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-slate-400 uppercase mb-1">Asset Name</label>
@@ -232,7 +292,24 @@ export function WatchlistView({ watchlist, symbol, rate, onAddWatchlistItem, onU
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-400 uppercase mb-1">Current Price ($)</label>
+                  <label className="block text-xs font-semibold text-slate-400 uppercase mb-1">Asset Currency</label>
+                  <select
+                    value={formData.currency || 'USD'}
+                    onChange={e => setFormData({ ...formData, currency: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white"
+                  >
+                    <option value="USD">USD ($) - US Markets</option>
+                    <option value="CAD">CAD (CA$) - TSE / TSX</option>
+                    <option value="EUR">EUR (€)</option>
+                    <option value="GBP">GBP (£)</option>
+                    <option value="JPY">JPY (¥)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-400 uppercase mb-1">Current Price ({formData.currency || 'USD'})</label>
                   <input
                     type="number"
                     step="any"
@@ -244,19 +321,18 @@ export function WatchlistView({ watchlist, symbol, rate, onAddWatchlistItem, onU
                     required
                   />
                 </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-400 uppercase mb-1">Target Buy Price ($)</label>
-                <input
-                  type="number"
-                  step="any"
-                  min="0.00000001"
-                  placeholder="e.g. 140.00"
-                  value={formData.targetBuyPrice}
-                  onChange={e => setFormData({ ...formData, targetBuyPrice: e.target.value })}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white"
-                />
+                <div>
+                  <label className="block text-xs font-semibold text-slate-400 uppercase mb-1">Target Buy Price ({formData.currency || 'USD'})</label>
+                  <input
+                    type="number"
+                    step="any"
+                    min="0.00000001"
+                    placeholder="e.g. 140.00"
+                    value={formData.targetBuyPrice}
+                    onChange={e => setFormData({ ...formData, targetBuyPrice: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white"
+                  />
+                </div>
               </div>
 
               <div>
@@ -275,16 +351,16 @@ export function WatchlistView({ watchlist, symbol, rate, onAddWatchlistItem, onU
               </div>
             </form>
           </div>
-        </div>
+        </Modal>
       )}
 
       {/* Convert to Holding Modal */}
       {convertToHoldingItem && (
-        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <Modal title="Add portfolio holding" onClose={() => { setConvertToHoldingItem(null); setFormError(''); }}>
           <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-md p-6 shadow-2xl">
-            <h3 className="text-lg font-bold text-white mb-2">Convert Watchlist to Holding</h3>
             <p className="text-xs text-slate-400 mb-4">Add <strong className="text-white">{convertToHoldingItem.symbol}</strong> to your active portfolio positions.</p>
-            <form onSubmit={handleConfirmConvert} className="space-y-4">
+            <form onChange={() => setFormError('')} onSubmit={handleConfirmConvert} className="space-y-4">
+              <FormError message={formError} />
               <div>
                 <label className="block text-xs font-semibold text-slate-400 uppercase mb-1">Number of Shares</label>
                 <input
@@ -298,7 +374,9 @@ export function WatchlistView({ watchlist, symbol, rate, onAddWatchlistItem, onU
                 />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-slate-400 uppercase mb-1">Average Buy Price ($)</label>
+                <label className="block text-xs font-semibold text-slate-400 uppercase mb-1">
+                  Average Buy Price ({convertToHoldingItem.currency || detectSymbolCurrency(convertToHoldingItem.symbol)})
+                </label>
                 <input
                   type="number"
                   step="any"
@@ -315,7 +393,7 @@ export function WatchlistView({ watchlist, symbol, rate, onAddWatchlistItem, onU
               </div>
             </form>
           </div>
-        </div>
+        </Modal>
       )}
 
     </div>

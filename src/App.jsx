@@ -1,16 +1,41 @@
-import React, { useState } from 'react';
+import { Onboarding, CashPanel, RecentlyDeleted } from './components/PortfolioTools';
+import { Modal, FormError } from './components/Modal';
+import { ConfirmDialog } from './components/ConfirmDialog';
+import { LoadingSkeleton } from './components/LoadingSkeleton';
+import { Toast } from './components/Toast';
+import { DashboardSetup } from './components/DashboardSetup';
+import { StatusBar } from './components/StatusBar';
+import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { usePortfolio } from './hooks/usePortfolio';
 import { Navbar } from './components/Navbar';
-import { PortfolioCharts } from './components/PortfolioCharts';
+const PortfolioCharts = lazy(() => import('./components/PortfolioCharts').then(module => ({ default: module.PortfolioCharts })));
 import { HoldingsTable } from './components/HoldingsTable';
-import { RebalanceView } from './components/RebalanceView';
-import { HistoryView } from './components/HistoryView';
-import { WatchlistView } from './components/WatchlistView';
-import { DollarSign, Wallet, ArrowUpRight, ArrowDownRight, TrendingUp, ExternalLink, Printer } from 'lucide-react';
+const RebalanceView = lazy(() => import('./components/RebalanceView').then(module => ({ default: module.RebalanceView })));
+const HistoryView = lazy(() => import('./components/HistoryView').then(module => ({ default: module.HistoryView })));
+const WatchlistView = lazy(() => import('./components/WatchlistView').then(module => ({ default: module.WatchlistView })));
+const PortfolioInsights = lazy(() => import('./components/PortfolioInsights').then(module => ({ default: module.PortfolioInsights })));
+import { DollarSign, Wallet, ArrowUpRight, ArrowDownRight, TrendingUp, ChevronDown } from 'lucide-react';
 
 export default function App() {
+  const [transactionIntent, setTransactionIntent] = useState(null);
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [globalQuery, setGlobalQuery] = useState('');
+  const [confirmAction, setConfirmAction] = useState(null);
+  const [summaryOpen, setSummaryOpen] = useState(true);
+  const scrollFrameRef = React.useRef(null);
+  useEffect(() => {
+    const handleShortcut = event => {
+      if (event.key === '/' && !['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName)) {
+        event.preventDefault();
+        document.getElementById('global-search')?.focus();
+      }
+      if (event.key === 'Escape' && document.activeElement?.id === 'global-search') setGlobalQuery('');
+    };
+    window.addEventListener('keydown', handleShortcut);
+    return () => window.removeEventListener('keydown', handleShortcut);
+  }, []);
   const {
+    mode, startPortfolio, trash, restoreDeleted, performance,
     holdings,
     watchlist,
     transactions,
@@ -19,6 +44,8 @@ export default function App() {
     setCurrency,
     theme,
     toggleTheme,
+    accent,
+    setAccent,
     symbol,
     rate,
     portfolioSummary,
@@ -35,48 +62,87 @@ export default function App() {
     removeWatchlistItem,
     exportJSON,
     exportCSV,
-    importJSON
+    importJSON, importCSV, pendingCsvImport, confirmCsvImport, cancelCsvImport, accounts, selectedAccountId, setSelectedAccountId, addAccount, renameAccount,
+    refreshMarketData,
+    marketStatus, uiMessage, dismissMessage, storageError, storageBlocked, resumeSaving, pendingImport, confirmImport, cancelImport, fxRates, fxData, fxError, historicalFx, historicalEstimated
   } = usePortfolio();
 
   const isLight = theme === 'light';
   const isTotalPositive = portfolioSummary.totalGainLoss >= 0;
-
-  const handlePrintReport = () => {
-    window.print();
+  useEffect(() => {
+    if (!uiMessage) return undefined;
+    const timeout = window.setTimeout(() => dismissMessage(), 4500);
+    return () => window.clearTimeout(timeout);
+  }, [uiMessage, dismissMessage]);
+  const changeTab = tab => {
+    setActiveTab(tab);
+    if (scrollFrameRef.current) {
+      window.cancelAnimationFrame(scrollFrameRef.current.first);
+      window.cancelAnimationFrame(scrollFrameRef.current.second);
+    }
+    const first = window.requestAnimationFrame(() => {
+      const second = window.requestAnimationFrame(() => document.getElementById(tab === 'dashboard' ? 'portfolio-summary' : 'tab-content')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+      scrollFrameRef.current = { first, second };
+    });
+    scrollFrameRef.current = { first, second: null };
   };
+  const askToConfirm = (title, message, action, confirmLabel = 'Delete') => setConfirmAction({ title, message, action, confirmLabel });
+  const runConfirmedAction = () => { confirmAction?.action(); setConfirmAction(null); };
 
   return (
-    <div className={`min-h-screen ${isLight ? 'bg-slate-50 text-slate-900' : 'bg-slate-950 text-slate-100'} flex flex-col font-sans transition-colors duration-200`}>
+    <div className={`app-shell accent-${accent} min-h-screen ${isLight ? 'theme-light bg-slate-50 text-slate-900' : 'bg-slate-950 text-slate-100'} flex flex-col font-sans transition-colors duration-200`}>
+      <a className="skip-link" href="#main-content">Skip to main content</a>
       
       {/* Navigation */}
       <Navbar
         activeTab={activeTab}
-        setActiveTab={setActiveTab}
+        setActiveTab={changeTab}
         currency={currency}
         setCurrency={setCurrency}
         theme={theme}
         toggleTheme={toggleTheme}
+        accent={accent}
+        setAccent={setAccent}
         exportJSON={exportJSON}
         exportCSV={exportCSV}
         importJSON={importJSON}
-        onDeleteAllData={deleteAllData}
+        importCSV={importCSV}
+        accounts={accounts}
+        selectedAccountId={selectedAccountId}
+        setSelectedAccountId={setSelectedAccountId}
+        addAccount={addAccount}
+        renameAccount={renameAccount}
+        onDeleteAllData={() => askToConfirm('Delete all saved data?', 'This clears the current portfolio, transactions, watchlist, snapshots, and preferences. You can still use Recently deleted to undo the clear.', deleteAllData, 'Delete everything')}
+        refreshMarketData={refreshMarketData}
+        marketStatus={marketStatus}
+        globalQuery={globalQuery}
+        setGlobalQuery={setGlobalQuery}
       />
 
       {/* Main Container */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 lg:px-8 py-6">
+      <main id="main-content" className="flex-1 max-w-7xl w-full mx-auto px-4 lg:px-8 py-6">
         
-        {/* Quick Helper & Print Executive Summary Banner */}
-        <div className="no-print mb-6 bg-indigo-500/10 border border-indigo-500/30 text-indigo-200 px-4 py-3 rounded-xl text-xs flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <span className="font-bold">Pro Suite:</span> Check live prices anytime on <a href="https://www.google.com/finance" target="_blank" rel="noreferrer" className="underline text-indigo-400 hover:text-indigo-300 inline-flex items-center gap-0.5">Google Finance <ExternalLink className="w-3 h-3" /></a> and update them inline.
+        {mode === 'pending' && <Onboarding onStart={startPortfolio} />}
+        {storageError && <div role="alert" className="mb-4 rounded-xl border border-amber-500 p-4 text-sm text-amber-500">{storageError} {storageBlocked && <button className="underline" onClick={resumeSaving}>Replace saved data with recovered portfolio</button>}</div>}
+        <Toast message={uiMessage} onDismiss={dismissMessage} />
+        {confirmAction && <ConfirmDialog {...confirmAction} danger onConfirm={runConfirmedAction} onCancel={() => setConfirmAction(null)} />}
+        {pendingImport && <Modal title="Review backup restore" onClose={cancelImport}>
+          <p className="mb-5">This backup contains {pendingImport.holdings.length} holdings, {pendingImport.transactions.length} transactions, {pendingImport.watchlist.length} watchlist items, and {pendingImport.snapshots.length} snapshots. Restoring replaces your current portfolio and preferences.</p>
+          <div className="flex justify-end gap-3"><button className="secondary-button" onClick={cancelImport}>Cancel</button><button className="primary-button" onClick={confirmImport}>Replace portfolio</button></div>
+        </Modal>}
+        {pendingCsvImport && <Modal title="Review CSV import" onClose={cancelCsvImport}>
+          <p className="mb-4">Detected <strong>{pendingCsvImport.broker}</strong> format in <strong>{pendingCsvImport.fileName}</strong>. The import will add {pendingCsvImport.rows.length} {pendingCsvImport.kind === 'transactions' ? 'transactions' : 'holdings'} to the selected account.</p>
+          {pendingCsvImport.duplicates > 0 && <p role="alert" className="form-error mb-4">{pendingCsvImport.duplicates} row{pendingCsvImport.duplicates === 1 ? '' : 's'} appear to already exist in this account. Review carefully before importing.</p>}
+          <div className="max-h-64 overflow-auto rounded-xl border border-slate-800 mb-5">
+            {pendingCsvImport.kind === 'transactions' ? <table className="w-full text-sm"><thead className="text-left text-slate-400 border-b border-slate-800"><tr><th className="p-3">Date</th><th className="p-3">Type</th><th className="p-3">Symbol</th><th className="p-3">Shares</th><th className="p-3">Price</th></tr></thead><tbody>{pendingCsvImport.rows.slice(0, 50).map((row, index) => <tr key={`${row.symbol}-${row.date}-${index}`} className="border-b border-slate-800/60"><td className="p-3">{row.date}</td><td className="p-3 font-semibold">{row.type}</td><td className="p-3">{row.symbol || 'Cash'}</td><td className="p-3">{row.shares || '—'}</td><td className="p-3">{row.price || '—'}</td></tr>)}</tbody></table> : <table className="w-full text-sm"><thead className="text-left text-slate-400 border-b border-slate-800"><tr><th className="p-3">Symbol</th><th className="p-3">Shares</th><th className="p-3">Avg cost</th><th className="p-3">Current</th></tr></thead><tbody>{pendingCsvImport.rows.slice(0, 50).map((row, index) => <tr key={`${row.symbol}-${index}`} className="border-b border-slate-800/60"><td className="p-3 font-semibold">{row.symbol}</td><td className="p-3">{row.shares}</td><td className="p-3">{row.avgCost.toFixed(2)}</td><td className="p-3">{row.currentPrice.toFixed(2)}</td></tr>)}</tbody></table>}
           </div>
-          <button
-            onClick={handlePrintReport}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold shadow transition"
-          >
-            <Printer className="w-4 h-4" /> Export to PDF / Print Report
-          </button>
-        </div>
+          {pendingCsvImport.rows.length > 50 && <p className="text-xs text-slate-400 mb-4">Showing the first 50 rows. All {pendingCsvImport.rows.length} valid holdings will be imported.</p>}
+          <div className="flex justify-end gap-3"><button className="secondary-button" onClick={cancelCsvImport}>Cancel</button><button className="primary-button" onClick={confirmCsvImport}>Import holdings</button></div>
+        </Modal>}
+        {mode !== 'pending' && <>
+        {mode === 'demo' && <div className="form-error mb-5 flex flex-wrap justify-between gap-3 items-center"><span><strong>Demo portfolio</strong> · Sample holdings and prices. Changes stay in this demo.</span><button className="secondary-button" onClick={() => { startPortfolio('personal'); changeTab('dashboard'); }}>Clear demo & start empty</button></div>}
+        <RecentlyDeleted entries={trash} onRestore={restoreDeleted} />
+        <StatusBar marketStatus={marketStatus} fxData={fxData} fxError={fxError} historicalEstimated={historicalEstimated} />
 
         {/* Printable Executive Header (Only visible when printing/exporting PDF) */}
         <div className="hidden print:block mb-8 border-b border-slate-300 pb-4">
@@ -85,9 +151,15 @@ export default function App() {
         </div>
 
         {/* KPI Summary Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+        {activeTab === 'dashboard' && <>
+        <section id="portfolio-summary" className="summary-section tab-scroll-target mb-6" aria-labelledby="summary-title">
+        <button type="button" className={`summary-toggle w-full ${isLight ? 'bg-white border-slate-200' : 'bg-slate-900 border-slate-800'} border rounded-2xl px-5 py-3 flex items-center justify-between text-left`} onClick={() => setSummaryOpen(previous => !previous)} aria-expanded={summaryOpen}>
+          <span><span id="summary-title" className="block text-xs font-semibold uppercase tracking-wide text-slate-400">Portfolio summary</span><span className={`block text-lg font-bold mt-1 ${isLight ? 'text-slate-900' : 'text-white'}`}>{symbol}{portfolioSummary.totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span className="text-xs font-normal text-slate-400">total value</span></span></span>
+          <ChevronDown className={`w-5 h-5 text-slate-400 transition-transform ${summaryOpen ? 'rotate-180' : ''}`} />
+        </button>
+        {summaryOpen && <div className="summary-grid grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-3">
           
-          <div className={`${isLight ? 'bg-white border-slate-200 shadow-md' : 'bg-slate-900 border-slate-800/80 shadow-xl'} border p-5 rounded-2xl flex items-center justify-between transition-colors`}>
+          <div className={`${isLight ? 'bg-white border-slate-200 shadow-md' : 'bg-slate-900 border-slate-800/80 shadow-xl'} kpi-card border p-5 rounded-2xl flex items-center justify-between transition-colors`}>
             <div>
               <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Total Value</p>
               <h2 className={`text-2xl font-bold mt-1 ${isLight ? 'text-slate-900' : 'text-white'}`}>
@@ -152,12 +224,19 @@ export default function App() {
             </div>
           </div>
 
-        </div>
+        </div>}
+        </section>
 
+        <CashPanel summary={portfolioSummary} symbol={symbol} onRecord={type => { setTransactionIntent({ type, id: Date.now() }); changeTab('history'); }} />
+        </>}
         {/* Tab Switcher Content */}
+        <div id="tab-content" className="tab-scroll-target">
+        <Suspense fallback={<LoadingSkeleton />}>
         {activeTab === 'dashboard' && (
           <>
-            <PortfolioCharts summary={portfolioSummary} snapshots={snapshots} symbol={symbol} rate={rate} theme={theme} />
+            {holdings.length === 0 && <DashboardSetup onNavigate={changeTab} onExploreDemo={() => startPortfolio('demo')} />}
+            <PortfolioCharts performance={performance} summary={portfolioSummary} snapshots={snapshots} symbol={symbol} rate={rate} theme={theme} />
+            <PortfolioInsights summary={portfolioSummary} symbol={symbol} />
             <HoldingsTable
               summary={portfolioSummary}
               symbol={symbol}
@@ -165,8 +244,9 @@ export default function App() {
               onAddHolding={addHolding}
               onUpdateHoldingPrice={updateHoldingPrice}
               onUpdateHoldingNotes={updateHoldingNotes}
-              onRemoveHolding={removeHolding}
+              onRemoveHolding={id => askToConfirm('Delete this holding?', 'The holding and its linked transactions will move to Recently deleted.', () => removeHolding(id))}
               onExportCSV={exportCSV}
+              globalFilter={globalQuery}
             />
           </>
         )}
@@ -179,21 +259,24 @@ export default function App() {
             onAddHolding={addHolding}
             onUpdateHoldingPrice={updateHoldingPrice}
             onUpdateHoldingNotes={updateHoldingNotes}
-            onRemoveHolding={removeHolding}
+            onRemoveHolding={id => askToConfirm('Delete this holding?', 'The holding and its linked transactions will move to Recently deleted.', () => removeHolding(id))}
             onExportCSV={exportCSV}
+            globalFilter={globalQuery}
           />
         )}
 
         {activeTab === 'watchlist' && (
           <WatchlistView
             watchlist={watchlist}
+            fxRates={fxRates}
             symbol={symbol}
             rate={rate}
             theme={theme}
             onAddWatchlistItem={addWatchlistItem}
             onUpdateWatchlistPrice={updateWatchlistPrice}
-            onRemoveWatchlistItem={removeWatchlistItem}
+            onRemoveWatchlistItem={id => askToConfirm('Remove from watchlist?', 'This idea will move to Recently deleted and can be restored later.', () => removeWatchlistItem(id))}
             onAddHolding={addHolding}
+            globalFilter={globalQuery}
           />
         )}
 
@@ -208,21 +291,28 @@ export default function App() {
 
         {activeTab === 'history' && (
           <HistoryView
+            intent={transactionIntent}
             transactions={transactions}
+            historicalFx={historicalFx}
+            fxRates={fxRates}
             holdings={holdings}
             summary={portfolioSummary}
             onSaveTransaction={saveTransaction}
-            onDeleteTransaction={deleteTransaction}
+            onDeleteTransaction={id => askToConfirm('Delete this transaction?', 'The transaction will move to Recently deleted. Earlier portfolio balances may change.', () => deleteTransaction(id))}
             symbol={symbol}
+            rate={rate}
             theme={theme}
           />
         )}
 
+        </Suspense>
+        </div>
+        </>}
       </main>
 
       {/* Footer */}
       <footer className={`no-print border-t ${isLight ? 'border-slate-200 bg-white text-slate-500' : 'border-slate-900 bg-slate-950 text-slate-500'} py-4 text-center text-xs mb-12 sm:mb-0 transition-colors`}>
-        ApexFinance Pro Manual Portfolio Suite — Built with React, Vite & TailwindCSS
+        ApexFinance Pro Manual Portfolio Suite - Built with React, Vite & TailwindCSS
       </footer>
     </div>
   );

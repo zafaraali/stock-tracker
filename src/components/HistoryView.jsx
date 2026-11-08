@@ -1,207 +1,78 @@
-import React, { useState } from 'react';
-import { History, Pencil, Plus, Trash2 } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { Pencil, Trash2 } from 'lucide-react';
+import { Modal, FormError } from './Modal';
+import { CURRENCY_RATES } from '../data/mockData';
+import { CASH_TYPES, entryCurrency, entryRate, grossValue } from '../services/ledger';
+import { EmptyState } from './EmptyState';
 
-const createEmptyForm = () => ({
-  id: '',
-  holdingId: '',
-  type: 'BUY',
-  date: (() => {
-    const now = new Date();
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-  })(),
-  shares: '',
-  price: '',
-  total: ''
-});
+const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
+const emptyForm = (type = 'BUY') => ({ id: '', holdingId: '', type, date: today(), shares: '', price: '', total: '', fee: '0', ratio: '2', currency: 'USD', cashImpact: true });
+const money = value => Number(value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-export function HistoryView({ transactions, holdings, summary, symbol, onSaveTransaction, onDeleteTransaction }) {
-  const [form, setForm] = useState(createEmptyForm);
-  const [isFormOpen, setIsFormOpen] = useState(false);
-
-  const openNewTransaction = () => {
-    setForm({ ...createEmptyForm(), holdingId: holdings[0]?.id || '' });
-    setIsFormOpen(true);
-  };
-
-  const editTransaction = transaction => {
-    setForm({
-      id: transaction.id,
-      holdingId: transaction.holdingId || '',
-      type: transaction.type,
-      date: transaction.date,
-      shares: transaction.shares || '',
-      price: transaction.price || '',
-      total: transaction.type === 'DIVIDEND' ? transaction.total : ''
-    });
-    setIsFormOpen(true);
-  };
-
-  const submitTransaction = event => {
+export function HistoryView({ transactions, holdings, symbol, rate, historicalFx, onSaveTransaction, onDeleteTransaction, intent }) {
+  const [form, setForm] = useState(emptyForm);
+  const [error, setError] = useState('');
+  const [open, setOpen] = useState(false);
+  const [typeFilter, setTypeFilter] = useState('ALL');
+  const [search, setSearch] = useState('');
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
+  useEffect(() => { if (intent) { setForm(emptyForm(intent.type)); setOpen(true); setError(''); } }, [intent]);
+  const isCash = CASH_TYPES.includes(form.type);
+  const isTrade = ['BUY', 'SELL'].includes(form.type);
+  const code = isCash ? form.currency : entryCurrency({ ...form, currency: undefined }, holdings);
+  const change = (key, value) => { setForm(previous => ({ ...previous, [key]: value })); setError(''); };
+  const add = type => { setForm({ ...emptyForm(type), holdingId: holdings[0]?.id || '' }); setError(''); setOpen(true); };
+  const edit = t => { setForm({ ...emptyForm(t.type), ...t, cashImpact: t.cashImpact === true }); setError(''); setOpen(true); };
+  const submit = event => {
     event.preventDefault();
-    const holding = holdings.find(item => item.id === form.holdingId);
-    if (!holding || !form.date) {
-      alert('Select a holding and transaction date.');
-      return;
-    }
-
-    if (form.type === 'DIVIDEND') {
-      const amount = Number(form.total);
-      if (!Number.isFinite(amount) || amount <= 0) {
-        alert('Dividend payment must be greater than zero.');
-        return;
-      }
-      onSaveTransaction({ ...form, total: amount, shares: 0, price: 0 });
-    } else {
-      const shares = Number(form.shares);
-      const price = Number(form.price);
-      if (!Number.isFinite(shares) || shares <= 0 || !Number.isFinite(price) || price <= 0) {
-        alert('Shares and execution price must be greater than zero.');
-        return;
-      }
-      if (form.type === 'SELL') {
-          const candidate = { ...form, shares, price };
-          const updatedTrades = [
-            ...transactions.filter(transaction => transaction.id !== form.id),
-            candidate
-          ].filter(transaction => transaction.holdingId === holding.id && ['BUY', 'SELL'].includes(transaction.type))
-            .sort((a, b) => a.date.localeCompare(b.date) ||
-              (a.type === b.type ? String(a.id).localeCompare(String(b.id)) : a.type === 'BUY' ? -1 : 1));
-          let availableShares = 0;
-          const oversold = updatedTrades.some(trade => {
-            if (trade.type === 'BUY') {
-              availableShares += Number(trade.shares);
-              return false;
-            }
-            if (Number(trade.shares) > availableShares + 1e-8) return true;
-            availableShares -= Number(trade.shares);
-            return false;
-          });
-          if (oversold) {
-            alert(`This sell would exceed the shares available for ${holding.symbol} on its transaction date.`);
-            return;
-          }
-      }
-      onSaveTransaction({ ...form, shares, price });
-    }
-    setIsFormOpen(false);
-    setForm(createEmptyForm());
+    const entry = { ...form, shares: Number(form.shares), price: Number(form.price), total: Number(form.total), fee: isTrade ? Number(form.fee) : 0, ratio: Number(form.ratio), currency: code };
+    if (onSaveTransaction(entry, setError)) { setOpen(false); setError(''); }
   };
-
-  const orderedTransactions = [...transactions].sort((a, b) =>
-    b.date.localeCompare(a.date) || String(b.id).localeCompare(String(a.id))
-  );
-
-  return (
-    <div className="space-y-6">
-      <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-xl flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h2 className="text-lg font-bold text-white flex items-center gap-2">
-            <History className="w-5 h-5 text-indigo-400" /> Transaction Ledger
-          </h2>
-          <p className="text-xs text-slate-400 mt-1">Record buys, sells, and dividend payments. Buy and sell history recalculates shares and average cost.</p>
-        </div>
-        <div className="flex items-center gap-4 text-xs text-slate-300">
-          <span>Realized P/L: <strong className={summary.realizedGainLoss >= 0 ? 'text-emerald-400' : 'text-rose-400'}>{symbol}{summary.realizedGainLoss.toFixed(2)}</strong></span>
-          <span>Dividends received: <strong className="text-emerald-400">{symbol}{summary.dividendsReceived.toFixed(2)}</strong></span>
-          <button onClick={openNewTransaction} className="inline-flex items-center gap-1 px-3 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg font-semibold">
-            <Plus className="w-4 h-4" /> Add transaction
-          </button>
-        </div>
-      </div>
-
-      <div className="bg-slate-900 border border-slate-800/80 rounded-2xl overflow-hidden shadow-xl">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm text-slate-300">
-            <thead className="bg-slate-950/60 text-slate-400 uppercase text-[11px] tracking-wider border-b border-slate-800">
-              <tr>
-                <th className="py-3.5 px-4 font-semibold">Date</th>
-                <th className="py-3.5 px-4 font-semibold">Type</th>
-                <th className="py-3.5 px-4 font-semibold">Symbol</th>
-                <th className="py-3.5 px-4 font-semibold">Shares</th>
-                <th className="py-3.5 px-4 font-semibold">Execution Price</th>
-                <th className="py-3.5 px-4 font-semibold text-right">Amount</th>
-                <th className="py-3.5 px-4 font-semibold text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-800/60">
-              {orderedTransactions.length === 0 ? (
-                <tr><td colSpan={7} className="text-center py-12 text-slate-500">No transactions recorded yet.</td></tr>
-              ) : orderedTransactions.map(transaction => (
-                <tr key={transaction.id} className="hover:bg-slate-800/40 transition">
-                  <td className="py-3.5 px-4 text-slate-400 text-xs">{transaction.date}</td>
-                  <td className="py-3.5 px-4">
-                    <span className="inline-flex px-2.5 py-0.5 rounded text-[10px] font-bold bg-indigo-500/10 text-indigo-300 border border-indigo-500/30">
-                      {transaction.type}
-                    </span>
-                  </td>
-                  <td className="py-3.5 px-4 font-bold text-white">{transaction.symbol}</td>
-                  <td className="py-3.5 px-4">{transaction.type === 'DIVIDEND' ? '—' : transaction.shares}</td>
-                  <td className="py-3.5 px-4">{transaction.type === 'DIVIDEND' ? '—' : `${symbol}${Number(transaction.price).toFixed(2)}`}</td>
-                  <td className="py-3.5 px-4 font-bold text-white text-right">{symbol}{Number(transaction.total).toFixed(2)}</td>
-                  <td className="py-3.5 px-4 text-right whitespace-nowrap">
-                    <button onClick={() => editTransaction(transaction)} aria-label="Edit transaction" className="p-1.5 text-indigo-400 hover:bg-indigo-500/10 rounded">
-                      <Pencil className="w-4 h-4" />
-                    </button>
-                    <button onClick={() => onDeleteTransaction(transaction.id)} aria-label="Delete transaction" className="p-1.5 text-rose-400 hover:bg-rose-500/10 rounded">
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {isFormOpen && (
-        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <form onSubmit={submitTransaction} className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-md p-6 shadow-2xl space-y-4">
-            <h3 className="text-lg font-bold text-white">{form.id ? 'Edit transaction' : 'Add transaction'}</h3>
-            <label className="block text-xs text-slate-400">
-              Holding
-              <select required value={form.holdingId} onChange={event => setForm({ ...form, holdingId: event.target.value })} className="mt-1 w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white">
-                <option value="">Select a holding</option>
-                {holdings.map(holding => <option key={holding.id} value={holding.id}>{holding.symbol}</option>)}
-              </select>
-            </label>
-            <div className="grid grid-cols-2 gap-3">
-              <label className="block text-xs text-slate-400">
-                Type
-                <select value={form.type} onChange={event => setForm({ ...form, type: event.target.value })} className="mt-1 w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white">
-                  <option value="BUY">Buy</option>
-                  <option value="SELL">Sell</option>
-                  <option value="DIVIDEND">Dividend</option>
-                </select>
-              </label>
-              <label className="block text-xs text-slate-400">
-                Date
-                <input type="date" required value={form.date} onChange={event => setForm({ ...form, date: event.target.value })} className="mt-1 w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white" />
-              </label>
-            </div>
-            {form.type === 'DIVIDEND' ? (
-              <label className="block text-xs text-slate-400">
-                Payment amount ({symbol})
-                <input type="number" min="0.01" step="any" required value={form.total} onChange={event => setForm({ ...form, total: event.target.value })} className="mt-1 w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white" />
-              </label>
-            ) : (
-              <div className="grid grid-cols-2 gap-3">
-                <label className="block text-xs text-slate-400">
-                  Shares
-                  <input type="number" min="0.00000001" step="any" required value={form.shares} onChange={event => setForm({ ...form, shares: event.target.value })} className="mt-1 w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white" />
-                </label>
-                <label className="block text-xs text-slate-400">
-                  Price ({symbol})
-                  <input type="number" min="0.00000001" step="any" required value={form.price} onChange={event => setForm({ ...form, price: event.target.value })} className="mt-1 w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white" />
-                </label>
-              </div>
-            )}
-            <div className="flex justify-end gap-3 pt-2">
-              <button type="button" onClick={() => setIsFormOpen(false)} className="px-4 py-2 text-slate-400 text-xs font-semibold">Cancel</button>
-              <button type="submit" className="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold">Save transaction</button>
-            </div>
-          </form>
-        </div>
-      )}
+  const ordered = useMemo(() => [...transactions]
+    .filter(transaction => typeFilter === 'ALL' || transaction.type === typeFilter)
+    .filter(transaction => !search || String(transaction.symbol || '').toLowerCase().includes(search.toLowerCase()))
+    .filter(transaction => !fromDate || transaction.date >= fromDate)
+    .filter(transaction => !toDate || transaction.date <= toDate)
+    .sort((a, b) => b.date.localeCompare(a.date) || String(b.id).localeCompare(String(a.id))), [transactions, typeFilter, search, fromDate, toDate]);
+  return <div className="space-y-6">
+    <header className="bg-slate-900 border border-slate-800 p-6 rounded-2xl flex flex-wrap gap-4 justify-between">
+      <div><h2 className="text-xl font-bold">Transactions & cash</h2><p className="text-sm text-slate-400 mt-2">Deposits, withdrawals, trades, dividends, and stock splits. Fees are included in cost basis and gains.</p></div>
+      <div className="flex flex-wrap gap-2 items-center"><button className="secondary-button" onClick={() => add('DEPOSIT')}>Deposit</button><button className="secondary-button" onClick={() => add('WITHDRAW')}>Withdraw</button><button className="primary-button" onClick={() => add('BUY')}>Add transaction</button></div>
+    </header>
+    <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-wrap gap-3 items-end">
+      <label className="text-xs text-slate-400">Search symbol<input className="field mt-1" type="search" value={search} onChange={event => setSearch(event.target.value)} placeholder="AAPL" /></label>
+      <label className="text-xs text-slate-400">Type<select className="field mt-1" value={typeFilter} onChange={event => setTypeFilter(event.target.value)}>{['ALL', 'BUY', 'SELL', 'DIVIDEND', 'DEPOSIT', 'WITHDRAW', 'SPLIT'].map(type => <option key={type}>{type}</option>)}</select></label>
+      <label className="text-xs text-slate-400">From<input className="field mt-1" type="date" value={fromDate} onChange={event => setFromDate(event.target.value)} /></label>
+      <label className="text-xs text-slate-400">To<input className="field mt-1" type="date" value={toDate} onChange={event => setToDate(event.target.value)} /></label>
+      {(search || typeFilter !== 'ALL' || fromDate || toDate) && <button className="secondary-button" onClick={() => { setSearch(''); setTypeFilter('ALL'); setFromDate(''); setToDate(''); }}>Clear filters</button>}
     </div>
-  );
+    <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden"><div className="overflow-x-auto"><table className="financial-table responsive-table w-full text-sm">
+      <thead className="text-slate-400 border-b border-slate-800"><tr>{['Date', 'Type', 'Symbol', 'Shares / ratio', 'Execution price', 'Fees', 'Amount', 'Actions'].map(label => <th key={label} data-label={label} className="p-4">{label}</th>)}</tr></thead>
+      <tbody className="divide-y divide-slate-800/60">{!ordered.length ? <tr><td colSpan={8}><EmptyState compact title="No transactions yet" description="Record a deposit or add a trade to begin tracking your portfolio." actionLabel="Record deposit" onAction={() => add('DEPOSIT')} /></td></tr> : ordered.map(t => {
+        const currency = entryCurrency(t, holdings);
+        const fx = entryRate(t, holdings, historicalFx);
+        const amount = t.type === 'BUY' ? grossValue(t) + Number(t.fee || 0) : t.type === 'SELL' ? grossValue(t) - Number(t.fee || 0) : Number(t.total || 0);
+        return <tr key={t.id}>
+          <td data-label="Date" className="p-4 text-slate-400">{t.date}</td>
+          <td data-label="Type" className="p-4"><span className="font-semibold text-indigo-400">{t.type}</span>{['BUY', 'SELL', 'DIVIDEND'].includes(t.type) && <div className="text-xs text-slate-400">{t.cashImpact ? 'Tracked cash' : 'Outside cash ledger'}</div>}</td>
+          <td data-label="Symbol" className="p-4 font-semibold">{CASH_TYPES.includes(t.type) ? currency + ' cash' : t.symbol}</td>
+          <td data-label="Shares / ratio" className="p-4">{t.type === 'SPLIT' ? `${t.ratio}:1` : ['BUY', 'SELL'].includes(t.type) ? t.shares : '—'}</td>
+          <td data-label="Execution price" className="p-4">{['BUY', 'SELL'].includes(t.type) ? `${currency} ${money(t.price)}` : '—'}</td>
+          <td data-label="Fees" className="p-4">{currency} {money(t.fee || 0)}</td>
+          <td data-label="Amount" className="p-4 font-semibold">{t.type === 'SPLIT' ? 'No cash change' : <>{symbol}{money(amount / fx * rate)}<div className="text-xs text-slate-400">{currency} {money(amount)}</div></>}</td>
+          <td data-label="Actions" className="p-4"><button className="icon-button mr-2" aria-label={`Edit ${t.type} transaction`} onClick={() => edit(t)}><Pencil className="w-4 h-4" /></button><button className="icon-button text-rose-400" aria-label={`Delete ${t.type} transaction`} onClick={() => onDeleteTransaction(t.id)}><Trash2 className="w-4 h-4" /></button></td>
+        </tr>;
+      })}</tbody>
+    </table></div></div>
+    <p className="text-sm text-slate-400">Existing trades stay outside tracked cash unless enabled. Same-day entries apply deposits, buys, splits, sells, dividends, then withdrawals. Historical amounts use trade-date FX, then current display-currency FX.</p>
+    {open && <Modal title={form.id ? 'Edit transaction' : 'Add transaction'} onClose={() => setOpen(false)}><form className="space-y-4" onSubmit={submit}>
+      <FormError message={error} />
+      <div className="grid grid-cols-2 gap-4"><label>Type<select value={form.type} onChange={e => change('type', e.target.value)} className="field">{['BUY', 'SELL', 'DIVIDEND', 'SPLIT', 'DEPOSIT', 'WITHDRAW'].map(type => <option key={type}>{type}</option>)}</select></label><label>Date<input type="date" required value={form.date} onChange={e => change('date', e.target.value)} className="field" /></label></div>
+      {isCash ? <label>Currency<select value={form.currency} onChange={e => change('currency', e.target.value)} className="field">{Object.keys(CURRENCY_RATES).map(c => <option key={c}>{c}</option>)}</select></label> : <label>Holding<select required value={form.holdingId} onChange={e => change('holdingId', e.target.value)} className="field"><option value="">Choose a holding</option>{holdings.map(h => <option key={h.id} value={h.id}>{h.symbol}</option>)}</select></label>}
+      {isTrade ? <><div className="grid grid-cols-2 gap-4"><label>Shares<input className="field" type="number" min="0.00000001" step="any" required value={form.shares} onChange={e => change('shares', e.target.value)} /></label><label>Price ({code})<input className="field" type="number" min="0.00000001" step="any" required value={form.price} onChange={e => change('price', e.target.value)} /></label></div><label>Commission / fees ({code})<input className="field" type="number" min="0" step="any" required value={form.fee} onChange={e => change('fee', e.target.value)} /></label></> : form.type === 'SPLIT' ? <><label>New shares per old share<input className="field" type="number" min="0.00000001" step="any" required value={form.ratio} onChange={e => change('ratio', e.target.value)} /></label><p className="text-sm text-slate-400">Use 2 for 2-for-1, or 0.1 for a 1-for-10 reverse split. Total cost basis stays the same. Update manual market prices separately; live quotes already reflect splits.</p></> : <label>Amount ({code})<input className="field" type="number" min="0.00000001" step="any" required value={form.total} onChange={e => change('total', e.target.value)} /></label>}
+      {!isCash && form.type !== 'SPLIT' && <label className="flex items-start gap-3"><input type="checkbox" checked={form.cashImpact} onChange={e => change('cashImpact', e.target.checked)} /><span>Apply to tracked {code} cash<span className="block text-sm text-slate-400">Buys need cash in the same currency. Turn off for trades recorded outside this cash ledger.</span></span></label>}
+      <div className="flex justify-end gap-3"><button type="button" className="secondary-button" onClick={() => setOpen(false)}>Cancel</button><button className="primary-button" type="submit">Save transaction</button></div>
+    </form></Modal>}
+  </div>;
 }
