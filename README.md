@@ -37,7 +37,18 @@ A comprehensive, fully offline-ready React + Vite stock tracking, dividend, and 
    npm test
    ```
 
-The development server proxies `/api/market-quote/*` and `/api/market-search` to Yahoo Finance to avoid browser CORS restrictions. Production hosting must provide the same proxies, or set `VITE_MARKET_API_URL` and `VITE_MARKET_SEARCH_URL` to same-origin market-data routes.
+ The development server proxies `/api/market-quote/*` and `/api/market-search` to Yahoo Finance to avoid browser CORS restrictions. Production hosting must provide the same proxies, or set `VITE_MARKET_API_URL` and `VITE_MARKET_SEARCH_URL` to same-origin market-data routes.
+
+## Deploy to Cloudflare Workers
+
+The repository includes `wrangler.jsonc` for deploying the Vite output as Cloudflare Workers Static Assets. Run:
+
+```bash
+npm run build
+npx wrangler deploy
+```
+
+The `not_found_handling` setting preserves client-side routes by serving the SPA entry point for unknown paths.
 
 ## Data reliability and exchange rates
 
