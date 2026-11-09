@@ -95,6 +95,7 @@ table { font-variant-numeric: tabular-nums; }
 .financial-table td[data-label="Symbol"] > .flex { justify-content: flex-start; }
 .financial-table th[data-label="Symbol"], .financial-table th[data-label="Type"], .financial-table th[data-label="Notes / Thesis"] { text-align: left; }
 .theme-light .bg-slate-800, .theme-light .bg-slate-800\/40 { background-color: var(--surface-raised); }
+.theme-light .bg-slate-800\/60 { background-color: var(--surface-raised); }
 .theme-light .text-slate-500, .theme-light .text-slate-400 { color: var(--muted); }
 .theme-light .text-indigo-200, .theme-light .text-indigo-300, .theme-light .text-indigo-400 { color: #4338ca; }
 .theme-light .text-emerald-400, .theme-light .text-emerald-500 { color: #047857; }
@@ -166,6 +167,10 @@ table { font-variant-numeric: tabular-nums; }
   background-color: #f8fafc;
 }
 
+.theme-light .bg-slate-900\/95 {
+  background-color: rgb(255 255 255 / .95);
+}
+
 .theme-light .border-slate-800,
 .theme-light .border-slate-800\/80,
 .theme-light .border-slate-800\/60,
@@ -202,6 +207,13 @@ table { font-variant-numeric: tabular-nums; }
 .theme-light .bg-rose-600.text-white,
 .theme-light .bg-gradient-to-tr.text-white {
   color: #ffffff;
+}
+
+/* Keep the logo mark white on its colored accent tile. */
+.theme-light .brand-logo.text-white,
+.theme-light .brand-logo.text-white svg {
+  color: #ffffff;
+  stroke: #ffffff;
 }
 
 .field { display: block; width: 100%; margin-top: .4rem; border: 1px solid var(--border); border-radius: .65rem; padding: .65rem .75rem; color: var(--foreground); background: var(--surface-muted); }
