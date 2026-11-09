@@ -19,18 +19,19 @@
   --muted: #475569;
   color-scheme: light;
 }
-.app-shell { --accent: #4f46e5; }
-.app-shell.accent-red { --accent: #dc2626; }
-.app-shell.accent-orange { --accent: #ea580c; }
-.app-shell.accent-yellow { --accent: #ca8a04; }
-.app-shell.accent-green { --accent: #16a34a; }
-.app-shell.accent-blue { --accent: #2563eb; }
-.app-shell.accent-violet { --accent: #7c3aed; }
-.app-shell.accent-emerald { --accent: #059669; }
-.app-shell.accent-rose { --accent: #e11d48; }
-.app-shell.accent-amber { --accent: #d97706; }
+.app-shell { --accent: #2f6f52; }
+.app-shell.accent-green, .app-shell.accent-emerald { --accent: #2f6f52; }
+.app-shell.accent-red, .app-shell.accent-rose { --accent: #8f3f4b; }
+.app-shell.accent-orange { --accent: #a4572f; }
+.app-shell.accent-yellow, .app-shell.accent-amber { --accent: #806b1f; }
+.app-shell.accent-blue { --accent: #345f83; }
+.app-shell.accent-indigo { --accent: #444b86; }
+.app-shell.accent-violet { --accent: #5b4380; }
 .brand-logo { background: var(--accent); box-shadow: 0 10px 24px color-mix(in srgb, var(--accent) 30%, transparent); }
 .brand-accent { color: var(--accent); }
+.ticker-links { display: inline-flex; align-items: center; gap: .25rem; margin-left: .15rem; }
+.ticker-links a { display: inline-flex; align-items: center; justify-content: center; width: 1.35rem; height: 1.35rem; border: 1px solid var(--border); border-radius: .35rem; color: var(--muted); font-size: .65rem; font-weight: 700; text-decoration: none; }
+.ticker-links a:hover, .ticker-links a:focus-visible { color: var(--accent); border-color: var(--accent); outline: none; }
 button, input, select, textarea, summary { font: inherit; }
 button, select, input:not([type=file]), summary { min-height: 44px; }
 button { touch-action: manipulation; }

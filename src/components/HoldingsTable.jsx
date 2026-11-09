@@ -6,6 +6,7 @@ import { INITIAL_CATEGORIES } from '../data/mockData';
 import { TickerAutocomplete } from './TickerAutocomplete';
 import { isTseSymbol } from '../services/marketApi';
 import { EmptyState } from './EmptyState';
+import { TickerLinks } from './TickerLinks';
 
 export function HoldingsTable({ summary, symbol, onAddHolding, onUpdateHoldingPrice, onUpdateHoldingNotes, onRemoveHolding, onExportCSV, globalFilter = '' }) {
   const [formError, setFormError] = useState('');
@@ -172,7 +173,7 @@ export function HoldingsTable({ summary, symbol, onAddHolding, onUpdateHoldingPr
                   <tr key={item.id} className="hover:bg-slate-800/40 transition">
                     <td data-label="Asset / Sector" className="py-3.5 px-4">
                       <div className="flex items-center gap-2">
-                        <span className="font-bold text-white text-base">{item.symbol}</span>
+                        <span className="font-bold text-white text-base">{item.symbol}</span><TickerLinks symbol={item.symbol} />
                         <span className="text-[10px] bg-indigo-500/10 text-indigo-300 border border-indigo-500/30 px-2 py-0.5 rounded-full">{item.category || 'Other'}</span>
                         {(item.currency === 'CAD' || isTseSymbol(item.symbol)) && (
                           <span className="text-[10px] bg-red-500/10 text-red-400 border border-red-500/30 px-1.5 py-0.5 rounded-full font-bold">
@@ -277,7 +278,7 @@ export function HoldingsTable({ summary, symbol, onAddHolding, onUpdateHoldingPr
               <div key={item.id} className="p-4 space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <span className="font-bold text-base text-white">{item.symbol}</span>
+                    <span className="font-bold text-base text-white">{item.symbol}</span><TickerLinks symbol={item.symbol} />
                     <span className="text-[10px] bg-indigo-500/10 text-indigo-300 px-2 py-0.5 rounded-full border border-indigo-500/30">{item.category || 'Other'}</span>
                     {(item.currency === 'CAD' || isTseSymbol(item.symbol)) && (
                       <span className="text-[10px] bg-red-500/10 text-red-400 border border-red-500/30 px-1.5 py-0.5 rounded-full font-bold">

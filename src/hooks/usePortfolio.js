@@ -14,13 +14,16 @@ const today = () => {
 
 const DEFAULT_ACCOUNT = { id: 'account-main', name: 'Main', type: 'Taxable', currency: 'USD' };
 export const ACCENT_THEMES = {
-  red: { label: 'Red', color: '#dc2626' },
-  orange: { label: 'Orange', color: '#ea580c' },
-  yellow: { label: 'Yellow', color: '#ca8a04' },
-  green: { label: 'Green', color: '#16a34a' },
-  blue: { label: 'Blue', color: '#2563eb' },
-  indigo: { label: 'Indigo', color: '#4f46e5' },
-  violet: { label: 'Violet', color: '#7c3aed' },
+  green: { label: 'Green', color: '#2f6f52' },
+  red: { label: 'Red', color: '#8f3f4b' },
+  orange: { label: 'Orange', color: '#a4572f' },
+  yellow: { label: 'Yellow', color: '#806b1f' },
+  blue: { label: 'Blue', color: '#345f83' },
+  indigo: { label: 'Indigo', color: '#444b86' },
+  violet: { label: 'Violet', color: '#5b4380' },
+  emerald: { label: 'Emerald', color: '#2f6f52' },
+  rose: { label: 'Rose', color: '#8f3f4b' },
+  amber: { label: 'Amber', color: '#806b1f' },
 };
 const normalizeAccounts = value => Array.isArray(value) && value.length
   ? value.filter(account => account && account.id && account.name).map(account => ({ ...DEFAULT_ACCOUNT, ...account }))
@@ -132,7 +135,7 @@ export function usePortfolio() {
   const [snapshots, setSnapshots] = useState(recovery.data.snapshots);
   const [currency, setCurrency] = useState(recovery.data.currency || 'USD');
   const [theme, setTheme] = useState(recovery.data.theme || 'dark');
-  const [accent, setAccent] = useState(() => Object.hasOwn(ACCENT_THEMES, recovery.data.accent) ? recovery.data.accent : 'indigo');
+  const [accent, setAccent] = useState(() => Object.hasOwn(ACCENT_THEMES, recovery.data.accent) ? recovery.data.accent : 'green');
   const [fxData, setFxData] = useState(() => readJSON(browserStorage, 'st_pro_fx', { date: null, rates: fallbackRates }, validRates));
   const [historicalFx, setHistoricalFx] = useState(() => readJSON(browserStorage, 'st_pro_fx_history', {}, value => value && typeof value === 'object' && Object.values(value).every(validRates)));
   const [fxError, setFxError] = useState('');

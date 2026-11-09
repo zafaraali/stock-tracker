@@ -7,6 +7,7 @@ import { TickerAutocomplete } from './TickerAutocomplete';
 import { isTseSymbol, detectSymbolCurrency } from '../services/marketApi';
 import { toUSD } from '../hooks/usePortfolio';
 import { EmptyState } from './EmptyState';
+import { TickerLinks } from './TickerLinks';
 
 export function WatchlistView({ watchlist, symbol, rate, fxRates, onAddWatchlistItem, onUpdateWatchlistPrice, onRemoveWatchlistItem, onAddHolding, globalFilter = '' }) {
   const [formError, setFormError] = useState('');
@@ -161,7 +162,7 @@ export function WatchlistView({ watchlist, symbol, rate, fxRates, onAddWatchlist
                     <tr key={item.id} className="hover:bg-slate-800/40 transition">
                       <td data-label="Asset / Sector" className="py-3.5 px-4">
                         <div className="flex items-center gap-2">
-                          <span className="font-bold text-white text-base">{item.symbol}</span>
+                          <span className="font-bold text-white text-base">{item.symbol}</span><TickerLinks symbol={item.symbol} />
                           <span className="text-[10px] bg-indigo-500/10 text-indigo-300 border border-indigo-500/30 px-2 py-0.5 rounded-full">{item.category}</span>
                           {isCad && (
                             <span className="text-[10px] bg-red-500/10 text-red-400 border border-red-500/30 px-1.5 py-0.5 rounded-full font-bold">
