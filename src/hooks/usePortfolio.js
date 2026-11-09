@@ -14,11 +14,13 @@ const today = () => {
 
 const DEFAULT_ACCOUNT = { id: 'account-main', name: 'Main', type: 'Taxable', currency: 'USD' };
 export const ACCENT_THEMES = {
+  red: { label: 'Red', color: '#dc2626' },
+  orange: { label: 'Orange', color: '#ea580c' },
+  yellow: { label: 'Yellow', color: '#ca8a04' },
+  green: { label: 'Green', color: '#16a34a' },
+  blue: { label: 'Blue', color: '#2563eb' },
   indigo: { label: 'Indigo', color: '#4f46e5' },
-  emerald: { label: 'Emerald', color: '#059669' },
   violet: { label: 'Violet', color: '#7c3aed' },
-  rose: { label: 'Rose', color: '#e11d48' },
-  amber: { label: 'Amber', color: '#d97706' }
 };
 const normalizeAccounts = value => Array.isArray(value) && value.length
   ? value.filter(account => account && account.id && account.name).map(account => ({ ...DEFAULT_ACCOUNT, ...account }))

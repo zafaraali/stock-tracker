@@ -20,10 +20,17 @@
   color-scheme: light;
 }
 .app-shell { --accent: #4f46e5; }
-.app-shell.accent-emerald { --accent: #059669; }
+.app-shell.accent-red { --accent: #dc2626; }
+.app-shell.accent-orange { --accent: #ea580c; }
+.app-shell.accent-yellow { --accent: #ca8a04; }
+.app-shell.accent-green { --accent: #16a34a; }
+.app-shell.accent-blue { --accent: #2563eb; }
 .app-shell.accent-violet { --accent: #7c3aed; }
+.app-shell.accent-emerald { --accent: #059669; }
 .app-shell.accent-rose { --accent: #e11d48; }
 .app-shell.accent-amber { --accent: #d97706; }
+.brand-logo { background: var(--accent); box-shadow: 0 10px 24px color-mix(in srgb, var(--accent) 30%, transparent); }
+.brand-accent { color: var(--accent); }
 button, input, select, textarea, summary { font: inherit; }
 button, select, input:not([type=file]), summary { min-height: 44px; }
 button { touch-action: manipulation; }

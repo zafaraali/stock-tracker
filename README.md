@@ -41,14 +41,14 @@ A comprehensive, fully offline-ready React + Vite stock tracking, dividend, and 
 
 ## Deploy to Cloudflare Workers
 
-The repository includes `wrangler.jsonc` for deploying the Vite output as Cloudflare Workers Static Assets. Run:
+The repository includes `worker.js` and `wrangler.jsonc` for deploying the Vite output with same-origin Yahoo Finance proxy routes. Run:
 
 ```bash
 npm run build
 npx wrangler deploy
 ```
 
-The `not_found_handling` setting preserves client-side routes by serving the SPA entry point for unknown paths.
+The Worker serves `/api/market-quote/*` and `/api/market-search` by proxying Yahoo Finance, and the `not_found_handling` setting preserves client-side routes by serving the SPA entry point for unknown paths.
 
 ## Data reliability and exchange rates
 

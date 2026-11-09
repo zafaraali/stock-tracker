@@ -14,11 +14,11 @@ export function Navbar({ activeTab, setActiveTab, currency, setCurrency, theme, 
         
         {/* Brand */}
         <button aria-label="Go to dashboard" className="flex items-center gap-2 cursor-pointer" aria-current={activeTab === 'dashboard' ? 'page' : undefined} onClick={() => setActiveTab('dashboard')}>
-          <div className="p-2 bg-gradient-to-tr from-indigo-600 to-violet-600 rounded-xl text-white shadow-lg shadow-indigo-500/30">
+          <div className="brand-logo p-2 rounded-xl text-white shadow-lg">
             <TrendingUp className="w-5 h-5" />
           </div>
           <span className={`font-bold text-lg tracking-tight ${isLight ? 'text-slate-900' : 'text-white'}`}>
-            Apex<span className="text-indigo-600 dark:text-indigo-400">Finance</span> <span className="text-xs text-amber-500 dark:text-amber-300 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/30 ml-1">PRO</span>
+            Apex<span className="brand-accent">Finance</span> <span className="text-xs text-amber-500 dark:text-amber-300 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/30 ml-1">PRO</span>
           </span>
         </button>
 
@@ -122,7 +122,7 @@ export function Navbar({ activeTab, setActiveTab, currency, setCurrency, theme, 
                 <div className="space-y-2 mb-3">{accounts.map(account => <div key={account.id} className="flex items-center gap-2"><span className="text-sm flex-1">{account.name} <span className="text-xs text-slate-500">({account.type})</span></span><button className="secondary-button" onClick={() => { const next = window.prompt('Rename account', account.name); if (next) renameAccount(account.id, next); }}>Rename</button></div>)}</div>
                 <div className="flex gap-2"><input aria-label="New account name" className="field" value={newAccountName} onChange={e => setNewAccountName(e.target.value)} placeholder="New account" /><button className="primary-button" onClick={() => { addAccount(newAccountName); setNewAccountName(''); }}>Add</button></div>
               </div>
-              <label className="flex items-center justify-between gap-4 rounded-xl border border-slate-800 p-3 text-sm"><span><strong className="block">Accent color</strong><small className="text-slate-500">Choose your default highlight color.</small></span><select aria-label="Accent color" value={accent} onChange={event => setAccent(event.target.value)} className="field mt-0 w-auto"><option value="indigo">Indigo</option><option value="emerald">Emerald</option><option value="violet">Violet</option><option value="rose">Rose</option><option value="amber">Amber</option></select></label>
+              <label className="flex items-center justify-between gap-4 rounded-xl border border-slate-800 p-3 text-sm"><span><strong className="block">Accent color</strong><small className="text-slate-500">Choose your default ROYGBIV highlight color.</small></span><select aria-label="Accent color" value={accent} onChange={event => setAccent(event.target.value)} className="field mt-0 w-auto"><option value="red">Red</option><option value="orange">Orange</option><option value="yellow">Yellow</option><option value="green">Green</option><option value="blue">Blue</option><option value="indigo">Indigo</option><option value="violet">Violet</option></select></label>
               <button className="secondary-button" onClick={exportJSON}><Download className="w-4 h-4" /> Download JSON backup</button>
               <button className="secondary-button" onClick={exportCSV}><Download className="w-4 h-4" /> Export holdings CSV</button>
               <label className="secondary-button cursor-pointer relative"><Upload className="w-4 h-4" /> Import holdings CSV<input aria-label="Choose holdings CSV" type="file" accept=".csv,text/csv" className="absolute inset-0 opacity-0 cursor-pointer w-full" onChange={event => { importCSV(event); setSettingsOpen(false); }} /></label>
