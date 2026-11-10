@@ -38,7 +38,10 @@ export function requestBackupPassword({ confirm = false } = {}) {
     dialog.setAttribute('aria-labelledby', 'backup-password-title');
     document.body.append(dialog);
     const root = createRoot(dialog);
+    let finished = false;
     const finish = value => {
+      if (finished) return;
+      finished = true;
       dialog.close();
       root.unmount();
       dialog.remove();
@@ -46,6 +49,9 @@ export function requestBackupPassword({ confirm = false } = {}) {
       resolve(value);
     };
     dialog.addEventListener('cancel', event => { event.preventDefault(); finish(null); });
+    dialog.addEventListener('keydown', event => {
+      if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); finish(null); }
+    });
     root.render(<PasswordForm confirm={confirm} onFinish={finish} />);
     dialog.showModal();
   });

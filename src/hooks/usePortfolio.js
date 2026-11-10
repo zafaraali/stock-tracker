@@ -204,6 +204,7 @@ export function usePortfolio() {
   const [backtestHistory, setBacktestHistory] = useState([]);
   const [historyRevision, setHistoryRevision] = useState(0);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState('');
   const refreshHistoricalData = useCallback(() => setHistoryRevision(value => value + 1), []);
   const [currency, setCurrency] = useState(recovery.data.currency || 'CAD');
   const [theme, setTheme] = useState(recovery.data.theme || 'light');
@@ -219,10 +220,16 @@ export function usePortfolio() {
   useEffect(() => {
     const controller = new AbortController();
     setHistoryLoading(true);
+    setHistoryError('');
     Promise.allSettled(backtestSymbols.map(async symbol => ({ symbol: symbol.toUpperCase(), points: await fetchHistoricalMarketData(symbol, controller.signal) })))
       .then(results => {
         if (!controller.signal.aborted) {
-          setBacktestHistory(results.filter(result => result.status === 'fulfilled').map(result => result.value));
+          const successful = results.filter(result => result.status === 'fulfilled').map(result => result.value);
+          setHistoryError(results.some(result => result.status === 'rejected') ? 'Some comparison data could not refresh. Previous data is retained where available.' : '');
+          setBacktestHistory(previous => backtestSymbols.flatMap(symbol => {
+            const series = successful.find(item => item.symbol === symbol) || previous.find(item => item.symbol === symbol);
+            return series ? [series] : [];
+          }));
           setHistoryLoading(false);
         }
       });
@@ -330,11 +337,11 @@ export function usePortfolio() {
       }));
     }
 
-    setMarketStatus({
+    setMarketStatus(previous => ({
       loading: false,
       error: failedCount && !quotes.size ? 'Live prices unavailable. Showing saved prices.' : failedCount ? `${failedCount} quote${failedCount === 1 ? '' : 's'} unavailable.` : '',
-      lastUpdated: quotes.size ? new Date().toISOString() : null
-    });
+      lastUpdated: quotes.size ? new Date().toISOString() : previous.lastUpdated
+    }));
   }, []);
 
   useEffect(() => {
@@ -626,6 +633,7 @@ export function usePortfolio() {
       ...prev,
       holdings: prev.holdings.map(h => h.id === id ? { ...h, currentPrice: Number(newCurrentPrice), priceSource: 'manual', priceUpdatedAt: new Date().toISOString(), priceRefreshFailed: false } : h)
     }));
+    setUiMessage(`Updated price for ${holdings.find(item => item.id === id)?.symbol || 'holding'}.`);
   };
 
   const updateHoldingsBulk = (ids, changes) => {
@@ -644,6 +652,7 @@ export function usePortfolio() {
       ...prev,
       holdings: prev.holdings.map(h => h.id === id ? { ...h, notes } : h)
     }));
+    setUiMessage(`Updated notes for ${holdings.find(item => item.id === id)?.symbol || 'holding'}.`);
   };
 
   const updateHolding = (id, changes) => {
@@ -680,6 +689,7 @@ export function usePortfolio() {
         priceUpdatedAt: currentPrice > 0 ? new Date().toISOString() : holding.priceUpdatedAt
       } : holding)
     }));
+    setUiMessage(`Updated holding ${String(changes.symbol).trim().toUpperCase()}.`);
     return true;
   };
 
@@ -692,6 +702,7 @@ export function usePortfolio() {
       ...prev,
       holdings: prev.holdings.map(h => h.id === id ? { ...h, targetPercent: Number(targetPercent) } : h)
     }));
+    setUiMessage(`Updated target allocation for ${holdings.find(item => item.id === id)?.symbol || 'holding'}.`);
   };
 
   const removeHolding = id => {
@@ -731,6 +742,7 @@ export function usePortfolio() {
     if (error) { onError(error); return false; }
     if (transaction.id || transaction.date < today()) resetPerformance();
     setPortfolioData({ transactions: nextTransactions, holdings: rebuildHoldings(allHoldings, nextTransactions) });
+    setUiMessage(`${transaction.id ? 'Updated' : 'Recorded'} ${normalizedType.toLowerCase()} ${isCash ? `in ${normalizedCurrency}` : `for ${holding?.symbol || 'holding'}`} on ${normalizedDate}.`);
     return true;
   };
 
@@ -1154,7 +1166,7 @@ export function usePortfolio() {
     transactions,
     snapshots,
     backtestHistory,
-    historyLoading, refreshHistoricalData,
+    historyLoading, historyError, refreshHistoricalData,
     currency,
     setCurrency,
     theme,

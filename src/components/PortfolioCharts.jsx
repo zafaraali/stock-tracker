@@ -1,4 +1,6 @@
 import { Money } from './Money';
+import { useReducedMotion } from '../hooks/useReducedMotion';
+import { byValueThenName } from '../services/chartOrdering';
 import { formatQuantity, formatPercent } from '../services/formatNumber';
 import { chartColor } from '../services/chartColors';
 import { formatMoney } from '../services/formatMoney';
@@ -8,6 +10,7 @@ import { BENCHMARK_SYMBOL, buildPerformanceComparison } from '../services/perfor
 
 
 export function PortfolioCharts({ performance, backtestHistory = [], summary, snapshots, symbol, currencyCode = 'USD', rate, theme, showPerformanceChart = true }) {
+  const reducedMotion = useReducedMotion();
   const isLight = theme === 'light';
   const [range, setRange] = useState('5Y');
   const [hoverAsset, setHoverAsset] = useState(null);
@@ -60,7 +63,7 @@ export function PortfolioCharts({ performance, backtestHistory = [], summary, sn
   }, new Map()).values()];
 
   if (summary.cashValue > 0) assetPieData.push({ name: 'Cash', value: summary.cashValue });
-  assetPieData.sort((a, b) => b.value - a.value);
+  assetPieData.sort(byValueThenName);
   const assetTotal = assetPieData.reduce((total, item) => total + item.value, 0);
   const selectedAssetIndex = assetPieData.findIndex(item => item.name === selectedAsset);
   const activeAsset = selectedAssetIndex >= 0 ? selectedAssetIndex : hoverAsset;
@@ -69,7 +72,7 @@ export function PortfolioCharts({ performance, backtestHistory = [], summary, sn
   const sectorPieData = summary.categoryBreakdown.map(cat => ({
     name: cat.name,
     value: cat.value
-  })).sort((a, b) => b.value - a.value);
+  })).sort(byValueThenName);
   const sectorTotal = sectorPieData.reduce((total, item) => total + item.value, 0);
   const selectedSectorIndex = sectorPieData.findIndex(item => item.name === selectedSector);
   const activeSector = selectedSectorIndex >= 0 ? selectedSectorIndex : hoverSector;
@@ -109,8 +112,8 @@ export function PortfolioCharts({ performance, backtestHistory = [], summary, sn
               <YAxis stroke={chartTheme.axis} fontSize={11} tickFormatter={value => `${value.toFixed(0)}%`} />
               <Tooltip contentStyle={{ backgroundColor: chartTheme.tooltip, border: `1px solid ${chartTheme.grid}`, borderRadius: 10, color: chartTheme.tooltipText }} labelStyle={{ color: chartTheme.tooltipText }} itemStyle={{ color: chartTheme.tooltipText }} formatter={value => `${Number(value).toFixed(2)}%`} />
               <Legend wrapperStyle={{ color: chartTheme.tooltipText }} />
-              <Area isAnimationActive animationBegin={80} animationDuration={850} animationEasing="ease-out" type="monotone" name="Portfolio" dataKey="value" stroke={chartTheme.portfolio} strokeWidth={3} dot={false} fill="none" />
-              <Area isAnimationActive animationBegin={160} animationDuration={850} animationEasing="ease-out" type="monotone" name="VOO (S&P 500)" dataKey="capital" stroke={chartTheme.benchmark} fill="none" strokeWidth={2} />
+              <Area isAnimationActive={!reducedMotion} animationBegin={80} animationDuration={850} animationEasing="ease-out" type="monotone" name="Portfolio" dataKey="value" stroke={chartTheme.portfolio} strokeWidth={3} dot={false} fill="none" />
+              <Area isAnimationActive={!reducedMotion} animationBegin={160} animationDuration={850} animationEasing="ease-out" type="monotone" name="VOO (S&P 500)" dataKey="capital" stroke={chartTheme.benchmark} fill="none" strokeWidth={2} />
               </AreaChart>
             </ResponsiveContainer>
           )}
@@ -139,7 +142,7 @@ export function PortfolioCharts({ performance, backtestHistory = [], summary, sn
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
-                    isAnimationActive
+                    isAnimationActive={!reducedMotion}
                     animationBegin={80}
                     animationDuration={750}
                     animationEasing="ease-out"
@@ -183,7 +186,7 @@ export function PortfolioCharts({ performance, backtestHistory = [], summary, sn
       {/* Sector / Category Breakdown Pie Chart */}
       <div ref={sectorCard} className={`${cardBg} chart-card border p-5 rounded-2xl lg:col-span-1 transition-colors`}>
         <h3 className={`text-xs font-semibold ${headingColor} mb-4 tracking-wider uppercase`}>Sector Breakdown</h3>
-        {sectorPieData.length > 0 && sectorTotal > 0 && <p className="chart-summary">Largest sector: <strong>{sectorPieData[0].name}</strong> · {formatPercent(sectorPieData[0].value / sectorTotal * 100)} of holdings</p>}
+        {sectorPieData.length > 0 && sectorTotal > 0 && <p className="chart-summary">{sectorPieData[0].name === 'Cash' ? 'Largest allocation' : 'Largest sector'}: <strong>{sectorPieData[0].name}</strong> · {formatPercent(sectorPieData[0].value / sectorTotal * 100)} {summary.cashValue > 0 ? 'of portfolio' : 'of holdings'}</p>}
         <div className="chart-selection-slot no-print" aria-live="polite">{selectedSector && <button className="secondary-button" onClick={() => { setSelectedSector(null); setHoverSector(null); }}>Pinned: {selectedSector} · Clear</button>}</div>
         {sectorPieData.length === 0 ? (
           <div className="h-64 flex items-center justify-center text-slate-500 text-sm">No sector data</div>
@@ -193,7 +196,7 @@ export function PortfolioCharts({ performance, backtestHistory = [], summary, sn
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
-                  isAnimationActive
+                  isAnimationActive={!reducedMotion}
                   animationBegin={140}
                   animationDuration={750}
                   animationEasing="ease-out"

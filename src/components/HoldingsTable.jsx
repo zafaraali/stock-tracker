@@ -184,24 +184,24 @@ export function HoldingsTable({ summary, onBulkUpdate, initialFilter = '', curre
     <div className="holdings-panel bg-slate-900 border border-slate-800/80 rounded-2xl overflow-hidden shadow-xl mb-16 sm:mb-8">
       
       {/* Header Bar */}
-      <div className="p-5 border-b border-slate-800 flex flex-wrap items-center justify-between gap-4">
+      <div className="view-toolbar p-5 border-b border-slate-800 flex flex-wrap items-center justify-between gap-4">
         <div>
           <h2 className="sr-only">Manage holdings</h2>
           <FormError message={formError} />
-          <p className="text-xs text-slate-400">Track asset sectors, passive dividend income, targets, and manual market prices</p>
+          <p className="text-xs text-slate-400">Manage holdings, allocation targets, and prices</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="view-toolbar-actions">
           <details className="holdings-tools"><summary className="secondary-button cursor-pointer">Import / export</summary><div className="holdings-tools-panel"><button className="secondary-button" onClick={onExportCSV}><FileSpreadsheet className="w-4 h-4" /> Export CSV</button>{onImportCSV && <label className="secondary-button relative cursor-pointer">Import CSV<input type="file" accept=".csv,text/csv" aria-label="Choose CSV to import" className="absolute inset-0 opacity-0 w-full" onChange={onImportCSV} /></label>}</div></details>
           <button
             onClick={() => { resetNewHoldingForm(); setIsModalOpen(true); }}
-            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold shadow-lg shadow-indigo-500/20 transition"
+            className="primary-button"
           >
             <Plus className="w-4 h-4" /> Add holding
           </button>
         </div>
       </div>
 
-      <div className="mb-3 no-print"><BulkHoldingEditor items={visibleItems} allItems={summary.items} onApply={onBulkUpdate} /></div>
+      <div className="holdings-bulk-toolbar no-print"><BulkHoldingEditor items={visibleItems} allItems={summary.items} onApply={onBulkUpdate} /></div>
       <FilterPanel resetLabel="Reset filters & sort" resultCount={visibleItems.length} totalCount={summary.items.length} label="holdings" activeCount={Number(Boolean(filter)) + Number(sortBy !== 'symbol' || sortDirection !== 'asc')} onReset={() => { setFilter(''); setSortBy('symbol'); setSortDirection('asc'); }}>
         <div className="flex items-center gap-2">
           <input
@@ -376,7 +376,7 @@ export function HoldingsTable({ summary, onBulkUpdate, initialFilter = '', curre
 
                 <div className="text-xs text-slate-400">{item.name}</div>
                 <div className="holding-card-value flex flex-wrap items-center justify-between gap-2 text-sm pt-1">
-                    <span className="text-slate-400">Total Value: <strong className="text-white"><Money amount={formatMoney(display.value, display.currency)} /></strong></span>
+                    <span className="text-slate-400">Value: <strong className="text-white"><Money amount={formatMoney(display.value, display.currency)} /></strong></span>
                   <span className={`font-semibold flex items-center gap-1 ${display.gain === 0 ? 'text-slate-400' : isPositive ? 'text-emerald-400' : 'text-rose-400'}`}>
                     {display.gain !== 0 && (isPositive ? <ArrowUpRight className="w-3.5 h-3.5" /> : <ArrowDownRight className="w-3.5 h-3.5" />)}
                     <Money amount={formatMoney(display.gain, display.currency, { signed: true })} /> ({formatPercent(display.percent)})
@@ -510,7 +510,7 @@ export function HoldingsTable({ summary, onBulkUpdate, initialFilter = '', curre
               <details className="optional-fields"><summary>Optional prices, income & notes</summary><div className="space-y-4 pt-3">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-400 uppercase mb-1">Average Buy Price ({formData.currency || 'USD'}) <span className="normal-case font-normal text-slate-500">optional</span></label>
+                  <label className="block text-xs font-semibold text-slate-400 uppercase mb-1">Average cost per share ({formData.currency || 'USD'}) <span className="normal-case font-normal text-slate-500">optional</span></label>
                   <input
                     type="number"
                     step="any"

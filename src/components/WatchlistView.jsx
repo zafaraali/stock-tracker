@@ -122,7 +122,7 @@ export function WatchlistView({ watchlist, symbol, currencyCode = 'USD', customC
     <div className="space-y-6 mb-16 sm:mb-8">
       
       {/* Banner */}
-      <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-xl flex flex-wrap items-center justify-between gap-4">
+      <div className="view-toolbar bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-xl flex flex-wrap items-center justify-between gap-4">
         <div>
           <h2 className="text-lg font-bold text-white flex items-center gap-2">
             <Eye className="w-5 h-5 text-indigo-400" /> Asset Watchlist & Investment Ideas
@@ -130,9 +130,9 @@ export function WatchlistView({ watchlist, symbol, currencyCode = 'USD', customC
           <FormError message={formError} />
           <p className="text-xs text-slate-400 mt-1">Monitor stocks, cryptos, and ETFs before adding them to your portfolio.</p>
         </div>
-        <div className="watchlist-banner-actions flex items-center gap-2"><button
+        <div className="watchlist-banner-actions view-toolbar-actions"><button
           onClick={() => setIsModalOpen(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold shadow-lg shadow-indigo-500/20 transition"
+          className="primary-button"
         >
           <Plus className="w-4 h-4" /> Add watchlist item
         </button></div>

@@ -72,7 +72,7 @@ export default function App() {
     holdings,
     watchlist,
     transactions,
-    snapshots, historyLoading, refreshHistoricalData,
+    snapshots, historyLoading, historyError, refreshHistoricalData,
     backtestHistory,
     currency,
     setCurrency,
@@ -228,7 +228,7 @@ export default function App() {
           {overviewLayout.order.filter(key => !overviewLayout.hidden.includes(key)).map(key => <React.Fragment key={key}>{({
             summary: (<section id="portfolio-summary" className="summary-section tab-scroll-target mb-6" aria-labelledby="summary-title">
         <div className={`summary-balance w-full ${isLight ? 'bg-white border-slate-200' : 'bg-slate-900 border-slate-800'} border rounded-2xl px-5 py-3 flex items-center justify-between text-left`}>
-          <span><span id="summary-title" className="block text-xs font-semibold uppercase tracking-wide text-slate-400">Portfolio summary</span><span className={`summary-value block font-bold mt-1 ${isLight ? 'text-slate-900' : 'text-white'}`}><Money amount={formatMoney(portfolioSummary.totalValue, currency)} /> <span className="text-xs font-normal text-slate-400">total value</span></span></span>
+          <span><span id="summary-title" className="block text-xs font-semibold uppercase tracking-wide text-slate-400">Portfolio summary</span><span className={`summary-value block font-bold mt-1 ${isLight ? 'text-slate-900' : 'text-white'}`}><Money amount={formatMoney(portfolioSummary.totalValue, currency)} /></span></span>
           <button type="button" className="secondary-button no-print shrink-0" onClick={() => setSummaryOpen(previous => !previous)} aria-expanded={summaryOpen} aria-controls="summary-metrics">{summaryOpen ? 'Hide details' : 'Show details'}<ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${summaryOpen ? 'rotate-180' : ''}`} /></button>
         </div>
         <div id="summary-metrics" hidden={!summaryOpen} className="summary-grid grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-3">
@@ -248,7 +248,7 @@ export default function App() {
 
           <div className={`${isLight ? 'bg-white border-slate-200 shadow-md' : 'bg-slate-900 border-slate-800/80 shadow-xl'} border p-5 rounded-2xl flex items-center justify-between transition-colors order-2`}>
             <div>
-              <MetricLabel label="Invested Cost" explanation="The remaining cost basis of your current holdings. This is not your total cash deposits." />
+              <MetricLabel label="Cost basis" explanation="The remaining cost basis of your current holdings. This is not your total cash deposits." />
               <h2 className={`text-2xl font-bold mt-1 ${isLight ? 'text-slate-900' : 'text-white'}`}>
                 <Money amount={formatMoney(portfolioSummary.totalCost, currency)} />
               </h2>
@@ -298,7 +298,7 @@ export default function App() {
                 <div className="top-holdings-actions"><CurrencyMode mode={valueCurrencyMode} onChange={setValueCurrencyMode} currencyCode={currency} /><button className="secondary-button" onClick={() => changeTab('holdings')}>View all holdings</button></div>
               </header>
               <ul className="top-holdings">
-                {[...portfolioSummary.items].sort((a, b) => b.totalValue - a.totalValue).slice(0, 5).map(item => { const display = holdingDisplay(item, valueCurrencyMode, currency); return <li key={item.id}>
+                {[...portfolioSummary.items].sort((a, b) => b.totalValue - a.totalValue || a.symbol.localeCompare(b.symbol) || a.id.localeCompare(b.id)).slice(0, 5).map(item => { const display = holdingDisplay(item, valueCurrencyMode, currency); return <li key={item.id}>
                   <div className="min-w-0"><strong>{item.symbol}</strong><p className="supporting-text truncate">{item.name}</p></div>
                   <div className="text-right shrink-0"><strong><Money amount={formatMoney(display.value, display.currency)} /></strong><p className={display.gain === 0 ? 'text-slate-400 text-sm' : display.gain > 0 ? 'text-emerald-500 text-sm' : 'text-rose-500 text-sm'}><Money amount={formatMoney(display.gain, display.currency, { signed: true })} /> <span className="text-xs">({formatPercent(display.percent)})</span></p></div>
                 </li>; })}
@@ -370,7 +370,7 @@ export default function App() {
         )}
 
         {activeTab === 'dividends' && <DividendView onManageHoldings={() => changeTab('holdings')} onRecordDividend={() => { setTransactionIntent({ type: 'DIVIDEND', id: Date.now() }); changeTab('history'); }} summary={portfolioSummary} transactions={transactions} currencyCode={currency} theme={theme} />}
-        {activeTab === 'performance' && <PerformanceView performance={performance} transactions={transactions} netContributionsUSD={netContributionsUSD} summary={portfolioSummary} backtestHistory={backtestHistory} currencyCode={currency} rate={rate} theme={theme} historyLoading={historyLoading} onRetryHistory={refreshHistoricalData} onManageHoldings={() => changeTab('holdings')} onRecordDeposit={() => { setTransactionIntent({ type: 'DEPOSIT', id: Date.now() }); changeTab('history'); }} />}
+        {activeTab === 'performance' && <PerformanceView performance={performance} transactions={transactions} netContributionsUSD={netContributionsUSD} summary={portfolioSummary} backtestHistory={backtestHistory} currencyCode={currency} rate={rate} theme={theme} historyLoading={historyLoading} historyError={historyError} onRetryHistory={refreshHistoricalData} onManageHoldings={() => changeTab('holdings')} onRecordDeposit={() => { setTransactionIntent({ type: 'DEPOSIT', id: Date.now() }); changeTab('history'); }} />}
         </Suspense>
         </div>
         </>}

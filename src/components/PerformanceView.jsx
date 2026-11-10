@@ -8,7 +8,7 @@ import { PerformanceComparisonChart } from './PerformanceComparisonChart';
 const percent = value => `${Number(value || 0) >= 0 ? '+' : ''}${Number(value || 0).toFixed(2)}%`;
 
 
-export function PerformanceView({ performance, transactions, netContributionsUSD, backtestHistory, summary, currencyCode = 'USD', rate, theme, historyLoading, onRetryHistory, onManageHoldings, onRecordDeposit }) {
+export function PerformanceView({ performance, transactions, netContributionsUSD, backtestHistory, summary, currencyCode = 'USD', rate, theme, historyLoading, historyError, onRetryHistory, onManageHoldings, onRecordDeposit }) {
   const points = [...performance].sort((a, b) => a.date.localeCompare(b.date));
   if (!points.length || (points.length < 2 && !summary.items.length && !summary.totalValue)) return <section className="overview-panel"><EmptyState title={summary.items.length ? 'Start tracking performance' : 'Add holdings to track performance'} description={summary.items.length ? 'Your holdings are ready. Record an opening deposit to establish contributed capital. Returns need a starting snapshot and at least one later observation.' : 'Add your current holdings, then record a deposit to distinguish investment gains from money you contribute.'} actionLabel={summary.items.length ? 'Record deposit' : 'Add holding'} onAction={summary.items.length ? onRecordDeposit : onManageHoldings} /><p className="supporting-text text-center">Snapshots are saved automatically as the portfolio changes. Refreshing prices alone cannot create historical returns.</p></section>;
   const today = new Date();
@@ -26,8 +26,8 @@ export function PerformanceView({ performance, transactions, netContributionsUSD
   const card = `${theme === 'light' ? 'bg-white border-slate-200 shadow-md' : 'bg-slate-900 border-slate-800'} border rounded-2xl p-5`;
   return (
     <div className="space-y-6">
-      <PerformanceComparisonChart backtestHistory={backtestHistory} summary={summary} theme={theme} loading={historyLoading} onRetry={onRetryHistory} />
-      <header className={`${card} flex justify-between gap-4`}>
+      <PerformanceComparisonChart backtestHistory={backtestHistory} summary={summary} theme={theme} loading={historyLoading} refreshError={historyError} onRetry={onRetryHistory} />
+      <header className={`${card} page-view-header flex justify-between gap-4`}>
         <div><p className="text-xs uppercase tracking-wide text-indigo-400">Performance analytics</p><h2 className="text-2xl font-bold mt-1">Portfolio performance</h2><p className="text-sm text-slate-400 mt-2">Return is based on current portfolio value compared with net external capital contributed.</p></div>
         <Activity className="w-8 h-8 text-indigo-400" />
       </header>

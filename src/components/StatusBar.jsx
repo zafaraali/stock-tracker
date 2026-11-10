@@ -31,7 +31,8 @@ export function StatusBar({ marketStatus, priceDates = [], fxData, fxError, last
       ? `latest available rates fetched ${new Date(fxData.fetchedAt).toLocaleDateString()}`
       : 'latest available rates';
   return <div className="no-print status-bar">
-    <details className="min-w-0 flex-1">
+    <span className="sr-only" role="status" aria-live="polite" aria-atomic="true">{marketStatus.loading ? 'Refreshing prices. Existing values remain visible.' : marketStatus.error ? marketStatus.error : marketStatus.lastUpdated ? `Price refresh completed at ${new Date(marketStatus.lastUpdated).toLocaleTimeString()}.` : ''}</span>
+    <details className="status-price-details min-w-0 flex-1">
       <summary className="cursor-pointer min-h-11 flex items-center gap-2 flex-wrap">
         <span className={`h-2 w-2 rounded-full ${marketStatus.error ? 'bg-amber-400' : 'bg-emerald-400'}`} />
         <span>{!online ? 'Offline · using saved data' : marketStatus.loading ? 'Refreshing prices...' : marketStatus.error ? 'Some prices may be out of date' : marketStatus.lastUpdated ? `Prices refreshed ${new Date(marketStatus.lastUpdated).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}` : 'Showing saved prices'}</span>

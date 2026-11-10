@@ -39,7 +39,7 @@ export function RebalanceView({ summary, currencyCode = 'USD', onUpdateTarget, o
     <div className="space-y-6">
       
       {/* Overview Banner */}
-      <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-xl flex flex-wrap items-center justify-between gap-4">
+      <div className="view-toolbar bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-xl flex flex-wrap items-center justify-between gap-4">
         <div>
           <h2 className="text-lg font-bold text-white flex items-center gap-2">
             <Sliders className="w-5 h-5 text-indigo-400" /> Target Allocation & Rebalancing
