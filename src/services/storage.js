@@ -6,7 +6,7 @@ export function readJSON(storage, key, fallback, validate = () => true, onError 
     if (!validate(value)) throw new Error('Invalid saved data');
     return value;
   } catch {
-    onError(`Could not load ${key}. Recovery data is shown; export it before replacing saved data.`);
+    onError('Could not load the saved portfolio. Recovery data is shown; export it before replacing saved data.');
     return fallback;
   }
 }

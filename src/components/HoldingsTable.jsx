@@ -1,3 +1,11 @@
+import { Money } from './Money';
+import { FilterPanel } from './FilterPanel';
+import { usePreference } from '../hooks/usePreference';
+import { holdingDisplay } from '../services/holdingDisplay';
+import { CurrencyMode } from './CurrencyMode';
+import { Pagination } from './Pagination';
+import { usePagination } from '../hooks/usePagination';
+import { formatMoney } from '../services/formatMoney';
 import { Modal, FormError } from './Modal';
 import { PriceStatus } from './PriceStatus';
 import React, { useState } from 'react';
@@ -8,14 +16,16 @@ import { fetchMarketFundamentals, isTseSymbol, searchMarketSymbols, inferSymbolM
 import { EmptyState } from './EmptyState';
 import { TickerLinks } from './TickerLinks';
 
-export function HoldingsTable({ summary, symbol, currencyCode = 'USD', customCategories = [], onAddHolding, onUpdateHolding, onUpdateHoldingPrice, onUpdateHoldingNotes, onRemoveHolding, onExportCSV, onImportCSV, globalFilter = '' }) {
+export function HoldingsTable({ summary, currencyCode = 'USD', customCategories = [], valueCurrencyMode = 'display', setValueCurrencyMode, onAddHolding, onUpdateHolding, onUpdateHoldingPrice, onUpdateHoldingNotes, onRemoveHolding, onExportCSV, onImportCSV }) {
   const [formError, setFormError] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingHoldingId, setEditingHoldingId] = useState(null);
   const [editingId, setEditingId] = useState(null);
   const [editPriceVal, setEditPriceVal] = useState('');
   const [filter, setFilter] = useState('');
-  const [sortBy, setSortBy] = useState('symbol');
+  const [sortBy, setSortBy] = usePreference('apex-holdings-sort', 'symbol', ['symbol', 'value', 'gain']);
+  const [sortDirection, setSortDirection] = usePreference('apex-holdings-direction', 'asc', ['asc', 'desc']);
+  const [pageSize, setPageSize] = usePreference('apex-holdings-page-size', 20, [20, 50, 100]);
 
   const [notesModalId, setNotesModalId] = useState(null);
   const [notesVal, setNotesVal] = useState('');
@@ -34,15 +44,16 @@ export function HoldingsTable({ summary, symbol, currencyCode = 'USD', customCat
     currency: 'USD'
     , assetType: 'Stock', exchange: ''
   });
-  const activeFilter = globalFilter || filter;
+  const activeFilter = filter;
   const visibleItems = [...summary.items]
     .filter(item => item.symbol.toLowerCase().includes(activeFilter.toLowerCase()) ||
       (item.name || '').toLowerCase().includes(activeFilter.toLowerCase()))
-    .sort((a, b) => sortBy === 'value'
-      ? b.totalValue - a.totalValue
-      : sortBy === 'gain'
-        ? b.gainLoss - a.gainLoss
-        : a.symbol.localeCompare(b.symbol));
+    .sort((a, b) => {
+      const comparison = sortBy === 'value' ? a.totalValue - b.totalValue : sortBy === 'gain' ? a.gainLoss - b.gainLoss : a.symbol.localeCompare(b.symbol);
+      return (sortDirection === 'asc' ? 1 : -1) * (comparison || a.symbol.localeCompare(b.symbol));
+    });
+  const pagination = usePagination(visibleItems, `${filter}|${sortBy}|${sortDirection}|${pageSize}`, pageSize);
+
 
   const handleSymbolChange = (sym) => {
     const isCad = isTseSymbol(sym);
@@ -154,21 +165,35 @@ export function HoldingsTable({ summary, symbol, currencyCode = 'USD', customCat
       {/* Header Bar */}
       <div className="p-5 border-b border-slate-800 flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h2 className="text-lg font-bold text-white">Portfolio Holdings & Dividend Tracker</h2>
+          <h2 className="sr-only">Manage holdings</h2>
           <FormError message={formError} />
           <p className="text-xs text-slate-400">Track asset sectors, passive dividend income, targets, and manual market prices</p>
         </div>
+        <div className="flex items-center gap-2">
+          <details className="holdings-tools"><summary className="secondary-button cursor-pointer">Import / export</summary><div className="holdings-tools-panel"><button className="secondary-button" onClick={onExportCSV}><FileSpreadsheet className="w-4 h-4" /> Export CSV</button>{onImportCSV && <label className="secondary-button relative cursor-pointer">Import CSV<input type="file" accept=".csv,text/csv" aria-label="Choose CSV to import" className="absolute inset-0 opacity-0 w-full" onChange={onImportCSV} /></label>}</div></details>
+          <button
+            onClick={() => { resetNewHoldingForm(); setIsModalOpen(true); }}
+            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold shadow-lg shadow-indigo-500/20 transition"
+          >
+            <Plus className="w-4 h-4" /> Add holding
+          </button>
+        </div>
+      </div>
+
+      <FilterPanel>
         <div className="flex items-center gap-2">
           <input
             type="search"
             value={filter}
             onChange={event => setFilter(event.target.value)}
             placeholder="Filter holdings"
+            aria-label="Filter holdings"
             className="bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white"
           />
+          {filter && <button type="button" className="secondary-button" onClick={() => setFilter('')}>Clear filter</button>}
           <select
             value={sortBy}
-            onChange={event => setSortBy(event.target.value)}
+            onChange={event => { setSortBy(event.target.value); setSortDirection(event.target.value === 'symbol' ? 'asc' : 'desc'); }}
             aria-label="Sort holdings"
             className="bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white"
           >
@@ -176,25 +201,12 @@ export function HoldingsTable({ summary, symbol, currencyCode = 'USD', customCat
             <option value="value">Sort: Value</option>
             <option value="gain">Sort: Gain</option>
           </select>
+          <button className="secondary-button" aria-label="Toggle sort direction" onClick={() => setSortDirection(direction => direction === 'asc' ? 'desc' : 'asc')}>{sortDirection === 'asc' ? '↑ Ascending' : '↓ Descending'}</button>
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={onExportCSV}
-            className="flex items-center gap-2 px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-semibold transition"
-          >
-            <FileSpreadsheet className="w-4 h-4 text-emerald-400" /> Export CSV
-          </button>
-          <button
-            onClick={() => { resetNewHoldingForm(); setIsModalOpen(true); }}
-            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold shadow-lg shadow-indigo-500/20 transition"
-          >
-            <Plus className="w-4 h-4" /> Add Position
-          </button>
-        </div>
-      </div>
-
+      <div className="holdings-display-controls"><CurrencyMode mode={valueCurrencyMode} onChange={setValueCurrencyMode} currencyCode={currencyCode} /><p className="supporting-text">One currency per holding. Manual price edits use the asset’s native currency.</p></div>
+      </FilterPanel>
       {/* Desktop Table */}
-      <div className="overflow-x-auto hidden sm:block">
+      <div className="holdings-desktop-table overflow-x-auto hidden sm:block">
         <table className="financial-table w-full text-left text-sm text-slate-300">
           <thead className="bg-slate-950/60 text-slate-400 uppercase text-[11px] tracking-wider border-b border-slate-800">
             <tr>
@@ -211,15 +223,15 @@ export function HoldingsTable({ summary, symbol, currencyCode = 'USD', customCat
             {visibleItems.length === 0 ? (
               <tr>
                 <td colSpan={7}>
-                  <EmptyState compact title={activeFilter ? 'No matching holdings' : 'Your portfolio is empty'} description={activeFilter ? 'Try a different search term.' : 'Add a position or import a broker CSV to get started.'} actionLabel={!activeFilter ? 'Add position' : undefined} onAction={!activeFilter ? () => { resetNewHoldingForm(); setIsModalOpen(true); } : undefined} />
+                  <EmptyState compact title={activeFilter ? 'No matching holdings' : 'Your portfolio is empty'} description={activeFilter ? 'Try a different search term.' : 'Add a holding or import a broker CSV to get started.'} actionLabel={!activeFilter ? 'Add holding' : undefined} onAction={!activeFilter ? () => { resetNewHoldingForm(); setIsModalOpen(true); } : undefined} />
                   {!activeFilter && onImportCSV && <div className="flex justify-center -mt-4 pb-5"><label className="secondary-button mx-auto cursor-pointer">Import CSV<input aria-label="Import holdings CSV" type="file" accept=".csv,text/csv" className="absolute w-px h-px opacity-0" onChange={onImportCSV} /></label></div>}
                 </td>
               </tr>
             ) : (
-              visibleItems.map((item) => {
-                  const isPositive = (item.nativeGainLoss ?? item.gainLoss) >= 0;
+              pagination.pageItems.map((item) => {
+                  const display = holdingDisplay(item, valueCurrencyMode, currencyCode);
+                  const isPositive = display.gain >= 0;
                 const isEditing = editingId === item.id;
-                const nativeSymbol = CURRENCY_RATES[item.currency || 'USD']?.symbol || item.currency || '$';
 
                 return (
                   <tr key={item.id} className="hover:bg-slate-800/40 transition">
@@ -243,7 +255,7 @@ export function HoldingsTable({ summary, symbol, currencyCode = 'USD', customCat
                     </td>
                     <td data-label="Shares" className="py-3.5 px-4 font-medium">{item.shares}</td>
                     <td data-label="Buy / Current Price" className="py-3.5 px-4">
-                        <div className="text-xs text-slate-400">Buy: {nativeSymbol}{Number(item.nativeAvgCost ?? item.avgCost).toFixed(2)} {item.currency || 'USD'}</div>
+                        <div className="text-xs text-slate-400">Buy: <Money amount={formatMoney(display.cost, display.currency)} /></div>
                       <div className="flex items-center gap-1.5 mt-0.5">
                         {isEditing ? (
                           <div className="flex items-center gap-1">
@@ -267,8 +279,8 @@ export function HoldingsTable({ summary, symbol, currencyCode = 'USD', customCat
                           </div>
                         ) : (
                           <div className="flex items-center gap-1.5 font-semibold text-white">
-                            <span>Now: {nativeSymbol}{Number(item.nativeCurrentPrice ?? item.currentPrice).toFixed(2)} {item.currency || 'USD'}</span>
-                            <button onClick={() => { setEditingId(item.id); setEditPriceVal(item.nativeCurrentPrice ?? item.currentPriceUSD); }} className="text-indigo-400 hover:text-indigo-300" title="Edit current price">
+                            <span>Now: <Money amount={formatMoney(display.price, display.currency)} /></span>
+                            <button onClick={() => { setEditingId(item.id); setEditPriceVal(item.nativeCurrentPrice ?? item.currentPriceUSD); }} className="text-indigo-400 hover:text-indigo-300" aria-label={`Edit current price for ${item.symbol}`} title="Edit current price">
                               <Edit2 className="w-3 h-3" />
                             </button>
                           </div>
@@ -277,13 +289,13 @@ export function HoldingsTable({ summary, symbol, currencyCode = 'USD', customCat
                     </td>
                     <td data-label="Target & Dividend" className="py-3.5 px-4">
                       <div className="text-xs text-indigo-300">Target: {item.targetPercent || 0}% (Actual: {item.actualPercent.toFixed(1)}%)</div>
-                      <div className="text-[11px] text-emerald-400 mt-0.5">{item.dividendYield || 0}% Yield (+{symbol}{item.annualDividend.toFixed(2)}/yr)</div>
+                      <div className="text-[11px] text-emerald-400 mt-0.5">{item.dividendYield || 0}% Yield (<Money amount={formatMoney(display.annualDividend, display.currency)} />/yr)</div>
                     </td>
-                    <td data-label="Total Value" className="py-3.5 px-4 font-bold text-white">{nativeSymbol}{Number(item.nativeTotalValue ?? item.totalValue).toFixed(2)} {item.currency || 'USD'}</td>
+                    <td data-label="Total Value" className="py-3.5 px-4 font-bold text-white"><Money amount={formatMoney(display.value, display.currency)} /></td>
                     <td data-label="Gain / Loss" className="py-3.5 px-4">
                       <div className={`inline-flex items-center gap-1 font-semibold ${isPositive ? 'text-emerald-400' : 'text-rose-400'}`}>
                         {isPositive ? <ArrowUpRight className="w-3.5 h-3.5" /> : <ArrowDownRight className="w-3.5 h-3.5" />}
-                        {nativeSymbol}{Math.abs(item.nativeGainLoss ?? item.gainLoss).toFixed(2)} {item.currency || 'USD'} ({item.gainLossPercent.toFixed(2)}%)
+                        <Money amount={formatMoney(display.gain, display.currency, { signed: true })} /> ({display.percent.toFixed(2)}%)
                       </div>
                     </td>
                     <td data-label="Actions" className="py-3.5 px-4 text-right">
@@ -292,14 +304,14 @@ export function HoldingsTable({ summary, symbol, currencyCode = 'USD', customCat
                         <button
                           onClick={() => { setNotesModalId(item.id); setNotesVal(item.notes || ''); }}
                           className={`inline-flex h-8 w-8 items-center justify-center p-0 rounded-lg transition ${item.notes ? 'text-indigo-400 bg-indigo-500/10' : 'text-slate-500 hover:text-slate-300'}`}
-                          title="Investment Notes / Journal"
+                          aria-label={`Edit notes for ${item.symbol}`} title="Investment Notes / Journal"
                         >
                           <FileText className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() => onRemoveHolding(item.id)}
-                          className="inline-flex h-8 w-8 items-center justify-center p-0 hover:bg-rose-500/10 text-slate-400 hover:text-rose-400 rounded-lg transition"
-                          title="Delete Position"
+                          className="danger-button inline-flex h-8 w-8 items-center justify-center p-0 hover:bg-rose-500/10 text-slate-400 hover:text-rose-400 rounded-lg transition"
+                          aria-label={`Delete ${item.symbol}`} title="Delete holding"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -314,15 +326,16 @@ export function HoldingsTable({ summary, symbol, currencyCode = 'USD', customCat
       </div>
 
       {/* Mobile Card View */}
-      <div className="sm:hidden divide-y divide-slate-800">
+      <div className="holdings-mobile-cards sm:hidden divide-y divide-slate-800">
         {visibleItems.length === 0 ? (
           <>
-            <EmptyState compact title={activeFilter ? 'No matching holdings' : 'Your portfolio is empty'} description={activeFilter ? 'Try a different search term.' : 'Add a position or import a broker CSV to get started.'} actionLabel={!activeFilter ? 'Add position' : undefined} onAction={!activeFilter ? () => { resetNewHoldingForm(); setIsModalOpen(true); } : undefined} />
+            <EmptyState compact title={activeFilter ? 'No matching holdings' : 'Your portfolio is empty'} description={activeFilter ? 'Try a different search term.' : 'Add a holding or import a broker CSV to get started.'} actionLabel={!activeFilter ? 'Add holding' : undefined} onAction={!activeFilter ? () => { resetNewHoldingForm(); setIsModalOpen(true); } : undefined} />
             {!activeFilter && onImportCSV && <div className="flex justify-center -mt-4 pb-5"><label className="secondary-button mx-auto relative cursor-pointer">Import CSV<input aria-label="Import holdings CSV" type="file" accept=".csv,text/csv" className="absolute w-px h-px opacity-0" onChange={onImportCSV} /></label></div>}
           </>
         ) : (
-          visibleItems.map((item) => {
-            const isPositive = (item.nativeGainLoss ?? item.gainLoss) >= 0;
+          pagination.pageItems.map((item) => {
+            const display = holdingDisplay(item, valueCurrencyMode, currencyCode);
+            const isPositive = display.gain >= 0;
             const isEditing = editingId === item.id;
 
             return (
@@ -337,21 +350,24 @@ export function HoldingsTable({ summary, symbol, currencyCode = 'USD', customCat
                       </span>
                     )}
                   </div>
-                  <div className="flex items-center gap-1">
-                    <button onClick={() => openEditHolding(item)} aria-label="Edit holding" className="p-2 text-indigo-400"><Edit2 className="w-4 h-4" /></button>
-                    <button onClick={() => { setNotesModalId(item.id); setNotesVal(item.notes || ''); }} aria-label="Edit holding notes" className="p-2 text-indigo-400"><FileText className="w-4 h-4" /></button>
-                    <button onClick={() => onRemoveHolding(item.id)} aria-label="Delete holding" className="p-2 text-rose-400"><Trash2 className="w-4 h-4" /></button>
-                  </div>
+
                 </div>
 
                 <div className="text-xs text-slate-400">{item.name}</div>
-                      <PriceStatus item={item} />
+                <div className="holding-card-value flex flex-wrap items-center justify-between gap-2 text-sm pt-1">
+                    <span className="text-slate-400">Total Value: <strong className="text-white"><Money amount={formatMoney(display.value, display.currency)} /></strong></span>
+                  <span className={`font-semibold flex items-center gap-1 ${isPositive ? 'text-emerald-400' : 'text-rose-400'}`}>
+                    {isPositive ? <ArrowUpRight className="w-3.5 h-3.5" /> : <ArrowDownRight className="w-3.5 h-3.5" />}
+                    <Money amount={formatMoney(display.gain, display.currency, { signed: true })} /> ({display.percent.toFixed(2)}%)
+                  </span>
+                </div>
+                <details className="holding-details"><summary>Holding details & actions</summary><div className="space-y-3 pt-3">                      <PriceStatus item={item} />
                 {item.notes && <div className="text-xs text-slate-500 italic bg-slate-950 p-2 rounded">"{item.notes}"</div>}
 
                 <div className="grid grid-cols-2 gap-2 text-xs bg-slate-950 p-3 rounded-xl border border-slate-800/60">
                   <div>
                     <span className="text-slate-500 block">Shares / Buy:</span>
-                    <span className="font-semibold text-white">{item.shares} @ {symbol}{item.avgCost.toFixed(2)} {currencyCode}</span>
+                    <span className="font-semibold text-white">{item.shares} @ <Money amount={formatMoney(display.cost, display.currency)} /></span>
                   </div>
                   <div>
                     <span className="text-slate-500 block">Current Price:</span>
@@ -372,37 +388,33 @@ export function HoldingsTable({ summary, symbol, currencyCode = 'USD', customCat
                       </div>
                     ) : (
                       <div className="flex items-center gap-1 font-bold text-white">
-                        <span>{symbol}{item.currentPrice.toFixed(2)} {currencyCode}</span>
-                        {item.currency === 'CAD' && Number.isFinite(item.nativeCurrentPrice) && (
-                          <span className="text-[10px] text-slate-400 font-normal">
-                            (CA${item.nativeCurrentPrice.toFixed(2)})
-                          </span>
-                        )}
+                        <span><Money amount={formatMoney(display.price, display.currency)} /></span>
+                        
                         <button onClick={() => { setEditingId(item.id); setEditPriceVal(item.nativeCurrentPrice ?? item.currentPriceUSD); }} aria-label="Edit current price" className="text-indigo-400"><Edit2 className="w-3 h-3" /></button>
                       </div>
                     )}
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between text-xs pt-1">
-                    <span className="text-slate-400">Total Value: <strong className="text-white">{symbol}{item.totalValue.toFixed(2)} {currencyCode}</strong></span>
-                  <span className={`font-semibold flex items-center gap-1 ${isPositive ? 'text-emerald-400' : 'text-rose-400'}`}>
-                    {isPositive ? <ArrowUpRight className="w-3.5 h-3.5" /> : <ArrowDownRight className="w-3.5 h-3.5" />}
-                    {CURRENCY_RATES[item.currency || 'USD']?.symbol || item.currency || '$'}{Math.abs(item.nativeGainLoss ?? item.gainLoss).toFixed(2)} {item.currency || 'USD'} ({item.gainLossPercent.toFixed(2)}%)
-                  </span>
-                </div>
+<div className="supporting-text">Target: {item.targetPercent || 0}% · Dividend yield: {item.dividendYield || 0}%</div>                  <div className="flex items-center gap-1">
+                    <button onClick={() => openEditHolding(item)} aria-label={`Edit ${item.symbol}`} className="p-2 text-indigo-400"><Edit2 className="w-4 h-4" /></button>
+                    <button onClick={() => { setNotesModalId(item.id); setNotesVal(item.notes || ''); }} aria-label={`Edit notes for ${item.symbol}`} className="p-2 text-indigo-400"><FileText className="w-4 h-4" /></button>
+                    <button onClick={() => onRemoveHolding(item.id)} aria-label={`Delete ${item.symbol}`} className="danger-button p-2 text-rose-400"><Trash2 className="w-4 h-4" /></button>
+                  </div></div></details>
               </div>
             );
           })
         )}
       </div>
 
-      {/* Add Position Modal */}
+      <Pagination {...pagination} total={visibleItems.length} onPageChange={pagination.setPage} onPageSizeChange={setPageSize} label="Holdings" />
+
+      {/* Add holding Modal */}
       {isModalOpen && (
-        <Modal title={editingHoldingId ? 'Edit holding' : 'Add asset position'} onClose={() => { setIsModalOpen(false); setEditingHoldingId(null); setFormError(''); }}>
+        <Modal title={editingHoldingId ? 'Edit holding' : 'Add holding'} onClose={() => { setIsModalOpen(false); setEditingHoldingId(null); setFormError(''); }}>
           <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-lg p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
             <form onChange={() => setFormError('')} onSubmit={handleSubmit} className="space-y-4">
-              <p className="text-sm text-slate-400">{editingHoldingId ? 'Update the holding details directly. Transaction history remains unchanged.' : 'Add an existing position without changing cash. To buy more using tracked cash, record a BUY in Transactions.'}</p>
+              <p className="text-sm text-slate-400">{editingHoldingId ? 'Update the holding details directly. Transaction history remains unchanged.' : 'Add an existing holding without changing cash. To buy more using tracked cash, record a BUY in Transactions.'}</p>
               <FormError message={formError} />
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -464,7 +476,7 @@ export function HoldingsTable({ summary, symbol, currencyCode = 'USD', customCat
                   <input
                     type="number"
                     step="any"
-                    min="0"
+                    min="0.00000001"
                     placeholder="e.g. 10"
                     value={formData.shares}
                     onChange={e => setFormData({ ...formData, shares: e.target.value })}
@@ -474,6 +486,7 @@ export function HoldingsTable({ summary, symbol, currencyCode = 'USD', customCat
                 </div>
               </div>
 
+              <details className="optional-fields"><summary>Optional prices, income & notes</summary><div className="space-y-4 pt-3">
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-slate-400 uppercase mb-1">Average Buy Price ({formData.currency || 'USD'}) <span className="normal-case font-normal text-slate-500">optional</span></label>
@@ -542,9 +555,10 @@ export function HoldingsTable({ summary, symbol, currencyCode = 'USD', customCat
                 />
               </div>
 
+              </div></details>
               <div className="flex items-center justify-end gap-3 pt-3">
                 <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-slate-400 hover:text-slate-200 text-xs font-semibold">Cancel</button>
-                <button type="submit" className="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold shadow-lg">{editingHoldingId ? 'Save Changes' : 'Save Position'}</button>
+                <button type="submit" className="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold shadow-lg">{editingHoldingId ? 'Save holding' : 'Save holding'}</button>
               </div>
             </form>
           </div>

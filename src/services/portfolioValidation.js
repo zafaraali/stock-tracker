@@ -10,6 +10,7 @@ const positive = value => number(value) && value > 0;
 const text = value => typeof value === 'string' && value.trim().length > 0;
 const unique = items => items.every(item => item && text(item.id)) && new Set(items.map(item => item.id)).size === items.length;
 const currency = item => item.currency === undefined || Object.hasOwn(CURRENCY_RATES, item.currency);
+const validAccounts = items => Array.isArray(items) && items.length > 0 && unique(items) && items.every(item => text(item.name) && currency(item));
 const asset = item => text(item.symbol) && currency(item) && number(item.currentPrice) &&
   ['name', 'notes', 'category'].every(key => item[key] === undefined || typeof item[key] === 'string');
 
@@ -59,6 +60,8 @@ export function validateBackup(data) {
     ['targetPercent', 'dividendYield'].every(key => item[key] === undefined || (number(item[key]) && item[key] <= 100)) &&
     (item.buyDate === undefined || validDate(item.buyDate)))) return 'Backup contains invalid holding values.';
   if (data.currency !== undefined && !Object.hasOwn(CURRENCY_RATES, data.currency)) return 'Unsupported display currency.';
+  if (data.accounts !== undefined && !validAccounts(data.accounts)) return 'Backup contains invalid accounts.';
+  if (data.selectedAccountId !== undefined && data.accounts !== undefined && data.selectedAccountId !== '__combined__' && !data.accounts.some(account => account.id === data.selectedAccountId)) return 'Backup selects a missing account.';
   if (data.theme !== undefined && !['light', 'dark'].includes(data.theme)) return 'Invalid theme.';
   if (data.fxData !== undefined && !(data.fxData?.date === null && Object.keys(CURRENCY_RATES).every(code => positive(data.fxData.rates?.[code]))) && !validRates(data.fxData)) return 'Invalid exchange rate data.';
   if (data.historicalFx !== undefined && (!data.historicalFx || typeof data.historicalFx !== 'object' || Array.isArray(data.historicalFx) || !Object.entries(data.historicalFx).every(([date, rates]) => validDate(date) && validRates(rates)))) return 'Invalid historical exchange rate data.';

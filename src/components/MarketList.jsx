@@ -1,7 +1,8 @@
+import { formatMoney } from '../services/formatMoney';
 import React, { useState } from 'react';
 import { Search, Star, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 
-export function MarketList({ stocks, symbol, rate, watchlist, toggleWatchlist }) {
+export function MarketList({ stocks, currencyCode = 'USD', rate, watchlist, toggleWatchlist }) {
   const [searchTerm, setSearchTerm] = useState('');
 
   const filteredStocks = stocks.filter(s =>
@@ -59,7 +60,7 @@ export function MarketList({ stocks, symbol, rate, watchlist, toggleWatchlist })
               <div>
                 <div className="flex items-baseline justify-between mt-auto">
                   <div className="text-lg font-bold text-white">
-                    {symbol}{currentPriceConverted.toFixed(2)}
+                    {formatMoney(currentPriceConverted, currencyCode)}
                   </div>
                   <div className={`flex items-center text-xs font-semibold ${isPos ? 'text-emerald-400' : 'text-rose-400'}`}>
                     {isPos ? <ArrowUpRight className="w-3.5 h-3.5" /> : <ArrowDownRight className="w-3.5 h-3.5" />}

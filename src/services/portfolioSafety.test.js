@@ -3,7 +3,7 @@ import { INITIAL_HOLDINGS, INITIAL_TRANSACTIONS, INITIAL_WATCHLIST } from '../da
 import { validateBackup, validateLedger } from './portfolioValidation';
 import { readJSON, writeJSON } from './storage';
 import { fetchExchangeRates, fallbackRates } from './exchangeRates';
-import { getRealizedGains, rebuildHoldings, loadSavedPortfolio, toUSD } from '../hooks/usePortfolio';
+import { combineHoldings, getRealizedGains, rebuildHoldings, loadSavedPortfolio, toUSD } from '../hooks/usePortfolio';
 import { fetchMarketQuote } from './marketApi';
 
 const backup = () => JSON.parse(JSON.stringify({ holdings: INITIAL_HOLDINGS, transactions: INITIAL_TRANSACTIONS, watchlist: INITIAL_WATCHLIST, snapshots: [] }));
@@ -67,6 +67,30 @@ describe('storage recovery', () => {
     const saved = storage({ st_pro_data_v2: JSON.stringify(data), st_pro_holdings: 'broken' });
     expect(loadSavedPortfolio(saved).errors).toEqual([]);
   });
+  it('migrates legacy holdings and transactions into the current account shape', () => {
+    const saved = storage({
+      st_pro_holdings: JSON.stringify([{ id: 'h', symbol: 'AAPL', shares: 2, avgCost: 100, currentPrice: 110, currency: 'USD' }]),
+      st_pro_transactions: JSON.stringify([]),
+      st_pro_watchlist: JSON.stringify([]),
+      st_pro_snapshots: JSON.stringify([])
+    });
+    const result = loadSavedPortfolio(saved);
+    expect(result.errors).toEqual([]);
+    expect(result.data.accounts[0].id).toBe('account-main');
+    expect(result.data.holdings[0].accountId).toBe('account-main');
+  });
+  it('rejects backups that reference a missing selected account', () => {
+    const data = backup();
+    data.accounts = [{ id: 'account-main', name: 'Main', currency: 'USD' }];
+    data.selectedAccountId = 'missing';
+    expect(validateBackup(data)).toContain('missing account');
+  });
+  it('accepts the reserved combined account selector', () => {
+    const data = backup();
+    data.accounts = [{ id: 'account-main', name: 'Main', currency: 'USD' }];
+    data.selectedAccountId = '__combined__';
+    expect(validateBackup(data)).toBe('');
+  });
 });
 
 describe('dated currency conversion', () => {
@@ -96,6 +120,27 @@ describe('dated currency conversion', () => {
   it('rejects incomplete rates instead of silently mixing them with estimates', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => [] }));
     await expect(fetchExchangeRates()).rejects.toThrow();
+  });
+});
+
+describe('combined holdings', () => {
+  it('combines duplicate tickers with weighted cost and current value', () => {
+    const result = combineHoldings([
+      { id: 'a', symbol: 'aapl', shares: 2, avgCost: 100, currentPrice: 150, targetPercent: 10, dividendYield: 2 },
+      { id: 'b', symbol: 'AAPL', shares: 3, avgCost: 120, currentPrice: 160, targetPercent: 20, dividendYield: 1 }
+    ]);
+    expect(result).toHaveLength(1);
+    expect(result[0]).toMatchObject({ symbol: 'AAPL', shares: 5, targetPercent: 30, accountCount: 2 });
+    expect(result[0].avgCost).toBeCloseTo(112);
+    expect(result[0].currentPrice).toBeCloseTo(156);
+  });
+
+  it('preserves the sum of duplicate ticker values when prices differ by account', () => {
+    const result = combineHoldings([
+      { id: 'a', symbol: 'VOO', shares: 1, avgCost: 100, currentPrice: 200, targetPercent: 0 },
+      { id: 'b', symbol: 'VOO', shares: 4, avgCost: 100, currentPrice: 150, targetPercent: 0 }
+    ]);
+    expect(result[0].shares * result[0].currentPrice).toBeCloseTo(800);
   });
 });
 

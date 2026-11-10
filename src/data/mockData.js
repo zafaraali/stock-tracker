@@ -104,8 +104,8 @@ export const INITIAL_TRANSACTIONS = [
 
 export const CURRENCY_RATES = {
   USD: { symbol: '$', rate: 1.0, label: 'US Dollar' },
-  EUR: { symbol: '€', rate: 0.92, label: 'Euro' },
-  GBP: { symbol: '£', rate: 0.79, label: 'British Pound' },
+  EUR: { symbol: '\u20AC', rate: 0.92, label: 'Euro' },
+  GBP: { symbol: '\u00A3', rate: 0.79, label: 'British Pound' },
   CAD: { symbol: 'CA$', rate: 1.35, label: 'Canadian Dollar' },
-  JPY: { symbol: '¥', rate: 151.4, label: 'Japanese Yen' }
+  JPY: { symbol: '\u00A5', rate: 151.4, label: 'Japanese Yen' }
 };

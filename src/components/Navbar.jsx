@@ -1,17 +1,65 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Modal } from './Modal';
-import { TrendingUp, PieChart as PieIcon, ArrowDownUp, Sliders, History, Eye, Download, Upload, Sun, Moon, Trash2, RefreshCw, Settings, Search, CalendarDays, Activity } from 'lucide-react';
+import { TrendingUp, PieChart as PieIcon, ArrowDownUp, Sliders, History, Eye, Download, Upload, Sun, Moon, Trash2, RefreshCw, Settings, CalendarDays, Activity, Menu, X } from 'lucide-react';
 import { CURRENCY_RATES } from '../data/mockData';
 import { downloadGoogleDriveBackup, downloadLatestGoogleDriveBackup, ENCRYPTED_DRIVE_BACKUP_PREFIX, isGoogleDriveConfigured, uploadGoogleDriveBackup } from '../services/googleDrive';
 import { decryptBackup, encryptBackup } from '../services/encryptedBackup';
 
-export function Navbar({ activeTab, setActiveTab, currency, setCurrency, theme, toggleTheme, accent, setAccent, exportJSON, exportEncryptedJSON, backupPayload, restoreJSONBackup, exportCSV, exportAllCSV, importJSON, importEncryptedJSON, importCSV, accounts = [], selectedAccountId, setSelectedAccountId, addAccount, renameAccount, deleteAccount, onDeleteAllData, refreshMarketData, marketStatus, globalQuery, setGlobalQuery }) {
+export function Navbar({ activeTab, setActiveTab, currency, setCurrency, theme, toggleTheme, accent, setAccent, exportJSON, exportEncryptedJSON, backupPayload, restoreJSONBackup, exportCSV, exportAllCSV, importJSON, importEncryptedJSON, importCSV, accounts = [], selectedAccountId, setSelectedAccountId, addAccount, renameAccount, deleteAccount, onDeleteAllData, refreshMarketData, marketStatus }) {
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsSection, setSettingsSection] = useState('appearance');
   const [installPrompt, setInstallPrompt] = useState(null);
   const [newAccountName, setNewAccountName] = useState('');
   const [driveStatus, setDriveStatus] = useState('');
   const [driveBusy, setDriveBusy] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [desktopControlsOpen, setDesktopControlsOpen] = useState(() => { try { return localStorage.getItem('apex-desktop-controls') === 'true'; } catch { return false; } });
+  const drawerRef = useRef(null);
   const isLight = theme === 'light';
+
+  useEffect(() => {
+    try { localStorage.setItem('apex-desktop-controls', String(desktopControlsOpen)); } catch { /* Controls still work when storage is unavailable. */ }
+  }, [desktopControlsOpen]);
+
+  useEffect(() => {
+    if (!mobileMenuOpen) return undefined;
+    const previousFocus = document.activeElement;
+    const previousOverflow = document.body.style.overflow;
+    const panel = drawerRef.current;
+    panel?.querySelector('button')?.focus();
+    const handleEscape = event => {
+      if (event.key === 'Escape') setMobileMenuOpen(false);
+      if (event.key === 'Tab') {
+        const controls = [...panel.querySelectorAll('button, a[href], input, select')].filter(el => !el.disabled);
+        const first = controls[0], last = controls.at(-1);
+        if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+        else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+      }
+    };
+    const breakpoint = window.matchMedia('(min-width: 1024px)');
+    const closeOnDesktop = event => { if (event.matches) setMobileMenuOpen(false); };
+    breakpoint.addEventListener('change', closeOnDesktop);
+    window.addEventListener('keydown', handleEscape);
+    document.body.style.overflow = 'hidden';
+    return () => {
+      breakpoint.removeEventListener('change', closeOnDesktop);
+      window.removeEventListener('keydown', handleEscape);
+      document.body.style.overflow = previousOverflow;
+      previousFocus?.focus();
+    };
+  }, [mobileMenuOpen]);
+
+  const handleSectionLink = (event, tab, mobile = false) => {
+    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    event.preventDefault();
+    if (mobile) navigateFromMobileMenu(tab);
+    else setActiveTab(tab);
+  };
+
+  const navigateFromMobileMenu = tab => {
+    setActiveTab(tab);
+    setMobileMenuOpen(false);
+  };
 
   useEffect(() => {
     const handleBeforeInstallPrompt = event => {
@@ -94,73 +142,7 @@ export function Navbar({ activeTab, setActiveTab, currency, setCurrency, theme, 
     finally { setDriveBusy(false); }
   };
 
-  return (
-    <nav className={`no-print ${isLight ? 'bg-white/90 border-slate-200 text-slate-800' : 'bg-slate-900/95 border-slate-800 text-slate-100'} border-b sticky top-0 z-40 px-4 lg:px-8 py-3 transition-colors duration-200`}>
-      <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
-        
-        {/* Brand */}
-        <button aria-label="Go to dashboard" className="flex items-center gap-2 cursor-pointer" aria-current={activeTab === 'dashboard' ? 'page' : undefined} onClick={() => setActiveTab('dashboard')}>
-          <div className="brand-logo p-2 rounded-xl text-white shadow-lg">
-            <TrendingUp className="w-5 h-5" />
-          </div>
-          <span className={`font-bold text-lg tracking-tight ${isLight ? 'text-slate-900' : 'text-white'}`}>
-            Apex<span className="brand-accent">Finance</span>
-          </span>
-        </button>
-
-        {/* Desktop & Tablet Tabs */}
-        <div className={`hidden sm:flex items-center gap-1 ${isLight ? 'bg-slate-100 border-slate-200' : 'bg-slate-950/60 border-slate-800'} p-1 rounded-xl border`}>
-          <button
-            aria-current={activeTab === 'dashboard' ? 'page' : undefined} onClick={() => setActiveTab('dashboard')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-              activeTab === 'dashboard' ? 'bg-indigo-600 text-white shadow' : `${isLight ? 'text-slate-600 hover:text-slate-900' : 'text-slate-400 hover:text-slate-200'}`
-            }`}
-          >
-            <PieIcon className="w-4 h-4" /> Dashboard
-          </button>
-          <button
-            aria-current={activeTab === 'holdings' ? 'page' : undefined} onClick={() => setActiveTab('holdings')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-              activeTab === 'holdings' ? 'bg-indigo-600 text-white shadow' : `${isLight ? 'text-slate-600 hover:text-slate-900' : 'text-slate-400 hover:text-slate-200'}`
-            }`}
-          >
-            <ArrowDownUp className="w-4 h-4" /> Holdings
-          </button>
-          <button
-            aria-current={activeTab === 'history' ? 'page' : undefined} onClick={() => setActiveTab('history')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-              activeTab === 'history' ? 'bg-indigo-600 text-white shadow' : `${isLight ? 'text-slate-600 hover:text-slate-900' : 'text-slate-400 hover:text-slate-200'}`
-            }`}
-          >
-            <History className="w-4 h-4" /> Transactions
-          </button>
-          <button
-            aria-current={activeTab === 'watchlist' ? 'page' : undefined} onClick={() => setActiveTab('watchlist')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-              activeTab === 'watchlist' ? 'bg-indigo-600 text-white shadow' : `${isLight ? 'text-slate-600 hover:text-slate-900' : 'text-slate-400 hover:text-slate-200'}`
-            }`}
-          >
-            <Eye className="w-4 h-4" /> Watchlist
-          </button>
-          <button aria-current={activeTab === 'dividends' ? 'page' : undefined} onClick={() => setActiveTab('dividends')} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${activeTab === 'dividends' ? 'bg-indigo-600 text-white shadow' : `${isLight ? 'text-slate-600 hover:text-slate-900' : 'text-slate-400 hover:text-slate-200'}`}`}><CalendarDays className="w-4 h-4" /> Dividends</button>
-          <button aria-current={activeTab === 'performance' ? 'page' : undefined} onClick={() => setActiveTab('performance')} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${activeTab === 'performance' ? 'bg-indigo-600 text-white shadow' : `${isLight ? 'text-slate-600 hover:text-slate-900' : 'text-slate-400 hover:text-slate-200'}`}`}><Activity className="w-4 h-4" /> Performance</button>
-          <button
-            aria-current={activeTab === 'rebalance' ? 'page' : undefined} onClick={() => setActiveTab('rebalance')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-              activeTab === 'rebalance' ? 'bg-indigo-600 text-white shadow' : `${isLight ? 'text-slate-600 hover:text-slate-900' : 'text-slate-400 hover:text-slate-200'}`
-            }`}
-          >
-            <Sliders className="w-4 h-4" /> Rebalance
-          </button>
-        </div>
-
-        {/* Actions & Currency & Theme Toggle */}
-        <div className="flex items-center gap-2.5 flex-wrap justify-end">
-          <label className={`flex items-center gap-2 rounded-xl border px-3 w-full sm:w-auto ${isLight ? 'bg-slate-100 border-slate-300' : 'bg-slate-950 border-slate-800'}`}>
-            <Search className="w-4 h-4 text-slate-400" />
-            <input id="global-search" type="search" value={globalQuery} onChange={event => setGlobalQuery(event.target.value)} placeholder="Search portfolio" aria-label="Search portfolio" className="w-full sm:w-36 bg-transparent border-0 outline-none text-sm min-h-10" />
-            <kbd className="text-[10px] text-slate-500 border border-slate-700 rounded px-1.5 py-0.5">/</kbd>
-          </label>
+  const renderControls = () => <>
           <select
             aria-label="Display currency"
             value={currency}
@@ -204,78 +186,196 @@ export function Navbar({ activeTab, setActiveTab, currency, setCurrency, theme, 
           </button>
 
           {installPrompt && <button aria-label="Install ApexFinance app" title="Install ApexFinance app" onClick={installApp} className="icon-button"><Download className="w-5 h-5" /></button>}
-          <button aria-label="Open settings" onClick={() => setSettingsOpen(true)} className="icon-button"><Settings className="w-5 h-5" /></button>
+          <button aria-label="Open settings" onClick={() => { setMobileMenuOpen(false); setSettingsOpen(true); }} className="icon-button"><Settings className="w-5 h-5" /></button>
+</>;
+
+  return (
+    <nav className={`no-print ${isLight ? 'bg-white/90 border-slate-200 text-slate-800' : 'bg-slate-900/95 border-slate-800 text-slate-100'} border-b sticky top-0 z-40 px-4 lg:px-8 py-3 transition-colors duration-200`}>
+      <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
+        
+        {/* Brand */}
+        <button aria-label="Go to dashboard" className="flex items-center gap-2 cursor-pointer" aria-current={activeTab === 'dashboard' ? 'page' : undefined} onClick={() => setActiveTab('dashboard')}>
+          <div className="brand-logo p-2 rounded-xl text-white shadow-lg">
+            <TrendingUp className="w-5 h-5" />
+          </div>
+          <span className={`font-bold text-lg tracking-tight ${isLight ? 'text-slate-900' : 'text-white'}`}>
+            Apex<span className="brand-accent">Finance</span>
+          </span>
+        </button>
+
+        <span className="navbar-current lg:hidden">{({ dashboard: 'Dashboard', holdings: 'Holdings', history: 'Transactions', watchlist: 'Watchlist', dividends: 'Dividends', performance: 'Performance', rebalance: 'Rebalance' })[activeTab]}</span>
+        <button
+          type="button"
+          aria-label={mobileMenuOpen ? 'Close navigation menu' : 'Open navigation menu'}
+          aria-expanded={mobileMenuOpen}
+          aria-controls="mobile-navigation-drawer"
+          onClick={() => setMobileMenuOpen(open => !open)}
+          className={`lg:hidden icon-button ${isLight ? 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-300' : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700'}`}
+        >
+          {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+        </button>
+
+        {/* Desktop & Tablet Tabs */}
+        <div className={`desktop-section-links hidden lg:flex items-center gap-1 ${isLight ? 'bg-slate-100 border-slate-200' : 'bg-slate-950/60 border-slate-800'} p-1 rounded-xl border`}>
+          <a href="#/dashboard"
+            aria-current={activeTab === 'dashboard' ? 'page' : undefined} onClick={event => handleSectionLink(event, 'dashboard')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+              activeTab === 'dashboard' ? 'bg-indigo-600 text-white shadow' : `${isLight ? 'text-slate-600 hover:text-slate-900' : 'text-slate-400 hover:text-slate-200'}`
+            }`}
+          >
+            <PieIcon className="w-4 h-4" /> Dashboard
+          </a>
+          <a href="#/holdings"
+            aria-current={activeTab === 'holdings' ? 'page' : undefined} onClick={event => handleSectionLink(event, 'holdings')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+              activeTab === 'holdings' ? 'bg-indigo-600 text-white shadow' : `${isLight ? 'text-slate-600 hover:text-slate-900' : 'text-slate-400 hover:text-slate-200'}`
+            }`}
+          >
+            <ArrowDownUp className="w-4 h-4" /> Holdings
+          </a>
+          <a href="#/history"
+            aria-current={activeTab === 'history' ? 'page' : undefined} onClick={event => handleSectionLink(event, 'history')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+              activeTab === 'history' ? 'bg-indigo-600 text-white shadow' : `${isLight ? 'text-slate-600 hover:text-slate-900' : 'text-slate-400 hover:text-slate-200'}`
+            }`}
+          >
+            <History className="w-4 h-4" /> Transactions
+          </a>
+          <a href="#/watchlist"
+            aria-current={activeTab === 'watchlist' ? 'page' : undefined} onClick={event => handleSectionLink(event, 'watchlist')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+              activeTab === 'watchlist' ? 'bg-indigo-600 text-white shadow' : `${isLight ? 'text-slate-600 hover:text-slate-900' : 'text-slate-400 hover:text-slate-200'}`
+            }`}
+          >
+            <Eye className="w-4 h-4" /> Watchlist
+          </a>
+          <a href="#/dividends" aria-current={activeTab === 'dividends' ? 'page' : undefined} onClick={event => handleSectionLink(event, 'dividends')} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${activeTab === 'dividends' ? 'bg-indigo-600 text-white shadow' : `${isLight ? 'text-slate-600 hover:text-slate-900' : 'text-slate-400 hover:text-slate-200'}`}`}><CalendarDays className="w-4 h-4" /> Dividends</a>
+          <a href="#/performance" aria-current={activeTab === 'performance' ? 'page' : undefined} onClick={event => handleSectionLink(event, 'performance')} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${activeTab === 'performance' ? 'bg-indigo-600 text-white shadow' : `${isLight ? 'text-slate-600 hover:text-slate-900' : 'text-slate-400 hover:text-slate-200'}`}`}><Activity className="w-4 h-4" /> Performance</a>
+          <a href="#/rebalance"
+            aria-current={activeTab === 'rebalance' ? 'page' : undefined} onClick={event => handleSectionLink(event, 'rebalance')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+              activeTab === 'rebalance' ? 'bg-indigo-600 text-white shadow' : `${isLight ? 'text-slate-600 hover:text-slate-900' : 'text-slate-400 hover:text-slate-200'}`
+            }`}
+          >
+            <Sliders className="w-4 h-4" /> Rebalance
+          </a>
+        </div>
+
+        {/* Actions & Currency & Theme Toggle */}
+        <button type="button" className="desktop-controls-toggle secondary-button hidden lg:inline-flex" aria-expanded={desktopControlsOpen} aria-controls="desktop-portfolio-controls" onClick={() => setDesktopControlsOpen(open => !open)}>
+          <Sliders className="w-4 h-4" /> {desktopControlsOpen ? 'Hide controls' : 'Portfolio controls'}
+        </button>
+        <div id="desktop-portfolio-controls" className={`navbar-actions ${desktopControlsOpen ? 'hidden lg:flex' : 'hidden'} items-center gap-2.5 flex-wrap justify-start w-full border-t border-slate-800 pt-3`}>
+          {renderControls()}
+        </div>
           {settingsOpen && <Modal title="Settings & data" onClose={() => setSettingsOpen(false)}>
             <p className="text-sm text-slate-400 mb-5">Your holdings, transactions, watchlist, settings, and snapshots stay in this browser's local storage. Keep an encrypted or otherwise secure copy of exported backups.</p>
-            <div className="grid gap-3">
-              {installPrompt && <button type="button" onClick={installApp} className="primary-button w-full"><Download className="w-4 h-4" /> Install ApexFinance app</button>}
+            <nav className="settings-category-nav" aria-label="Settings categories">
+              {[['app', 'App'], ['appearance', 'Appearance'], ['lists', 'Holdings lists'], ['data', 'Data']].map(([key, label]) => <button type="button" key={key} aria-pressed={settingsSection === key} aria-controls={`settings-${key}-panel`} onClick={() => setSettingsSection(key)}>{label}</button>)}
+            </nav>
+            <section id="settings-app-panel" aria-labelledby="settings-app-title" className="settings-category-panel" hidden={settingsSection !== 'app'}>
+              <h3 id="settings-app-title" className="section-title">App</h3>
+              <p className="supporting-text mb-3">Install ApexFinance for quick access from your device.</p>
+              {installPrompt ? <button type="button" onClick={installApp} className="primary-button"><Download className="w-4 h-4" /> Install ApexFinance app</button> : <p className="supporting-text">If installation is available, you can also find it in your browser’s menu. An installed app can be opened from your device.</p>}
+            </section>
+            <section id="settings-appearance-panel" aria-labelledby="settings-appearance-title" className="settings-category-panel" hidden={settingsSection !== 'appearance'}>
+              <h3 id="settings-appearance-title" className="section-title">Appearance</h3>
+              <label className="flex items-center justify-between gap-4 rounded-xl border border-slate-800 p-3 text-sm"><span><strong className="block">Accent color</strong><small className="text-slate-500">Choose your default ROYGBIV highlight color.</small></span><select aria-label="Accent color" value={accent} onChange={event => setAccent(event.target.value)} className="field mt-0 w-auto"><option value="green">Green</option><option value="red">Red</option><option value="orange">Orange</option><option value="yellow">Yellow</option><option value="blue">Blue</option><option value="indigo">Indigo</option><option value="violet">Violet</option></select></label>
+              <div className="settings-theme-control"><div><strong>Theme</strong><p className="supporting-text">Current theme: {isLight ? 'Light' : 'Dark'}</p></div><button type="button" className="secondary-button" onClick={toggleTheme}>Switch to {isLight ? 'dark' : 'light'} mode</button></div>
+            </section>
+            <section id="settings-lists-panel" aria-labelledby="settings-lists-title" className="settings-category-panel" hidden={settingsSection !== 'lists'}>
+              <h3 id="settings-lists-title" className="section-title">Holdings lists</h3>
+              <div className="rounded-xl border border-slate-800 p-3">
+                <p className="text-xs text-slate-500 mb-3">Create separate named lists and switch between them with the selector.</p>
+                <div className="space-y-2 mb-3">{accounts.map(account => <div key={account.id} className="flex items-center gap-2"><span className="text-sm flex-1">{account.name}</span><button className="secondary-button" onClick={() => { const next = window.prompt('Rename list', account.name); if (next) renameAccount(account.id, next); }}>Rename</button><button className="danger-button secondary-button text-rose-400" onClick={() => { if (window.confirm(`Delete the ${account.name} list and its holdings?`)) deleteAccount(account.id); }}>Delete</button></div>)}</div>
+                <div className="flex gap-2"><input aria-label="New holdings list name" className="field" value={newAccountName} onChange={e => setNewAccountName(e.target.value)} placeholder="e.g. Retirement" /><button className="primary-button" onClick={() => { addAccount(newAccountName); setNewAccountName(''); }}>Add list</button></div>
+              </div>
+
+            </section>
+            <section id="settings-data-panel" aria-labelledby="settings-data-title" className="settings-category-panel" hidden={settingsSection !== 'data'}>
+              <h3 id="settings-data-title" className="section-title">Everyday data tools</h3><p className="supporting-text">Save copies, export spreadsheets, or add holdings from CSV. Recovery and deletion are grouped below.</p>
               <div className="rounded-xl border border-slate-800 p-3">
                 <p className="text-sm font-semibold mb-1">Google Drive backup</p>
                 <p className="text-xs text-slate-500 mb-3">{isGoogleDriveConfigured() ? 'Save or restore your complete portfolio backup from Google Drive.' : 'Add VITE_GOOGLE_CLIENT_ID to enable Google Drive backup.'}</p>
-                {isGoogleDriveConfigured() && <div className="flex flex-wrap gap-2"><button type="button" className="primary-button" disabled={driveBusy} onClick={backupToDrive}>Back up to Drive</button><button type="button" className="secondary-button" disabled={driveBusy} onClick={restoreFromDrive}>Restore from Drive</button><button type="button" className="primary-button" disabled={driveBusy} onClick={backupEncryptedToDrive}>Encrypted backup</button><button type="button" className="secondary-button" disabled={driveBusy} onClick={restoreEncryptedFromDrive}>Restore encrypted</button></div>}
+                {isGoogleDriveConfigured() && <div className="drive-action-groups">
+                  <div><h4>Back up</h4><div className="settings-action-pair"><button type="button" className="primary-button" disabled={driveBusy} onClick={backupToDrive}>Back up to Drive</button><button type="button" className="primary-button" disabled={driveBusy} onClick={backupEncryptedToDrive}>Encrypted backup</button></div></div>
+
+                </div>}
                 {driveStatus && <p className="text-xs text-slate-400 mt-2" role="status">{driveStatus}</p>}
               </div>
-              <div className="rounded-xl border border-slate-800 p-3">
-                <p className="text-sm font-semibold mb-1">Holdings lists</p>
-                <p className="text-xs text-slate-500 mb-3">Create separate named lists and switch between them with the selector.</p>
-                <div className="space-y-2 mb-3">{accounts.map(account => <div key={account.id} className="flex items-center gap-2"><span className="text-sm flex-1">{account.name}</span><button className="secondary-button" onClick={() => { const next = window.prompt('Rename list', account.name); if (next) renameAccount(account.id, next); }}>Rename</button><button className="secondary-button text-rose-400" onClick={() => { if (window.confirm(`Delete the ${account.name} list and its holdings?`)) deleteAccount(account.id); }}>Delete</button></div>)}</div>
-                <div className="flex gap-2"><input aria-label="New holdings list name" className="field" value={newAccountName} onChange={e => setNewAccountName(e.target.value)} placeholder="e.g. Retirement" /><button className="primary-button" onClick={() => { addAccount(newAccountName); setNewAccountName(''); }}>Add list</button></div>
-              </div>
-              <label className="flex items-center justify-between gap-4 rounded-xl border border-slate-800 p-3 text-sm"><span><strong className="block">Accent color</strong><small className="text-slate-500">Choose your default ROYGBIV highlight color.</small></span><select aria-label="Accent color" value={accent} onChange={event => setAccent(event.target.value)} className="field mt-0 w-auto"><option value="green">Green</option><option value="red">Red</option><option value="orange">Orange</option><option value="yellow">Yellow</option><option value="blue">Blue</option><option value="indigo">Indigo</option><option value="violet">Violet</option></select></label>
+              <section className="settings-file-group"><h4>Download backup</h4><p>Complete portfolio and settings as a JSON file.</p><div className="settings-file-actions">
               <button className="secondary-button" onClick={exportJSON}><Download className="w-4 h-4" /> Download complete JSON backup</button>
               <button className="secondary-button" onClick={exportEncryptedJSON}><Download className="w-4 h-4" /> Download encrypted backup</button>
+</div></section>
+              <section className="settings-file-group"><h4>Export CSV</h4><p>Download holdings for a spreadsheet or another tool.</p><div className="settings-file-actions">
               <button className="secondary-button" onClick={exportCSV}><Download className="w-4 h-4" /> Export current list CSV</button>
               <button className="secondary-button" onClick={exportAllCSV}><Download className="w-4 h-4" /> Export all lists CSV</button>
+</div></section>
+              <section className="settings-file-group"><h4>Import CSV</h4><p>Add holdings from a broker or spreadsheet file.</p><div className="settings-file-actions">
               <label className="secondary-button cursor-pointer relative"><Upload className="w-4 h-4" /> Import holdings CSV<input aria-label="Choose holdings CSV" type="file" accept=".csv,text/csv" className="absolute inset-0 opacity-0 cursor-pointer w-full" onChange={event => { importCSV(event); setSettingsOpen(false); }} /></label>
               <label className="secondary-button cursor-pointer relative"><Upload className="w-4 h-4" /> Import all lists CSV<input aria-label="Choose all lists CSV" type="file" accept=".csv,text/csv" className="absolute inset-0 opacity-0 cursor-pointer w-full" onChange={event => { importCSV(event); setSettingsOpen(false); }} /></label>
+</div></section>
+
+            <details className="recovery-tools"><summary>Recovery & deletion</summary><div className="recovery-tools-body"><p className="supporting-text">Restore actions can replace your portfolio. Review the backup before confirming. Export a copy of your current data first.</p>
+              {isGoogleDriveConfigured() && <section className="settings-file-group"><h4>Restore from Google Drive</h4><div className="settings-action-pair"><button type="button" className="secondary-button" disabled={driveBusy} onClick={restoreFromDrive}>Restore from Drive</button><button type="button" className="secondary-button" disabled={driveBusy} onClick={restoreEncryptedFromDrive}>Restore encrypted</button></div>{driveStatus && <p className="supporting-text" role="status">{driveStatus}</p>}</section>}
+              <section className="settings-file-group"><h4>Restore backup</h4><p>Review a saved JSON backup before replacing your portfolio.</p><div className="settings-file-actions">
               <label className="secondary-button cursor-pointer relative"><Upload className="w-4 h-4" /> Restore JSON backup<input aria-label="Choose JSON backup" type="file" accept=".json" className="absolute inset-0 opacity-0 cursor-pointer w-full" onChange={event => { importJSON(event); setSettingsOpen(false); }} /></label>
               <label className="secondary-button cursor-pointer relative"><Upload className="w-4 h-4" /> Restore encrypted backup<input aria-label="Choose encrypted backup" type="file" accept=".json" className="absolute inset-0 opacity-0 cursor-pointer w-full" onChange={event => { importEncryptedJSON(event); setSettingsOpen(false); }} /></label>
-            </div>
+</div></section>
             <div className="mt-6 pt-5 border-t border-slate-800">
-              <p className="text-sm text-slate-400 mb-3">Permanently clear this browser’s portfolio. Export a backup first.</p>
-              <button className="secondary-button text-rose-400" onClick={onDeleteAllData}><Trash2 className="w-4 h-4" /> Delete all saved data</button>
+              <h3 className="section-title mb-2">Delete portfolio data</h3><p className="text-sm text-slate-400 mb-3">Permanently clear this browser’s portfolio. Export a backup first.</p>
+              <button className="danger-button secondary-button text-rose-400" onClick={onDeleteAllData}><Trash2 className="w-4 h-4" /> Delete all saved data</button>
             </div>
+            </div></details>
+            </section>
           </Modal>}
 
-        </div>
-
       </div>
 
-      {/* Mobile Bottom Bar */}
-      <div className={`sm:hidden fixed bottom-0 left-0 right-0 ${isLight ? 'bg-white/95 border-slate-200 text-slate-800' : 'bg-slate-900/95 border-slate-800 text-slate-200'} backdrop-blur-lg border-t px-2 py-2.5 flex justify-around items-center z-50`}>
-        <button
-          aria-current={activeTab === 'dashboard' ? 'page' : undefined} onClick={() => setActiveTab('dashboard')}
-          className={`flex flex-col items-center gap-1 text-[10px] font-medium ${activeTab === 'dashboard' ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400'}`}
+      {/* Mobile navigation drawer */}
+      {mobileMenuOpen && <div className="lg:hidden fixed inset-0 z-50" role="presentation">
+        <button type="button" aria-label="Close navigation menu" onClick={() => setMobileMenuOpen(false)} className="absolute inset-0 w-full h-full bg-slate-950/60 backdrop-blur-sm" />
+        <aside
+          ref={drawerRef}
+          role="dialog"
+          aria-modal="true"
+          id="mobile-navigation-drawer"
+          aria-label="Mobile navigation"
+          className={`relative ml-auto h-full w-[min(86vw,22rem)] overflow-y-auto border-l p-5 shadow-2xl ${isLight ? 'bg-white border-slate-200 text-slate-900' : 'bg-slate-900 border-slate-800 text-slate-100'}`}
         >
-          <PieIcon className="w-4 h-4" /> Dashboard
-        </button>
-        <button
-          aria-current={activeTab === 'holdings' ? 'page' : undefined} onClick={() => setActiveTab('holdings')}
-          className={`flex flex-col items-center gap-1 text-[10px] font-medium ${activeTab === 'holdings' ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400'}`}
-        >
-          <ArrowDownUp className="w-4 h-4" /> Holdings
-        </button>
-        <button
-          aria-current={activeTab === 'watchlist' ? 'page' : undefined} onClick={() => setActiveTab('watchlist')}
-          className={`flex flex-col items-center gap-1 text-[10px] font-medium ${activeTab === 'watchlist' ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400'}`}
-        >
-          <Eye className="w-4 h-4" /> Watchlist
-        </button>
-        <button
-          aria-current={activeTab === 'rebalance' ? 'page' : undefined} onClick={() => setActiveTab('rebalance')}
-          className={`flex flex-col items-center gap-1 text-[10px] font-medium ${activeTab === 'rebalance' ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400'}`}
-        >
-          <Sliders className="w-4 h-4" /> Rebalance
-        </button>
-        <button
-          aria-current={activeTab === 'history' ? 'page' : undefined} onClick={() => setActiveTab('history')}
-          className={`flex flex-col items-center gap-1 text-[10px] font-medium ${activeTab === 'history' ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400'}`}
-        >
-          <History className="w-4 h-4" /> Transactions
-        </button>
-        <button aria-current={activeTab === 'dividends' ? 'page' : undefined} onClick={() => setActiveTab('dividends')} className={`flex flex-col items-center gap-1 text-[10px] font-medium ${activeTab === 'dividends' ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400'}`}><CalendarDays className="w-4 h-4" /> Dividends</button>
-        <button aria-current={activeTab === 'performance' ? 'page' : undefined} onClick={() => setActiveTab('performance')} className={`flex flex-col items-center gap-1 text-[10px] font-medium ${activeTab === 'performance' ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400'}`}><Activity className="w-4 h-4" /> Performance</button>
-      </div>
+          <div className="flex items-center justify-between gap-4 mb-6">
+            <div>
+              <p className="text-xs uppercase tracking-[.18em] text-slate-500">Navigate</p>
+              <p className="text-lg font-semibold">ApexFinance</p>
+            </div>
+            <button type="button" aria-label="Close navigation menu" onClick={() => setMobileMenuOpen(false)} className="icon-button"><X className="w-5 h-5" /></button>
+          </div>
+          <div className="grid gap-2">
+            {[
+              ["dashboard", "Dashboard", PieIcon],
+              ["holdings", "Holdings", ArrowDownUp],
+              ["history", "Transactions", History],
+              ["watchlist", "Watchlist", Eye],
+              ["dividends", "Dividends", CalendarDays],
+              ["performance", "Performance", Activity],
+              ["rebalance", "Rebalance", Sliders],
+            ].map(([tab, label, Icon]) => (
+              <a
+                href={`#/${tab}`}
+                key={tab}
+                aria-current={activeTab === tab ? 'page' : undefined}
+                onClick={event => handleSectionLink(event, tab, true)}
+                className={`flex items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-semibold transition-colors ${activeTab === tab ? 'bg-indigo-600 text-white shadow' : `${isLight ? 'text-slate-700 hover:bg-slate-100' : 'text-slate-300 hover:bg-slate-800'}`}`}
+              >
+                <Icon className="w-5 h-5" />
+                <span>{label}</span>
+                {activeTab === tab && <span className="ml-auto text-xs font-medium opacity-80">Current</span>}
+              </a>
+            ))}
+          </div>
+          <div className="drawer-controls mt-6 border-t border-slate-800 pt-5"><h2 className="section-title mb-3">Portfolio controls</h2>{renderControls()}</div>
+        </aside>
+      </div>}
     </nav>
   );
 }

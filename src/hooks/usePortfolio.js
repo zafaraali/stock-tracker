@@ -78,6 +78,38 @@ export function rebuildHoldings(holdings, transactions, historical = {}) {
   return positionLedger(holdings, transactions, historical).holdings;
 }
 
+export function combineHoldings(holdings) {
+  const combined = new Map();
+  for (const holding of holdings) {
+    const key = String(holding.symbol || '').trim().toUpperCase();
+    const existing = combined.get(key);
+    if (!existing) {
+      combined.set(key, { ...holding, symbol: key, accountCount: 1 });
+      continue;
+    }
+    const shares = Number(existing.shares || 0) + Number(holding.shares || 0);
+    const existingCost = Number(existing.avgCost || 0) * Number(existing.shares || 0);
+    const holdingCost = Number(holding.avgCost || 0) * Number(holding.shares || 0);
+    const existingValue = Number(existing.currentPrice || 0) * Number(existing.shares || 0);
+    const holdingValue = Number(holding.currentPrice || 0) * Number(holding.shares || 0);
+    const totalValue = existingValue + holdingValue;
+    combined.set(key, {
+      ...existing,
+      shares,
+      avgCost: shares > 0 ? (existingCost + holdingCost) / shares : 0,
+      currentPrice: shares > 0 ? totalValue / shares : existing.currentPrice,
+      targetPercent: Number(existing.targetPercent || 0) + Number(holding.targetPercent || 0),
+      dividendYield: totalValue > 0
+        ? ((Number(existing.dividendYield || 0) * existingValue) + (Number(holding.dividendYield || 0) * holdingValue)) / totalValue
+        : existing.dividendYield,
+      accountCount: existing.accountCount + 1,
+      notes: existing.notes || holding.notes,
+      priceUpdatedAt: [existing.priceUpdatedAt, holding.priceUpdatedAt].filter(Boolean).sort().at(-1) || null
+    });
+  }
+  return [...combined.values()];
+}
+
 export function toUSD(amount, currency = 'USD', rates = fallbackRates) {
   const rate = rates[currency] || 1.0;
   return Number(amount) / rate;
@@ -142,6 +174,7 @@ export function loadSavedPortfolio(storage) {
 
 export function usePortfolio() {
   const [uiMessage, setUiMessage] = useState('');
+  const [lastSavedAt, setLastSavedAt] = useState(null);
   const [recovery] = useState(() => loadSavedPortfolio(browserStorage));
   const [storageError, setStorageError] = useState(recovery.errors.join(' '));
   const [storageBlocked, setStorageBlocked] = useState(recovery.errors.length > 0);
@@ -155,7 +188,9 @@ export function usePortfolio() {
   modeRef.current = mode;
   const allHoldings = portfolioData.holdings;
   const allTransactions = portfolioData.transactions;
-  const holdings = useMemo(() => selectedAccountId === COMBINED_ACCOUNT_ID ? allHoldings : allHoldings.filter(item => accountIdFor(item) === selectedAccountId), [allHoldings, selectedAccountId]);
+  const holdings = useMemo(() => selectedAccountId === COMBINED_ACCOUNT_ID
+    ? combineHoldings(allHoldings)
+    : allHoldings.filter(item => accountIdFor(item) === selectedAccountId), [allHoldings, selectedAccountId]);
   const transactions = useMemo(() => selectedAccountId === COMBINED_ACCOUNT_ID ? allTransactions : allTransactions.filter(item => accountIdFor(item) === selectedAccountId), [allTransactions, selectedAccountId]);
   const [watchlistData, setWatchlist] = useState(() => assignDefaultAccount(recovery.data.watchlist || []));
   const watchlist = useMemo(() => selectedAccountId === COMBINED_ACCOUNT_ID ? watchlistData : watchlistData.filter(item => accountIdFor(item) === selectedAccountId), [watchlistData, selectedAccountId]);
@@ -163,6 +198,9 @@ export function usePortfolio() {
   const [snapshots, setSnapshots] = useState(recovery.data.snapshots);
   const backtestSymbols = useMemo(() => [...new Set([...allHoldings.map(item => item.symbol), BENCHMARK_SYMBOL].filter(Boolean))], [allHoldings]);
   const [backtestHistory, setBacktestHistory] = useState([]);
+  const [historyRevision, setHistoryRevision] = useState(0);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const refreshHistoricalData = useCallback(() => setHistoryRevision(value => value + 1), []);
   const [currency, setCurrency] = useState(recovery.data.currency || 'CAD');
   const [theme, setTheme] = useState(recovery.data.theme || 'light');
   const [accent, setAccent] = useState(() => Object.hasOwn(ACCENT_THEMES, recovery.data.accent) ? recovery.data.accent : 'green');
@@ -175,12 +213,16 @@ export function usePortfolio() {
 
   useEffect(() => {
     const controller = new AbortController();
+    setHistoryLoading(true);
     Promise.allSettled(backtestSymbols.map(async symbol => ({ symbol: symbol.toUpperCase(), points: await fetchHistoricalMarketData(symbol, controller.signal) })))
       .then(results => {
-        if (!controller.signal.aborted) setBacktestHistory(results.filter(result => result.status === 'fulfilled').map(result => result.value));
+        if (!controller.signal.aborted) {
+          setBacktestHistory(results.filter(result => result.status === 'fulfilled').map(result => result.value));
+          setHistoryLoading(false);
+        }
       });
     return () => controller.abort();
-  }, [backtestSymbols]);
+  }, [backtestSymbols, historyRevision]);
 
   const [marketStatus, setMarketStatus] = useState({ loading: false, error: '', lastUpdated: null });
   const holdingsRef = useRef(holdings);
@@ -190,7 +232,11 @@ export function usePortfolio() {
 
   useEffect(() => {
     if (storageBlocked || mode === 'pending') return;
-    const savePortfolio = () => writeJSON(browserStorage, 'st_pro_data_v2', { holdings: allHoldings, transactions: allTransactions, accounts, selectedAccountId, watchlist: watchlistData, snapshots, currency, theme, accent, mode, trash });
+    const savePortfolio = () => {
+      const error = writeJSON(browserStorage, 'st_pro_data_v2', { holdings: allHoldings, transactions: allTransactions, accounts, selectedAccountId, watchlist: watchlistData, snapshots, currency, theme, accent, mode, trash });
+      if (!error) setLastSavedAt(new Date().toISOString());
+      return error;
+    };
     setStorageError(savePortfolio());
     const flushOnPageHide = () => { savePortfolio(); };
     window.addEventListener('pagehide', flushOnPageHide);
@@ -304,7 +350,12 @@ export function usePortfolio() {
     let totalTargetPercent = 0;
     const categoryMap = {};
 
-    const items = rebuildHoldings(holdings, transactions, historicalFx).map(h => {
+    // allHoldings are already ledger-rebuilt. Replaying every account's transactions
+    // against the display-only combined rows would attach trades to the wrong IDs.
+    const summaryHoldings = selectedAccountId === COMBINED_ACCOUNT_ID
+      ? holdings
+      : rebuildHoldings(holdings, transactions, historicalFx);
+    const items = summaryHoldings.map(h => {
       const holdingCurrency = h.currency || detectSymbolCurrency(h.symbol);
       const rawCurrentPrice = h.currentPrice !== undefined && h.currentPrice !== null ? Number(h.currentPrice) : Number(h.avgCost);
       const rawAvgCost = Number(h.avgCost || 0);
@@ -351,7 +402,10 @@ export function usePortfolio() {
     });
 
     const holdingsValueUSD = totalValueUSD;
-    const cashBalances = calculateCash(transactions, holdings);
+    const cashBalances = calculateCash(
+      transactions,
+      selectedAccountId === COMBINED_ACCOUNT_ID ? allHoldings : holdings
+    );
     const cashUSD = Object.entries(cashBalances).reduce((sum, [code, value]) => sum + toUSD(value, code, fxRates), 0);
     totalValueUSD += cashUSD;
     if (cashUSD > 0) categoryMap.Cash = cashUSD;
@@ -394,7 +448,11 @@ export function usePortfolio() {
       totalCost: totalCostUSD * rate,
       totalGainLoss: totalGainUSD * rate,
       totalGainLossPercent: totalGainPercent,
-      realizedGainLoss: getRealizedGains(transactions, holdings, historicalFx) * rate,
+      realizedGainLoss: getRealizedGains(
+        transactions,
+        selectedAccountId === COMBINED_ACCOUNT_ID ? allHoldings : holdings,
+        historicalFx
+      ) * rate,
       annualDividend: annualDividendUSD * rate,
       dividendsReceived: transactions
         .filter(transaction => transaction.type === 'DIVIDEND')
@@ -407,7 +465,7 @@ export function usePortfolio() {
       totalTargetPercent,
       categoryBreakdown
     };
-  }, [holdings, rate, transactions, fxRates, historicalFx]);
+  }, [allHoldings, holdings, rate, transactions, fxRates, historicalFx, selectedAccountId]);
 
   const netContributionsUSD = externalContributions(transactions, holdings, historicalFx);
   const performance = useMemo(() => performanceHistory(snapshots, transactions, holdings, historicalFx), [snapshots, transactions, holdings, historicalFx]);
@@ -432,9 +490,13 @@ export function usePortfolio() {
   }, [mode, portfolioSummary.totalValue, rate, netContributionsUSD, currentSnapshotTracked, transactions]);
 
   const resetPerformance = () => setSnapshots(previous => previous.map(({ date, valueUSD }) => ({ date, valueUSD })));
+  const [undoNotification, setUndoNotification] = useState(null);
   const stashDeleted = (label, deleted) => {
-    setTrash(previous => [{ id: 'deleted-' + crypto.randomUUID(), label, holdings: [], transactions: [], watchlist: [], ...deleted }, ...previous].slice(0, 20));
-    setUiMessage(label + ' moved to Recently deleted. You can undo below.');
+    const id = 'deleted-' + crypto.randomUUID();
+    const message = label + ' moved to Recently deleted.';
+    setTrash(previous => [{ id, label, holdings: [], transactions: [], watchlist: [], ...deleted }, ...previous].slice(0, 20));
+    setUndoNotification({ id, message });
+    setUiMessage(message);
   };
 
   const restoreDeleted = id => {
@@ -679,7 +741,9 @@ export function usePortfolio() {
     setWatchlist([]);
     setSnapshots([]);
     setCurrency('CAD');
+    setTheme('light');
     setAccent('indigo');
+    setMode('personal');
   };
 
   // Watchlist actions
@@ -728,9 +792,10 @@ export function usePortfolio() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `pro_portfolio_backup_${fileDate()}.json`;
+    a.download = `apexfinance_backup_${fileDate()}.json`;
     a.click();
     URL.revokeObjectURL(url);
+    setUiMessage('Backup downloaded and validated.');
   };
 
   const exportEncryptedJSON = async () => {
@@ -788,7 +853,7 @@ export function usePortfolio() {
     const a = document.createElement('a');
     a.href = encodedUri;
     const suffix = scope === 'all' || selectedAccountId === COMBINED_ACCOUNT_ID ? 'all_lists' : (selectedAccount?.name || 'holdings_list').replace(/[^a-z0-9]+/gi, '_').toLowerCase();
-    a.download = `pro_portfolio_holdings_${suffix}_${fileDate()}.csv`;
+    a.download = `apexfinance_holdings_${suffix}_${fileDate()}.csv`;
     a.click();
   };
   const exportAllCSV = () => exportCSV('all');
@@ -1022,6 +1087,7 @@ export function usePortfolio() {
     setTrash([]);
     setStorageBlocked(false);
     if (persistenceError) setStorageError(persistenceError);
+    else { setLastSavedAt(new Date().toISOString()); setUiMessage('Backup restored and saved to this browser.'); }
     setPendingImport(null);
   };
 
@@ -1059,12 +1125,14 @@ export function usePortfolio() {
   };
 
   return {
+    undoNotificationId: undoNotification?.message === uiMessage && trash.some(entry => entry.id === undoNotification.id) ? undoNotification.id : null,
     mode, startPortfolio, trash, restoreDeleted, clearRecentlyDeleted, performance, netContributionsUSD,
     holdings,
     watchlist,
     transactions,
     snapshots,
     backtestHistory,
+    historyLoading, refreshHistoricalData,
     currency,
     setCurrency,
     theme,
@@ -1098,7 +1166,7 @@ export function usePortfolio() {
     pendingCsvImport, confirmCsvImport, cancelCsvImport,
     accounts, selectedAccountId, setSelectedAccountId, addAccount, renameAccount, deleteAccount, customCategories,
     refreshMarketData,
-    marketStatus, uiMessage, dismissMessage, storageError, storageBlocked, resumeSaving: () => { if (window.confirm('Replace unreadable browser data with the recovered portfolio shown here? Export a backup first.')) setStorageBlocked(false); },
+    marketStatus, uiMessage, dismissMessage, storageError, storageBlocked, lastSavedAt, resumeSaving: () => { if (window.confirm('Replace unreadable browser data with the recovered portfolio shown here? Export a backup first.')) setStorageBlocked(false); },
     pendingImport, confirmImport, cancelImport: () => setPendingImport(null), fxRates, fxData, fxError, historicalFx,
     historicalEstimated: transactions.some(t => !t.fxRate && (t.currency || holdings.find(h => h.id === t.holdingId)?.currency || detectSymbolCurrency(t.symbol)) !== 'USD' && !historicalFx[t.date])
   };

@@ -1,14 +1,31 @@
-import React, { useState } from 'react';
+import { Money } from './Money';
+import { chartColor } from '../services/chartColors';
+import { formatMoney } from '../services/formatMoney';
+import React, { useEffect, useRef, useState } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, AreaChart, Area, XAxis, YAxis, CartesianGrid, Legend } from 'recharts';
 import { BENCHMARK_SYMBOL, buildPerformanceComparison } from '../services/performanceComparison';
 
-const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#14b8a6', '#8b5cf6', '#06b6d4', '#f97316', '#3b82f6'];
 
 export function PortfolioCharts({ performance, backtestHistory = [], summary, snapshots, symbol, currencyCode = 'USD', rate, theme, showPerformanceChart = true }) {
   const isLight = theme === 'light';
   const [range, setRange] = useState('5Y');
-  const [activeAsset, setActiveAsset] = useState(null);
-  const [activeSector, setActiveSector] = useState(null);
+  const [hoverAsset, setHoverAsset] = useState(null);
+  const [showAllAssets, setShowAllAssets] = useState(false);
+  const [showAllSectors, setShowAllSectors] = useState(false);
+  const [hoverSector, setHoverSector] = useState(null);
+  const [selectedAsset, setSelectedAsset] = useState(null);
+  const [selectedSector, setSelectedSector] = useState(null);
+  const assetCard = useRef(null), sectorCard = useRef(null);
+  useEffect(() => {
+    const outside = event => {
+      if (!assetCard.current?.contains(event.target)) setSelectedAsset(null);
+      if (!sectorCard.current?.contains(event.target)) setSelectedSector(null);
+    };
+    const escape = event => { if (event.key === 'Escape') { setSelectedAsset(null); setSelectedSector(null); setHoverAsset(null); setHoverSector(null); } };
+    document.addEventListener('pointerdown', outside);
+    document.addEventListener('keydown', escape);
+    return () => { document.removeEventListener('pointerdown', outside); document.removeEventListener('keydown', escape); };
+  }, []);
   const cutoff = new Date();
   if (range === 'YTD') cutoff.setMonth(0, 1);
   else if (range === '1M') cutoff.setMonth(cutoff.getMonth() - 1);
@@ -34,20 +51,27 @@ export function PortfolioCharts({ performance, backtestHistory = [], summary, sn
   const benchmarkReturn = latestComparison?.sp500;
   const outperformance = Number.isFinite(portfolioReturn) && Number.isFinite(benchmarkReturn) ? portfolioReturn - benchmarkReturn : null;
 
-  const assetPieData = summary.items.filter(item => item.totalValue > 0).map(item => ({
-    name: item.symbol,
-    value: item.totalValue
-  }));
+  const assetPieData = [...summary.items.filter(item => item.totalValue > 0).reduce((assets, item) => {
+    const symbolKey = String(item.symbol || '').trim().toUpperCase();
+    const existing = assets.get(symbolKey);
+    assets.set(symbolKey, { name: symbolKey || item.symbol, value: (existing?.value || 0) + item.totalValue });
+    return assets;
+  }, new Map()).values()];
 
   if (summary.cashValue > 0) assetPieData.push({ name: 'Cash', value: summary.cashValue });
+  assetPieData.sort((a, b) => b.value - a.value);
   const assetTotal = assetPieData.reduce((total, item) => total + item.value, 0);
+  const selectedAssetIndex = assetPieData.findIndex(item => item.name === selectedAsset);
+  const activeAsset = selectedAssetIndex >= 0 ? selectedAssetIndex : hoverAsset;
   const activeAssetItem = activeAsset === null ? null : assetPieData[activeAsset];
 
   const sectorPieData = summary.categoryBreakdown.map(cat => ({
     name: cat.name,
     value: cat.value
-  }));
+  })).sort((a, b) => b.value - a.value);
   const sectorTotal = sectorPieData.reduce((total, item) => total + item.value, 0);
+  const selectedSectorIndex = sectorPieData.findIndex(item => item.name === selectedSector);
+  const activeSector = selectedSectorIndex >= 0 ? selectedSectorIndex : hoverSector;
   const activeSectorItem = activeSector === null ? null : sectorPieData[activeSector];
 
   const cardBg = isLight ? 'bg-white border-slate-200 shadow-md' : 'bg-slate-900 border-slate-800/80 shadow-xl';
@@ -62,7 +86,7 @@ export function PortfolioCharts({ performance, backtestHistory = [], summary, sn
       {showPerformanceChart && (
       <>
       {/* Performance Comparison Chart */}
-      <div className={`${cardBg} chart-card hover-lift border p-5 rounded-2xl lg:col-span-2 transition-colors`}>
+      <div className={`${cardBg} chart-card border p-5 rounded-2xl lg:col-span-2 transition-colors`}>
         <div className="flex flex-wrap items-center justify-between gap-3 mb-4"><h3 className={`text-xs font-semibold ${headingColor} tracking-wider uppercase`}>Estimated Performance vs VOO</h3><div className="chart-range flex gap-1" role="group" aria-label="Chart time range">{['YTD', '1M', '3M', '6M', '1Y', '3Y', '5Y'].map(option => <button key={option} className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold ${range === option ? 'bg-indigo-600 text-white' : isLight ? 'bg-slate-100 text-slate-600' : 'bg-slate-800 text-slate-400'}`} onClick={() => setRange(option)}>{option}</button>)}</div></div>
         <p className="text-sm text-slate-400 mb-4">Backtested return for your current holdings versus VOO, the Vanguard S&amp;P 500 ETF. Maximum history is five years.</p>
         <div className="h-64 w-full">
@@ -102,10 +126,12 @@ export function PortfolioCharts({ performance, backtestHistory = [], summary, sn
       )}
 
       {/* Asset Allocation Pie Chart */}
-      <div className={`${cardBg} chart-card hover-lift border p-5 rounded-2xl lg:col-span-1 transition-colors`}>
+      <div ref={assetCard} className={`${cardBg} chart-card border p-5 rounded-2xl lg:col-span-1 transition-colors`}>
         <h3 className={`text-xs font-semibold ${headingColor} mb-4 tracking-wider uppercase`}>Asset Allocation</h3>
+        {assetPieData.length > 0 && <p className="chart-summary">{assetPieData[0].name === 'Cash' ? 'Largest allocation' : 'Largest holding'}: <strong>{assetPieData[0].name}</strong> · {(assetPieData[0].value / assetTotal * 100).toFixed(1)}% of portfolio</p>}
+        {selectedAsset && <button className="secondary-button no-print" onClick={() => { setSelectedAsset(null); setHoverAsset(null); }}>Clear asset selection</button>}
         {assetPieData.length === 0 ? (
-          <div className="h-64 flex items-center justify-center text-slate-500 text-sm">No holdings added</div>
+          <div className="h-64 flex items-center justify-center text-slate-500 text-sm">Add a holding to see how your portfolio is allocated.</div>
         ) : (
           <div className="space-y-2">
             <div className="chart-donut-wrap h-80 w-full flex items-center">
@@ -119,42 +145,45 @@ export function PortfolioCharts({ performance, backtestHistory = [], summary, sn
                     data={assetPieData}
                     cx="50%"
                     cy="50%"
-                    innerRadius={84}
-                    outerRadius={activeAsset !== null ? 136 : 128}
+                    innerRadius="56%"
+                    outerRadius="85%"
                     paddingAngle={3}
                     dataKey="value"
-                    onMouseLeave={() => setActiveAsset(null)}
+                    onMouseLeave={() => setHoverAsset(null)}
                   >
                     {assetPieData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} opacity={activeAsset === null || activeAsset === index ? 1 : 0.38} onMouseEnter={() => setActiveAsset(index)} />
+                      <Cell key={`cell-${index}`} fill={chartColor(entry.name)} opacity={activeAsset === null || activeAsset === index ? 1 : 0.38} onMouseEnter={() => setHoverAsset(index)} onClick={() => setSelectedAsset(value => value === entry.name ? null : entry.name)} />
                     ))}
                   </Pie>
                 </PieChart>
               </ResponsiveContainer>
-              <div className="chart-donut-center" aria-hidden="true"><span>Total value</span><strong>{symbol}{assetTotal.toLocaleString(undefined, { maximumFractionDigits: 0 })} {currencyCode}</strong></div>
-              {activeAssetItem && <div className="chart-hover-card"><strong>{activeAssetItem.name}</strong><span>{symbol}{Number(activeAssetItem.value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {currencyCode} · {((activeAssetItem.value / assetTotal) * 100).toFixed(1)}%</span></div>}
+              <div className="chart-donut-center" aria-hidden="true"><span>Total value</span><strong><Money amount={formatMoney(assetTotal, currencyCode, { compact: true })} /></strong></div>
+              {activeAssetItem && <div className="chart-hover-card"><strong>{activeAssetItem.name}</strong><span><Money amount={formatMoney(activeAssetItem.value, currencyCode)} /> · {((activeAssetItem.value / assetTotal) * 100).toFixed(1)}%</span></div>}
             </div>
             <div className="chart-legend mt-2 space-y-2" aria-label="Asset allocation percentages">
               {assetPieData.map((item, index) => {
                 const percentage = assetTotal > 0 ? (item.value / assetTotal) * 100 : 0;
                 return (
-                  <div key={`allocation-${item.name}`} className={`chart-legend-row flex items-center justify-between gap-3 text-sm ${activeAsset === index ? 'is-active' : ''}`} onMouseEnter={() => setActiveAsset(index)} onMouseLeave={() => setActiveAsset(null)}>
+                  <button type="button" key={`allocation-${item.name}`} className={`chart-legend-row w-full text-left flex items-center justify-between gap-3 text-sm ${index >= 5 && !showAllAssets ? 'legend-extra' : ''} ${activeAsset === index ? 'is-active' : ''}`} aria-pressed={selectedAsset === item.name} onFocus={() => setHoverAsset(index)} onBlur={() => setHoverAsset(null)} onClick={() => setSelectedAsset(value => value === item.name ? null : item.name)} onKeyDown={event => { if (event.key === 'Escape') { setSelectedAsset(null); setHoverAsset(null); } }} onMouseEnter={() => setHoverAsset(index)} onMouseLeave={() => setHoverAsset(null)}>
                     <span className="flex min-w-0 items-center gap-2 text-slate-300">
-                      <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: COLORS[index % COLORS.length] }} aria-hidden="true" />
+                      <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: chartColor(item.name) }} aria-hidden="true" />
                       <span className="truncate">{item.name}</span>
                     </span>
-                    <span className="shrink-0 font-semibold text-slate-100">{percentage.toFixed(1)}%</span>
-                  </div>
+                    <span className="chart-legend-value font-semibold text-slate-100"><Money amount={formatMoney(item.value, currencyCode)} /><small>{percentage.toFixed(1)}%</small></span>
+                  </button>
                 );
               })}
+              {assetPieData.length > 5 && <button className="secondary-button no-print w-full" aria-expanded={showAllAssets} onClick={() => { setShowAllAssets(value => !value); setHoverAsset(null); }}>{showAllAssets ? 'Show fewer assets' : `Show all ${assetPieData.length} assets`}</button>}
             </div>
           </div>
         )}
       </div>
 
       {/* Sector / Category Breakdown Pie Chart */}
-      <div className={`${cardBg} chart-card hover-lift border p-5 rounded-2xl lg:col-span-1 transition-colors`}>
+      <div ref={sectorCard} className={`${cardBg} chart-card border p-5 rounded-2xl lg:col-span-1 transition-colors`}>
         <h3 className={`text-xs font-semibold ${headingColor} mb-4 tracking-wider uppercase`}>Sector Breakdown</h3>
+        {sectorPieData.length > 0 && sectorTotal > 0 && <p className="chart-summary">Largest sector: <strong>{sectorPieData[0].name}</strong> · {(sectorPieData[0].value / sectorTotal * 100).toFixed(1)}% of holdings</p>}
+        {selectedSector && <button className="secondary-button no-print" onClick={() => { setSelectedSector(null); setHoverSector(null); }}>Clear sector selection</button>}
         {sectorPieData.length === 0 ? (
           <div className="h-64 flex items-center justify-center text-slate-500 text-sm">No sector data</div>
         ) : (
@@ -170,29 +199,30 @@ export function PortfolioCharts({ performance, backtestHistory = [], summary, sn
                   data={sectorPieData}
                   cx="50%"
                   cy="50%"
-                  innerRadius={84}
-                  outerRadius={activeSector !== null ? 136 : 128}
+                  innerRadius="56%"
+                  outerRadius="85%"
                   paddingAngle={3}
                   dataKey="value"
-                  onMouseLeave={() => setActiveSector(null)}
+                  onMouseLeave={() => setHoverSector(null)}
                 >
                   {sectorPieData.map((entry, index) => (
-                    <Cell key={`sector-${index}`} fill={COLORS[(index + 3) % COLORS.length]} opacity={activeSector === null || activeSector === index ? 1 : 0.38} onMouseEnter={() => setActiveSector(index)} />
+                    <Cell key={`sector-${index}`} fill={chartColor(entry.name, 'sector')} opacity={activeSector === null || activeSector === index ? 1 : 0.38} onMouseEnter={() => setHoverSector(index)} onClick={() => setSelectedSector(value => value === entry.name ? null : entry.name)} />
                   ))}
                 </Pie>
               </PieChart>
             </ResponsiveContainer>
-            <div className="chart-donut-center" aria-hidden="true"><span>Total value</span><strong>{symbol}{sectorTotal.toLocaleString(undefined, { maximumFractionDigits: 0 })} {currencyCode}</strong></div>
-            {activeSectorItem && <div className="chart-hover-card"><strong>{activeSectorItem.name}</strong><span>{symbol}{Number(activeSectorItem.value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {currencyCode} · {((activeSectorItem.value / sectorTotal) * 100).toFixed(1)}%</span></div>}
+            <div className="chart-donut-center" aria-hidden="true"><span>Total value</span><strong><Money amount={formatMoney(sectorTotal, currencyCode, { compact: true })} /></strong></div>
+            {activeSectorItem && <div className="chart-hover-card"><strong>{activeSectorItem.name}</strong><span><Money amount={formatMoney(activeSectorItem.value, currencyCode)} /> · {((activeSectorItem.value / sectorTotal) * 100).toFixed(1)}%</span></div>}
           </div>
           <div className="chart-legend mt-2 space-y-2" aria-label="Sector allocation percentages">
             {sectorPieData.map((item, index) => {
               const percentage = sectorTotal > 0 ? (item.value / sectorTotal) * 100 : 0;
-              return <div key={`sector-allocation-${item.name}`} className={`chart-legend-row flex items-center justify-between gap-3 text-sm ${activeSector === index ? 'is-active' : ''}`} onMouseEnter={() => setActiveSector(index)} onMouseLeave={() => setActiveSector(null)}>
-                <span className="flex min-w-0 items-center gap-2 text-slate-300"><span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: COLORS[(index + 3) % COLORS.length] }} aria-hidden="true" /><span className="truncate">{item.name}</span></span>
-                <span className="shrink-0 font-semibold text-slate-100">{symbol}{Number(item.value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {currencyCode} · {percentage.toFixed(1)}%</span>
-              </div>;
+              return <button type="button" key={`sector-allocation-${item.name}`} className={`chart-legend-row w-full text-left flex items-center justify-between gap-3 text-sm ${index >= 5 && !showAllSectors ? 'legend-extra' : ''} ${activeSector === index ? 'is-active' : ''}`} aria-pressed={selectedSector === item.name} onFocus={() => setHoverSector(index)} onBlur={() => setHoverSector(null)} onClick={() => setSelectedSector(value => value === item.name ? null : item.name)} onKeyDown={event => { if (event.key === 'Escape') { setSelectedSector(null); setHoverSector(null); } }} onMouseEnter={() => setHoverSector(index)} onMouseLeave={() => setHoverSector(null)}>
+                <span className="flex min-w-0 items-center gap-2 text-slate-300"><span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: chartColor(item.name, 'sector') }} aria-hidden="true" /><span className="truncate">{item.name}</span></span>
+                <span className="chart-legend-value font-semibold text-slate-100"><Money amount={formatMoney(item.value, currencyCode)} /> · {percentage.toFixed(1)}%</span>
+              </button>;
             })}
+            {sectorPieData.length > 5 && <button className="secondary-button no-print w-full" aria-expanded={showAllSectors} onClick={() => { setShowAllSectors(value => !value); setHoverSector(null); }}>{showAllSectors ? 'Show fewer sectors' : `Show all ${sectorPieData.length} sectors`}</button>}
           </div>
           </>
         )}

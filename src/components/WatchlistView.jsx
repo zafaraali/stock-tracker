@@ -1,3 +1,6 @@
+import { Money } from './Money';
+import { FilterPanel } from './FilterPanel';
+import { formatMoney } from '../services/formatMoney';
 import { Modal, FormError } from './Modal';
 import { PriceStatus } from './PriceStatus';
 import React, { useState } from 'react';
@@ -9,7 +12,7 @@ import { toUSD } from '../hooks/usePortfolio';
 import { EmptyState } from './EmptyState';
 import { TickerLinks } from './TickerLinks';
 
-export function WatchlistView({ watchlist, symbol, currencyCode = 'USD', customCategories = [], rate, fxRates, onAddWatchlistItem, onUpdateWatchlistPrice, onRemoveWatchlistItem, onAddHolding, globalFilter = '' }) {
+export function WatchlistView({ watchlist, symbol, currencyCode = 'USD', customCategories = [], rate, fxRates, onAddWatchlistItem, onUpdateWatchlistPrice, onRemoveWatchlistItem, onAddHolding }) {
   const [formError, setFormError] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -31,7 +34,7 @@ export function WatchlistView({ watchlist, symbol, currencyCode = 'USD', customC
     currency: 'USD'
   });
   const visibleItems = watchlist.filter(item => {
-    const query = (globalFilter || filter).toLowerCase();
+    const query = filter.toLowerCase();
     return !query || item.symbol.toLowerCase().includes(query) || (item.name || '').toLowerCase().includes(query) || (item.notes || '').toLowerCase().includes(query);
   });
 
@@ -127,13 +130,15 @@ export function WatchlistView({ watchlist, symbol, currencyCode = 'USD', customC
           <FormError message={formError} />
           <p className="text-xs text-slate-400 mt-1">Monitor stocks, cryptos, and ETFs before adding them to your portfolio.</p>
         </div>
-        <div className="watchlist-banner-actions flex items-center gap-2"><input type="search" value={filter} onChange={event => setFilter(event.target.value)} placeholder="Filter watchlist" aria-label="Filter watchlist" className="bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white" /><button
+        <div className="watchlist-banner-actions flex items-center gap-2"><button
           onClick={() => setIsModalOpen(true)}
           className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold shadow-lg shadow-indigo-500/20 transition"
         >
-          <Plus className="w-4 h-4" /> Add Watchlist Item
+          <Plus className="w-4 h-4" /> Add watchlist item
         </button></div>
       </div>
+
+      <FilterPanel><div className="watchlist-filter-controls"><input type="search" value={filter} onChange={event => setFilter(event.target.value)} placeholder="Filter watchlist" aria-label="Filter watchlist" className="bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white" />{filter && <button type="button" className="secondary-button" onClick={() => setFilter('')}>Clear filter</button>}</div></FilterPanel>
 
       {/* Watchlist Table */}
       <div className="bg-slate-900 border border-slate-800/80 rounded-2xl overflow-hidden shadow-xl">
@@ -150,7 +155,7 @@ export function WatchlistView({ watchlist, symbol, currencyCode = 'USD', customC
             </thead>
             <tbody className="divide-y divide-slate-800/60">
               {visibleItems.length === 0 ? (
-                <tr><td colSpan={5}><EmptyState compact title={filter || globalFilter ? 'No matching ideas' : 'Your watchlist is empty'} description={filter || globalFilter ? 'Try a different search term.' : 'Save an asset here before adding it to your portfolio.'} actionLabel={!filter && !globalFilter ? 'Add watchlist item' : undefined} onAction={!filter && !globalFilter ? () => setIsModalOpen(true) : undefined} /></td></tr>
+                <tr><td colSpan={5}><EmptyState compact title={filter ? 'No matching ideas' : 'Your watchlist is empty'} description={filter ? 'Try a different search term.' : 'Save an asset here before adding it to your portfolio.'} actionLabel={!filter ? 'Add watchlist item' : undefined} onAction={!filter ? () => setIsModalOpen(true) : undefined} /></td></tr>
               ) : (
                 visibleItems.map(item => {
                   const isEditing = editingId === item.id;
@@ -199,13 +204,13 @@ export function WatchlistView({ watchlist, symbol, currencyCode = 'USD', customC
                           </div>
                         ) : (
                           <div className="flex items-center gap-1.5 font-bold text-white">
-                            <span>{nativeSymbol}{Number(item.currentPrice).toFixed(2)}</span>
+                            <span><Money amount={formatMoney(item.currentPrice, itemCurrency)} /></span>
                             {displayCurrencyDiffers && (
                               <span className="text-[10px] text-slate-400 font-normal">
-                                ({symbol}{curPriceNum.toFixed(2)} {currencyCode})
+                                (<Money amount={formatMoney(curPriceNum, currencyCode)} />)
                               </span>
                             )}
-                            <button onClick={() => { setEditingId(item.id); setEditPriceVal(item.currentPrice); }} className="text-indigo-400 hover:text-indigo-300" title="Edit price">
+                            <button onClick={() => { setEditingId(item.id); setEditPriceVal(item.currentPrice); }} className="text-indigo-400 hover:text-indigo-300" aria-label={`Edit current price for ${item.symbol}`} title="Edit price">
                               <Edit2 className="w-3 h-3" />
                             </button>
                           </div>
@@ -213,10 +218,10 @@ export function WatchlistView({ watchlist, symbol, currencyCode = 'USD', customC
                       </td>
                       <td data-label="Target Buy Price" className="py-3.5 px-4">
                         <div className="text-xs text-slate-300 font-medium">
-                          {item.targetBuyPrice > 0 ? `${nativeSymbol}${Number(item.targetBuyPrice).toFixed(2)} ${itemCurrency}` : 'Not set'}
+                          {item.targetBuyPrice > 0 ? formatMoney(item.targetBuyPrice, itemCurrency) : 'Not set'}
                           {isCad && (
                             <span className="text-[10px] text-slate-400 font-normal ml-1">
-                              ({symbol}{targetNum.toFixed(2)} {currencyCode})
+                              (<Money amount={formatMoney(targetNum, currencyCode)} />)
                             </span>
                           )}
                         </div>
@@ -234,14 +239,14 @@ export function WatchlistView({ watchlist, symbol, currencyCode = 'USD', customC
                           <button
                             onClick={() => handleOpenConvert(item)}
                             className="px-3 py-1 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold flex items-center gap-1 transition shadow"
-                            title="Convert to Portfolio Position"
+                            title="Add to holdings"
                           >
-                            Buy <ArrowRight className="w-3 h-3" />
+                            Add to holdings <ArrowRight className="w-3 h-3" />
                           </button>
                           <button
                             onClick={() => onRemoveWatchlistItem(item.id)}
-                            className="p-1.5 hover:bg-rose-500/10 text-slate-400 hover:text-rose-400 rounded-lg transition"
-                            title="Delete"
+                            className="danger-button p-1.5 hover:bg-rose-500/10 text-slate-400 hover:text-rose-400 rounded-lg transition"
+                            aria-label={`Delete ${item.symbol} from watchlist`} title="Delete"
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
@@ -256,9 +261,9 @@ export function WatchlistView({ watchlist, symbol, currencyCode = 'USD', customC
         </div>
       </div>
 
-      {/* Add Watchlist Item Modal */}
+      {/* Add watchlist item Modal */}
       {isModalOpen && (
-        <Modal title="Add watchlist asset" onClose={() => { setIsModalOpen(false); setFormError(''); }}>
+        <Modal title="Add watchlist item" onClose={() => { setIsModalOpen(false); setFormError(''); }}>
           <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-md p-6 shadow-2xl">
             <form onChange={() => setFormError('')} onSubmit={handleSubmit} className="space-y-4">
               <FormError message={formError} />
@@ -316,6 +321,7 @@ export function WatchlistView({ watchlist, symbol, currencyCode = 'USD', customC
                 </div>
               </div>
 
+              <details className="optional-fields"><summary>Optional prices, income & notes</summary><div className="space-y-4 pt-3">
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-slate-400 uppercase mb-1">Current Price ({formData.currency || 'USD'}) <span className="normal-case font-normal">(optional)</span></label>
@@ -353,9 +359,10 @@ export function WatchlistView({ watchlist, symbol, currencyCode = 'USD', customC
                 />
               </div>
 
+              </div></details>
               <div className="flex items-center justify-end gap-3 pt-3">
                 <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-slate-400 text-xs font-semibold">Cancel</button>
-                <button type="submit" className="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold shadow-lg">Save Watchlist Item</button>
+                <button type="submit" className="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold shadow-lg">Save watchlist item</button>
               </div>
             </form>
           </div>
@@ -364,9 +371,9 @@ export function WatchlistView({ watchlist, symbol, currencyCode = 'USD', customC
 
       {/* Convert to Holding Modal */}
       {convertToHoldingItem && (
-        <Modal title="Add portfolio holding" onClose={() => { setConvertToHoldingItem(null); setFormError(''); }}>
+        <Modal title="Add holding" onClose={() => { setConvertToHoldingItem(null); setFormError(''); }}>
           <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-md p-6 shadow-2xl">
-            <p className="text-xs text-slate-400 mb-4">Add <strong className="text-white">{convertToHoldingItem.symbol}</strong> to your active portfolio positions.</p>
+            <p className="text-xs text-slate-400 mb-4">Add <strong className="text-white">{convertToHoldingItem.symbol}</strong> to your active holdings list.</p>
             <form onChange={() => setFormError('')} onSubmit={handleConfirmConvert} className="space-y-4">
               <FormError message={formError} />
               <div>
@@ -397,7 +404,7 @@ export function WatchlistView({ watchlist, symbol, currencyCode = 'USD', customC
               </div>
               <div className="flex items-center justify-end gap-3 pt-2">
                 <button type="button" onClick={() => setConvertToHoldingItem(null)} className="px-4 py-2 text-slate-400 text-xs font-semibold">Cancel</button>
-                <button type="submit" className="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold shadow-lg">Confirm Purchase</button>
+                <button type="submit" className="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold shadow-lg">Add holding</button>
               </div>
             </form>
           </div>

@@ -1,9 +1,11 @@
+import { Money } from './Money';
+import { formatMoney } from '../services/formatMoney';
 import React, { useEffect, useMemo, useState } from 'react';
-import { Sliders, ArrowUpRight, ArrowDownRight, CheckCircle2 } from 'lucide-react';
+import { Sliders, ArrowUpRight, ArrowDownRight, CheckCircle2, Target } from 'lucide-react';
 import { isTseSymbol } from '../services/marketApi';
 import { EmptyState } from './EmptyState';
 
-export function RebalanceView({ summary, symbol, onUpdateTarget }) {
+export function RebalanceView({ summary, currencyCode = 'USD', onUpdateTarget, onAddHoldings }) {
   const [targetDrafts, setTargetDrafts] = useState({});
   const targetSignature = summary.items.map(item => `${item.id}:${item.targetPercent ?? 0}`).join('|');
   const targetDraftValues = useMemo(
@@ -25,6 +27,11 @@ export function RebalanceView({ summary, symbol, onUpdateTarget }) {
     balances[item.currency] = (balances[item.currency] || 0) + native;
     return balances;
   }, {});
+  const actionItems = summary.items.filter(item => item.rebalanceAction !== 'HOLD');
+  const largestDrift = summary.items.reduce((largest, item) => {
+    const drift = Math.abs(item.actualPercent - item.targetPercent);
+    return drift > largest.drift ? { symbol: item.symbol, drift } : largest;
+  }, { symbol: '—', drift: 0 });
 
   return (
     <div className="space-y-6">
@@ -45,9 +52,28 @@ export function RebalanceView({ summary, symbol, onUpdateTarget }) {
         </div>
       </div>
 
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
+          <span className="text-[10px] text-slate-400 uppercase tracking-wider">Holdings needing action</span>
+          <p className="text-2xl font-bold text-white mt-1">{actionItems.length}</p>
+          <p className="text-xs text-slate-500 mt-1">Outside the ±0.5% rebalance tolerance</p>
+        </div>
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
+          <span className="text-[10px] text-slate-400 uppercase tracking-wider">Largest allocation drift</span>
+          <p className="text-2xl font-bold text-indigo-300 mt-1">{largestDrift.drift.toFixed(1)}%</p>
+          <p className="text-xs text-slate-500 mt-1">{largestDrift.symbol === '—' ? 'No holdings yet' : largestDrift.symbol}</p>
+        </div>
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
+          <span className="text-[10px] text-slate-400 uppercase tracking-wider">How to read this</span>
+          <p className="text-xs text-slate-300 mt-2 flex items-start gap-2"><Target className="w-4 h-4 text-indigo-400 shrink-0 mt-0.5" />
+            Buy underweight assets and sell overweight assets to move toward target percentages.
+          </p>
+        </div>
+      </div>
+
       <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 text-sm space-y-2">
         <p>Targets include holdings and available cash. Sales can fund buys in the same currency; these estimates exclude fees.</p>
-        {Object.entries(required).map(([code, amount]) => <p key={code}>{code}: cash available {Number(summary.cashBalances[code] || 0).toFixed(2)} · net cash required {Math.max(0, amount).toFixed(2)} · <strong className={amount > (summary.cashBalances[code] || 0) + 0.01 ? 'text-amber-400' : 'text-emerald-400'}>{amount > (summary.cashBalances[code] || 0) + 0.01 ? `shortfall ${(amount - (summary.cashBalances[code] || 0)).toFixed(2)}; deposit or convert funds first` : 'covered by cash and proposed sales'}</strong></p>)}
+        {Object.entries(required).map(([code, amount]) => <p key={code}>{code}: cash available <Money amount={formatMoney(summary.cashBalances[code] || 0, code)} /> · net cash required <Money amount={formatMoney(Math.max(0, amount), code)} /> · <strong className={amount > (summary.cashBalances[code] || 0) + 0.01 ? 'text-amber-400' : 'text-emerald-400'}>{amount > (summary.cashBalances[code] || 0) + 0.01 ? `shortfall $<Money amount={formatMoney(amount - (summary.cashBalances[code] || 0), code)} />; deposit or convert funds first` : 'covered by cash and proposed sales'}</strong></p>)}
         {Math.abs(totalTarget - 100) >= 0.1 && <p className="text-amber-400">Complete your targets to 100% before using these provisional trade amounts.</p>}
       </div>
       {/* Rebalance Table */}
@@ -60,12 +86,13 @@ export function RebalanceView({ summary, symbol, onUpdateTarget }) {
                 <th data-label="Current Value" className="py-3.5 px-4 font-semibold">Current Value</th>
                 <th data-label="Actual %" className="py-3.5 px-4 font-semibold">Actual %</th>
                 <th data-label="Target % (Editable)" className="py-3.5 px-4 font-semibold">Target % (Editable)</th>
+                <th data-label="Drift" className="py-3.5 px-4 font-semibold">Drift</th>
                 <th data-label="Rebalance Action" className="py-3.5 px-4 font-semibold">Rebalance Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/60">
               {summary.items.length === 0 ? (
-                <tr><td colSpan={5}><EmptyState compact title="Nothing to rebalance" description="Add holdings and target allocations to see recommended trades." /></td></tr>
+                <tr><td colSpan={6}><EmptyState compact title="Nothing to rebalance" description="Add holdings first, then set a target percentage for each holding here." actionLabel="Add holdings" onAction={onAddHoldings} /></td></tr>
               ) : (
                 summary.items.map(item => {
                   const isBuy = item.rebalanceAction === 'BUY';
@@ -84,7 +111,7 @@ export function RebalanceView({ summary, symbol, onUpdateTarget }) {
                         </div>
                         <div className="text-xs text-slate-400">{item.name}</div>
                       </td>
-                      <td data-label="Current Value" className="py-3.5 px-4 font-bold text-white">{symbol}{item.totalValue.toFixed(2)}</td>
+                      <td data-label="Current Value" className="py-3.5 px-4 font-bold text-white"><Money amount={formatMoney(item.totalValue, currencyCode)} /></td>
                       <td data-label="Actual %" className="py-3.5 px-4 font-semibold text-indigo-300">{item.actualPercent.toFixed(1)}%</td>
                       <td data-label="Target %" className="py-3.5 px-4">
                         <div className="flex items-center gap-2">
@@ -105,6 +132,12 @@ export function RebalanceView({ summary, symbol, onUpdateTarget }) {
                           <span className="text-xs text-slate-400">%</span>
                         </div>
                       </td>
+                      <td data-label="Drift" className="py-3.5 px-4">
+                        <div className={item.actualPercent - item.targetPercent > 0.5 ? 'text-rose-400' : item.actualPercent - item.targetPercent < -0.5 ? 'text-emerald-400' : 'text-slate-300'}>
+                          {item.actualPercent - item.targetPercent > 0 ? '+' : ''}{(item.actualPercent - item.targetPercent).toFixed(1)} pp
+                        </div>
+                        <div className="text-xs text-slate-500 mt-1">{item.rebalanceAction === 'HOLD' ? 'On target' : `$<Money amount={formatMoney(item.rebalanceDiffValue, currencyCode)} /> ${item.rebalanceAction === 'BUY' ? 'under' : 'over'}`}</div>
+                      </td>
                       <td data-label="Rebalance Action" className="py-3.5 px-4">
                         {item.rebalanceAction === 'HOLD' ? (
                           <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-slate-800 text-slate-300 rounded-lg text-xs font-semibold">
@@ -112,11 +145,11 @@ export function RebalanceView({ summary, symbol, onUpdateTarget }) {
                           </span>
                         ) : isBuy ? (
                           <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 rounded-lg text-xs font-semibold">
-                            <ArrowUpRight className="w-3.5 h-3.5" /> BUY {item.rebalanceShares} shares ({symbol}{item.rebalanceDiffValue.toFixed(2)})
+                            <ArrowUpRight className="w-3.5 h-3.5" /> BUY {item.rebalanceShares} shares (<Money amount={formatMoney(item.rebalanceDiffValue, currencyCode)} />)
                           </span>
                         ) : (
                           <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-rose-500/10 text-rose-400 border border-rose-500/30 rounded-lg text-xs font-semibold">
-                            <ArrowDownRight className="w-3.5 h-3.5" /> SELL {item.rebalanceShares} shares ({symbol}{item.rebalanceDiffValue.toFixed(2)})
+                            <ArrowDownRight className="w-3.5 h-3.5" /> SELL {item.rebalanceShares} shares (<Money amount={formatMoney(item.rebalanceDiffValue, currencyCode)} />)
                           </span>
                         )}
                       </td>

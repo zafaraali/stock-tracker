@@ -1,11 +1,12 @@
 import { test, expect } from '@playwright/test';
 
 const holding = { id: 'test-position', symbol: 'TEST', name: 'Test asset', shares: 0, avgCost: 0, currentPrice: 100, currency: 'USD', targetPercent: 100 };
-const personal = { holdings: [holding], transactions: [], watchlist: [], snapshots: [], mode: 'personal' };
+const personal = { holdings: [holding], transactions: [], watchlist: [], snapshots: [], mode: 'personal', currency: 'USD', theme: 'dark' };
 test.beforeEach(async ({ page }) => {
-  await page.route('**/api/market-quote/**', route => route.fulfill({ json: { chart: { result: [{ meta: { regularMarketPrice: 100, regularMarketTime: Date.now() / 1000, currency: 'USD' } }] } } }));
+  await page.route('**/api/market-quote**', route => route.fulfill({ json: { chart: { result: [{ meta: { regularMarketPrice: 100, regularMarketTime: Date.now() / 1000, currency: 'USD' } }] } } }));
   await page.route('**/api/market-search**', route => route.fulfill({ json: { quotes: [] } }));
-  await page.route('https://api.frankfurter.dev/**', route => route.fulfill({ json: ['EUR', 'GBP', 'CAD', 'JPY'].map(quote => ({ date: '2026-11-06', quote, rate: 1 })) }));
+  await page.route('**/api/market-fundamentals**', route => route.fulfill({ json: { quoteResponse: { result: [{ regularMarketPrice: 100, trailingAnnualDividendRate: 0 }] } } }));
+  await page.route('**/api/fx-rates**', route => route.fulfill({ json: ['EUR', 'GBP', 'CAD', 'JPY'].map(quote => ({ date: '2026-11-06', quote, rate: 1 })) }));
 });
 
 async function seed(page, data = personal) {
@@ -30,7 +31,8 @@ test('first run offers empty and labeled demo portfolios; demo can be cleared', 
   await expect(page.getByText('Apple Inc.', { exact: true }).first()).toBeVisible();
   await page.reload();
   await expect(page.getByText('Demo portfolio', { exact: true })).toBeVisible();
-  await page.getByRole('button', { name: 'Clear demo & start empty' }).click();
+  await page.getByRole('button', { name: 'Clear all data' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Clear all data', exact: true }).click();
   await expect(page.getByText('Demo portfolio', { exact: true })).not.toBeVisible();
   await expect(page.getByRole('heading', { name: 'Available cash' })).toBeVisible();
   await expect(page.getByText('Apple Inc.', { exact: true })).not.toBeVisible();
@@ -87,7 +89,7 @@ for (const width of [320, 390]) {
     await page.getByRole('button', { name: 'Switch to light mode' }).click();
     for (const name of ['Holdings', 'Watchlist', 'Rebalance', 'History', 'Dashboard']) {
       await page.getByRole('button', { name, exact: true }).click();
-      await expect(page.getByText('Loading view…')).not.toBeVisible();
+      await expect(page.getByText('Loading view...')).not.toBeVisible();
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
     }
     await expect(page.locator('.recharts-pie-sector')).toHaveCount(2);
