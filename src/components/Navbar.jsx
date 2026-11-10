@@ -3,7 +3,7 @@ import { Modal } from './Modal';
 import { TrendingUp, PieChart as PieIcon, ArrowDownUp, Sliders, History, Eye, Download, Upload, Sun, Moon, Trash2, RefreshCw, Settings, Search } from 'lucide-react';
 import { CURRENCY_RATES } from '../data/mockData';
 
-export function Navbar({ activeTab, setActiveTab, currency, setCurrency, theme, toggleTheme, accent, setAccent, exportJSON, exportCSV, importJSON, importCSV, accounts = [], selectedAccountId, setSelectedAccountId, addAccount, renameAccount, onDeleteAllData, refreshMarketData, marketStatus, globalQuery, setGlobalQuery }) {
+export function Navbar({ activeTab, setActiveTab, currency, setCurrency, theme, toggleTheme, accent, setAccent, exportJSON, exportCSV, exportAllCSV, importJSON, importCSV, accounts = [], selectedAccountId, setSelectedAccountId, addAccount, renameAccount, deleteAccount, onDeleteAllData, refreshMarketData, marketStatus, globalQuery, setGlobalQuery }) {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [newAccountName, setNewAccountName] = useState('');
   const isLight = theme === 'light';
@@ -41,6 +41,14 @@ export function Navbar({ activeTab, setActiveTab, currency, setCurrency, theme, 
             <ArrowDownUp className="w-4 h-4" /> Holdings
           </button>
           <button
+            aria-current={activeTab === 'history' ? 'page' : undefined} onClick={() => setActiveTab('history')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+              activeTab === 'history' ? 'bg-indigo-600 text-white shadow' : `${isLight ? 'text-slate-600 hover:text-slate-900' : 'text-slate-400 hover:text-slate-200'}`
+            }`}
+          >
+            <History className="w-4 h-4" /> Transactions
+          </button>
+          <button
             aria-current={activeTab === 'watchlist' ? 'page' : undefined} onClick={() => setActiveTab('watchlist')}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
               activeTab === 'watchlist' ? 'bg-indigo-600 text-white shadow' : `${isLight ? 'text-slate-600 hover:text-slate-900' : 'text-slate-400 hover:text-slate-200'}`
@@ -55,14 +63,6 @@ export function Navbar({ activeTab, setActiveTab, currency, setCurrency, theme, 
             }`}
           >
             <Sliders className="w-4 h-4" /> Rebalance
-          </button>
-          <button
-            aria-current={activeTab === 'history' ? 'page' : undefined} onClick={() => setActiveTab('history')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-              activeTab === 'history' ? 'bg-indigo-600 text-white shadow' : `${isLight ? 'text-slate-600 hover:text-slate-900' : 'text-slate-400 hover:text-slate-200'}`
-            }`}
-          >
-            <History className="w-4 h-4" /> Transactions
           </button>
         </div>
 
@@ -86,11 +86,13 @@ export function Navbar({ activeTab, setActiveTab, currency, setCurrency, theme, 
             ))}
           </select>
           <select
-            aria-label="Portfolio account"
+            aria-label="Holdings list"
+            title="Select holdings list"
             value={selectedAccountId}
             onChange={e => setSelectedAccountId(e.target.value)}
             className={`${isLight ? 'bg-slate-100 text-slate-800 border-slate-300' : 'bg-slate-950 text-slate-200 border-slate-800'} text-xs rounded-xl px-2.5 py-2 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 border max-w-36`}
           >
+            <option value="__combined__">Combined</option>
             {accounts.map(account => <option key={account.id} value={account.id}>{account.name}</option>)}
           </select>
 
@@ -118,14 +120,17 @@ export function Navbar({ activeTab, setActiveTab, currency, setCurrency, theme, 
             <p className="text-sm text-slate-400 mb-5">Your portfolio stays in this browser's local storage. Keep an encrypted or otherwise secure copy of exported backups.</p>
             <div className="grid gap-3">
               <div className="rounded-xl border border-slate-800 p-3">
-                <p className="text-sm font-semibold mb-2">Accounts</p>
-                <div className="space-y-2 mb-3">{accounts.map(account => <div key={account.id} className="flex items-center gap-2"><span className="text-sm flex-1">{account.name} <span className="text-xs text-slate-500">({account.type})</span></span><button className="secondary-button" onClick={() => { const next = window.prompt('Rename account', account.name); if (next) renameAccount(account.id, next); }}>Rename</button></div>)}</div>
-                <div className="flex gap-2"><input aria-label="New account name" className="field" value={newAccountName} onChange={e => setNewAccountName(e.target.value)} placeholder="New account" /><button className="primary-button" onClick={() => { addAccount(newAccountName); setNewAccountName(''); }}>Add</button></div>
+                <p className="text-sm font-semibold mb-1">Holdings lists</p>
+                <p className="text-xs text-slate-500 mb-3">Create separate named lists and switch between them with the selector.</p>
+                <div className="space-y-2 mb-3">{accounts.map(account => <div key={account.id} className="flex items-center gap-2"><span className="text-sm flex-1">{account.name}</span><button className="secondary-button" onClick={() => { const next = window.prompt('Rename list', account.name); if (next) renameAccount(account.id, next); }}>Rename</button><button className="secondary-button text-rose-400" onClick={() => { if (window.confirm(`Delete the ${account.name} list and its holdings?`)) deleteAccount(account.id); }}>Delete</button></div>)}</div>
+                <div className="flex gap-2"><input aria-label="New holdings list name" className="field" value={newAccountName} onChange={e => setNewAccountName(e.target.value)} placeholder="e.g. Retirement" /><button className="primary-button" onClick={() => { addAccount(newAccountName); setNewAccountName(''); }}>Add list</button></div>
               </div>
               <label className="flex items-center justify-between gap-4 rounded-xl border border-slate-800 p-3 text-sm"><span><strong className="block">Accent color</strong><small className="text-slate-500">Choose your default ROYGBIV highlight color.</small></span><select aria-label="Accent color" value={accent} onChange={event => setAccent(event.target.value)} className="field mt-0 w-auto"><option value="green">Green</option><option value="red">Red</option><option value="orange">Orange</option><option value="yellow">Yellow</option><option value="blue">Blue</option><option value="indigo">Indigo</option><option value="violet">Violet</option></select></label>
               <button className="secondary-button" onClick={exportJSON}><Download className="w-4 h-4" /> Download JSON backup</button>
-              <button className="secondary-button" onClick={exportCSV}><Download className="w-4 h-4" /> Export holdings CSV</button>
+              <button className="secondary-button" onClick={exportCSV}><Download className="w-4 h-4" /> Export current list CSV</button>
+              <button className="secondary-button" onClick={exportAllCSV}><Download className="w-4 h-4" /> Export all lists CSV</button>
               <label className="secondary-button cursor-pointer relative"><Upload className="w-4 h-4" /> Import holdings CSV<input aria-label="Choose holdings CSV" type="file" accept=".csv,text/csv" className="absolute inset-0 opacity-0 cursor-pointer w-full" onChange={event => { importCSV(event); setSettingsOpen(false); }} /></label>
+              <label className="secondary-button cursor-pointer relative"><Upload className="w-4 h-4" /> Import all lists CSV<input aria-label="Choose all lists CSV" type="file" accept=".csv,text/csv" className="absolute inset-0 opacity-0 cursor-pointer w-full" onChange={event => { importCSV(event); setSettingsOpen(false); }} /></label>
               <label className="secondary-button cursor-pointer relative"><Upload className="w-4 h-4" /> Restore JSON backup<input aria-label="Choose JSON backup" type="file" accept=".json" className="absolute inset-0 opacity-0 cursor-pointer w-full" onChange={event => { importJSON(event); setSettingsOpen(false); }} /></label>
             </div>
             <div className="mt-6 pt-5 border-t border-slate-800">

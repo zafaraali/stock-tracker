@@ -35,7 +35,7 @@ export default function App() {
     return () => window.removeEventListener('keydown', handleShortcut);
   }, []);
   const {
-    mode, startPortfolio, trash, restoreDeleted, performance,
+    mode, startPortfolio, trash, restoreDeleted, clearRecentlyDeleted, performance,
     holdings,
     watchlist,
     transactions,
@@ -50,6 +50,7 @@ export default function App() {
     rate,
     portfolioSummary,
     addHolding,
+    updateHolding,
     updateHoldingPrice,
     updateHoldingNotes,
     updateHoldingTarget,
@@ -61,8 +62,8 @@ export default function App() {
     updateWatchlistPrice,
     removeWatchlistItem,
     exportJSON,
-    exportCSV,
-    importJSON, importCSV, pendingCsvImport, confirmCsvImport, cancelCsvImport, accounts, selectedAccountId, setSelectedAccountId, addAccount, renameAccount,
+    exportCSV, exportAllCSV,
+    importJSON, importCSV, pendingCsvImport, confirmCsvImport, cancelCsvImport, accounts, selectedAccountId, setSelectedAccountId, addAccount, renameAccount, deleteAccount,
     refreshMarketData,
     marketStatus, uiMessage, dismissMessage, storageError, storageBlocked, resumeSaving, pendingImport, confirmImport, cancelImport, fxRates, fxData, fxError, historicalFx, historicalEstimated
   } = usePortfolio();
@@ -88,6 +89,13 @@ export default function App() {
   };
   const askToConfirm = (title, message, action, confirmLabel = 'Delete') => setConfirmAction({ title, message, action, confirmLabel });
   const runConfirmedAction = () => { confirmAction?.action(); setConfirmAction(null); };
+  const previewGroups = pendingCsvImport?.kind === 'holdings'
+    ? Object.entries(pendingCsvImport.rows.slice(0, 50).reduce((groups, row) => {
+      const name = row.accountName || 'Selected list';
+      (groups[name] ||= []).push(row);
+      return groups;
+    }, {})).map(([name, rows]) => ({ name, rows }))
+    : [];
 
   return (
     <div className={`app-shell accent-${accent} min-h-screen ${isLight ? 'theme-light bg-slate-50 text-slate-900' : 'bg-slate-950 text-slate-100'} flex flex-col font-sans transition-colors duration-200`}>
@@ -105,6 +113,7 @@ export default function App() {
         setAccent={setAccent}
         exportJSON={exportJSON}
         exportCSV={exportCSV}
+        exportAllCSV={exportAllCSV}
         importJSON={importJSON}
         importCSV={importCSV}
         accounts={accounts}
@@ -112,6 +121,7 @@ export default function App() {
         setSelectedAccountId={setSelectedAccountId}
         addAccount={addAccount}
         renameAccount={renameAccount}
+        deleteAccount={deleteAccount}
         onDeleteAllData={() => askToConfirm('Delete all saved data?', 'This clears the current portfolio, transactions, watchlist, snapshots, and preferences. You can still use Recently deleted to undo the clear.', deleteAllData, 'Delete everything')}
         refreshMarketData={refreshMarketData}
         marketStatus={marketStatus}
@@ -134,14 +144,15 @@ export default function App() {
           <p className="mb-4">Detected <strong>{pendingCsvImport.broker}</strong> format in <strong>{pendingCsvImport.fileName}</strong>. The import will add {pendingCsvImport.rows.length} {pendingCsvImport.kind === 'transactions' ? 'transactions' : 'holdings'} to the selected account.</p>
           {pendingCsvImport.duplicates > 0 && <p role="alert" className="form-error mb-4">{pendingCsvImport.duplicates} row{pendingCsvImport.duplicates === 1 ? '' : 's'} appear to already exist in this account. Review carefully before importing.</p>}
           <div className="max-h-64 overflow-auto rounded-xl border border-slate-800 mb-5">
-            {pendingCsvImport.kind === 'transactions' ? <table className="w-full text-sm"><thead className="text-left text-slate-400 border-b border-slate-800"><tr><th className="p-3">Date</th><th className="p-3">Type</th><th className="p-3">Symbol</th><th className="p-3">Shares</th><th className="p-3">Price</th></tr></thead><tbody>{pendingCsvImport.rows.slice(0, 50).map((row, index) => <tr key={`${row.symbol}-${row.date}-${index}`} className="border-b border-slate-800/60"><td className="p-3">{row.date}</td><td className="p-3 font-semibold">{row.type}</td><td className="p-3">{row.symbol || 'Cash'}</td><td className="p-3">{row.shares || '—'}</td><td className="p-3">{row.price || '—'}</td></tr>)}</tbody></table> : <table className="w-full text-sm"><thead className="text-left text-slate-400 border-b border-slate-800"><tr><th className="p-3">Symbol</th><th className="p-3">Shares</th><th className="p-3">Avg cost</th><th className="p-3">Current</th></tr></thead><tbody>{pendingCsvImport.rows.slice(0, 50).map((row, index) => <tr key={`${row.symbol}-${index}`} className="border-b border-slate-800/60"><td className="p-3 font-semibold">{row.symbol}</td><td className="p-3">{row.shares}</td><td className="p-3">{row.avgCost.toFixed(2)}</td><td className="p-3">{row.currentPrice.toFixed(2)}</td></tr>)}</tbody></table>}
+            {pendingCsvImport.kind === 'transactions' ? <table className="w-full text-sm"><thead className="text-left text-slate-400 border-b border-slate-800"><tr><th className="p-3">Date</th><th className="p-3">Type</th><th className="p-3">Symbol</th><th className="p-3">Shares</th><th className="p-3">Price</th></tr></thead><tbody>{pendingCsvImport.rows.slice(0, 50).map((row, index) => <tr key={`${row.symbol}-${row.date}-${index}`} className="border-b border-slate-800/60"><td className="p-3">{row.date}</td><td className="p-3 font-semibold">{row.type}</td><td className="p-3">{row.symbol || 'Cash'}</td><td className="p-3">{row.shares || '—'}</td><td className="p-3">{row.price || '—'}</td></tr>)}</tbody></table> : <table className="w-full text-sm"><thead className="text-left text-slate-400 border-b border-slate-800"><tr><th className="p-3">Holdings list</th><th className="p-3">Symbol</th><th className="p-3">Shares</th><th className="p-3">Avg cost</th><th className="p-3">Current</th></tr></thead><tbody>{previewGroups.flatMap(group => [<tr key={`group-${group.name}`} className="bg-slate-800/70"><td colSpan={5} className="p-3 font-semibold text-indigo-200">{group.name}</td></tr>, ...group.rows.map((row, index) => <tr key={`${group.name}-${row.symbol}-${index}`} className="border-b border-slate-800/60"><td className="p-3 text-slate-500">{group.name}</td><td className="p-3 font-semibold">{row.symbol}</td><td className="p-3">{row.shares}</td><td className="p-3">{row.avgCost.toFixed(2)}</td><td className="p-3">{row.currentPrice.toFixed(2)}</td></tr>)])}</tbody></table>}
           </div>
           {pendingCsvImport.rows.length > 50 && <p className="text-xs text-slate-400 mb-4">Showing the first 50 rows. All {pendingCsvImport.rows.length} valid holdings will be imported.</p>}
+          <p className="text-sm text-slate-400 mb-4">Rows with zero cost or current prices will still be imported; use Refresh live market prices to fill current values.</p>
           <div className="flex justify-end gap-3"><button className="secondary-button" onClick={cancelCsvImport}>Cancel</button><button className="primary-button" onClick={confirmCsvImport}>Import holdings</button></div>
         </Modal>}
         {mode !== 'pending' && <>
-        {mode === 'demo' && <div className="form-error mb-5 flex flex-wrap justify-between gap-3 items-center"><span><strong>Demo portfolio</strong> · Sample holdings and prices. Changes stay in this demo.</span><button className="secondary-button" onClick={() => { startPortfolio('personal'); changeTab('dashboard'); }}>Clear demo & start empty</button></div>}
-        <RecentlyDeleted entries={trash} onRestore={restoreDeleted} />
+        {mode === 'demo' && <div className="form-error mb-5 flex flex-wrap justify-between gap-3 items-center"><span><strong>Demo portfolio</strong> · Sample holdings and prices. Changes stay in this demo.</span><button className="secondary-button" onClick={() => askToConfirm('Clear all saved data?', 'This removes the demo portfolio, transactions, watchlist, snapshots, and saved preferences. Recently deleted can undo this action.', () => { deleteAllData(); changeTab('dashboard'); }, 'Clear all data')}>Clear all data</button></div>}
+        <RecentlyDeleted entries={trash} onRestore={restoreDeleted} onClear={clearRecentlyDeleted} />
         <StatusBar marketStatus={marketStatus} fxData={fxData} fxError={fxError} historicalEstimated={historicalEstimated} />
 
         {/* Printable Executive Header (Only visible when printing/exporting PDF) */}
@@ -235,17 +246,20 @@ export default function App() {
         {activeTab === 'dashboard' && (
           <>
             {holdings.length === 0 && <DashboardSetup onNavigate={changeTab} onExploreDemo={() => startPortfolio('demo')} />}
-            <PortfolioCharts performance={performance} summary={portfolioSummary} snapshots={snapshots} symbol={symbol} rate={rate} theme={theme} />
+            <PortfolioCharts performance={performance} summary={portfolioSummary} snapshots={snapshots} symbol={symbol} currencyCode={currency} rate={rate} theme={theme} />
             <PortfolioInsights summary={portfolioSummary} symbol={symbol} />
             <HoldingsTable
               summary={portfolioSummary}
               symbol={symbol}
+              currencyCode={currency}
               theme={theme}
               onAddHolding={addHolding}
               onUpdateHoldingPrice={updateHoldingPrice}
+              onUpdateHolding={updateHolding}
               onUpdateHoldingNotes={updateHoldingNotes}
               onRemoveHolding={id => askToConfirm('Delete this holding?', 'The holding and its linked transactions will move to Recently deleted.', () => removeHolding(id))}
               onExportCSV={exportCSV}
+              onImportCSV={importCSV}
               globalFilter={globalQuery}
             />
           </>
@@ -255,12 +269,15 @@ export default function App() {
           <HoldingsTable
             summary={portfolioSummary}
             symbol={symbol}
+            currencyCode={currency}
             theme={theme}
             onAddHolding={addHolding}
             onUpdateHoldingPrice={updateHoldingPrice}
+            onUpdateHolding={updateHolding}
             onUpdateHoldingNotes={updateHoldingNotes}
             onRemoveHolding={id => askToConfirm('Delete this holding?', 'The holding and its linked transactions will move to Recently deleted.', () => removeHolding(id))}
             onExportCSV={exportCSV}
+            onImportCSV={importCSV}
             globalFilter={globalQuery}
           />
         )}
@@ -270,6 +287,7 @@ export default function App() {
             watchlist={watchlist}
             fxRates={fxRates}
             symbol={symbol}
+            currencyCode={currency}
             rate={rate}
             theme={theme}
             onAddWatchlistItem={addWatchlistItem}
@@ -284,6 +302,7 @@ export default function App() {
           <RebalanceView
             summary={portfolioSummary}
             symbol={symbol}
+            currencyCode={currency}
             theme={theme}
             onUpdateTarget={updateHoldingTarget}
           />

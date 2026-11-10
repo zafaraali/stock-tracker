@@ -13,7 +13,13 @@ export default defineConfig({
       '/api/market-search': {
         target: 'https://query1.finance.yahoo.com',
         changeOrigin: true,
+        headers: { 'User-Agent': 'Mozilla/5.0 ApexFinance/1.0', accept: 'application/json' },
         rewrite: path => path.replace(/^\/api\/market-search/, '/v1/finance/search')
+      },
+      '/api/fx-rates': {
+        target: 'https://api.frankfurter.dev',
+        changeOrigin: true,
+        rewrite: path => path.replace(/^\/api\/fx-rates/, '/v2/rates')
       }
     }
   }

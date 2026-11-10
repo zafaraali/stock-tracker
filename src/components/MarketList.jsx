@@ -38,7 +38,7 @@ export function MarketList({ stocks, symbol, rate, watchlist, toggleWatchlist })
           const currentPriceConverted = st.price * rate;
 
           return (
-            <div key={st.symbol} className="bg-slate-950 border border-slate-800/80 hover:border-slate-700 p-4 rounded-xl transition shadow-md flex flex-col justify-between">
+            <div key={st.symbol} className="market-card bg-slate-950 border border-slate-800/80 hover:border-slate-700 p-4 rounded-xl transition shadow-md flex flex-col justify-between">
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <div>

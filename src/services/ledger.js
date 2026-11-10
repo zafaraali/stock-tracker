@@ -40,7 +40,16 @@ export function externalContributions(transactions, holdings = [], historical = 
 }
 
 export function positionLedger(holdings, transactions, historical = {}) {
-  const positions = new Map(holdings.map(h => [h.id, { ...h, shares: 0, basis: 0, costBasisUSD: 0 }]));
+  const tradedIds = new Set(transactions.filter(t => POSITION_TYPES.includes(t.type)).map(t => t.holdingId));
+  const positions = new Map(holdings.map(h => {
+    // Imported/manual positions can legitimately have no trade history. Keep
+    // their entered quantity and cost when unrelated ledger entries change.
+    const hasTrades = tradedIds.has(h.id);
+    const shares = hasTrades ? 0 : Number(h.shares || 0);
+    const basis = hasTrades ? 0 : shares * Number(h.avgCost || 0);
+    const fx = fallbackRates[h.currency] || 1;
+    return [h.id, { ...h, shares, basis, costBasisUSD: basis / fx }];
+  }));
   let realizedUSD = 0;
   for (const t of [...transactions].sort(compareEntries)) {
     const p = positions.get(t.holdingId);

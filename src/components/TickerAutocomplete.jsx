@@ -142,7 +142,7 @@ export function TickerAutocomplete({ value, onChange, onSelect, placeholder = 'S
                 <div className="flex items-center gap-1.5 overflow-hidden">
                   <span className="font-bold text-white shrink-0">{suggestion.symbol}</span>
                   {(isTseSymbol(suggestion.symbol) || suggestion.currency === 'CAD') && (
-                    <span className="text-[9px] font-bold px-1.5 py-0.5 bg-red-500/10 text-red-400 border border-red-500/30 rounded shrink-0">TSE · CAD</span>
+                    <span className="inline-flex items-center whitespace-nowrap text-[9px] font-bold px-2 py-0.5 bg-red-500/10 text-red-400 border border-red-500/30 rounded-full shrink-0">TSE · CAD</span>
                   )}
                   <span className="text-xs text-slate-400 truncate">{suggestion.name}</span>
                 </div>

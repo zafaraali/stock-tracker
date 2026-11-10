@@ -35,6 +35,22 @@ export function detectSymbolCurrency(symbol) {
   return isTseSymbol(symbol) ? 'CAD' : 'USD';
 }
 
+export function inferSymbolMetadata(symbol) {
+  const normalized = String(symbol || '').trim().toUpperCase();
+  const currency = detectSymbolCurrency(normalized);
+  const exchange = isTseSymbol(normalized) ? (normalized.includes('.V') || normalized.startsWith('TSXV:') ? 'TSXV' : 'TSX') : '';
+  const assetType = /^(BTC|ETH|SOL|ADA|DOGE)(-|$)/.test(normalized) ? 'Crypto' : /(^|\.)[A-Z]{2,5}(\.TO|\.V)$/.test(normalized) ? 'Stock' : 'Stock';
+  const category = /^(VTI|VOO|QQQ|SPY|SCHD|XEQT|VEQT|VFV|TEC|VDY|XIU)(\.|$)/.test(normalized) ? 'ETF'
+    : assetType === 'Crypto' ? 'Crypto'
+      : /^(AAPL|AMZN|GOOGL|META|MSFT|NFLX|SHOP)(\.|$)/.test(normalized) ? 'Tech'
+        : /^(NVDA|AMD|AVGO)(\.|$)/.test(normalized) ? 'Semi'
+          : /^(TSLA)(\.|$)/.test(normalized) ? 'EV'
+            : /^(O|KO|JPM|XOM|ENB|BNS|BMO|VDY)(\.|$)/.test(normalized) ? 'Dividend' : 'Other';
+  const nasdaqSymbols = new Set(['AAPL', 'AMZN', 'GOOGL', 'META', 'MSFT', 'NVDA', 'TSLA', 'AVGO', 'AMD', 'NFLX', 'VTI', 'QQQ']);
+  const nyseSymbols = new Set(['O', 'KO', 'JPM', 'XOM', 'SPY', 'VOO', 'SCHD']);
+  return { currency, exchange: exchange || (nasdaqSymbols.has(normalized) ? 'NASDAQ' : nyseSymbols.has(normalized) ? 'NYSE' : ''), assetType, category };
+}
+
 export async function fetchMarketQuote(symbol, signal) {
   const yahooSymbol = toYahooSymbol(symbol);
   if (!yahooSymbol) throw new Error('A ticker symbol is required.');
@@ -76,6 +92,7 @@ export async function searchMarketSymbols(query, signal) {
         symbol: sym,
         name: item.longname || item.shortname || item.symbol,
         category: item.quoteType === 'ETF' ? 'ETF' : item.quoteType === 'CRYPTOCURRENCY' ? 'Crypto' : 'Other',
+        assetType: item.quoteType === 'ETF' ? 'ETF' : item.quoteType === 'CRYPTOCURRENCY' ? 'Crypto' : 'Stock',
         currency: isTse ? 'CAD' : 'USD',
         exchange: item.exchDisp || item.exchange || ''
       };

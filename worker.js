@@ -1,6 +1,8 @@
 /* global Response */
 
 const YAHOO_ORIGIN = 'https://query1.finance.yahoo.com';
+const FRANKFURTER_ORIGIN = 'https://api.frankfurter.dev';
+const UPSTREAM_HEADERS = { accept: 'application/json', 'user-agent': 'Mozilla/5.0 ApexFinance/1.0' };
 
 function jsonResponse(body, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -21,20 +23,30 @@ export default {
 
       const target = new URL(`/v8/finance/chart/${encodeURIComponent(symbol)}`, YAHOO_ORIGIN);
       target.search = incoming.search;
-      const response = await fetch(target, { headers: { accept: 'application/json' } });
+      const response = await fetch(target, { headers: UPSTREAM_HEADERS });
       return new Response(response.body, {
         status: response.status,
-        headers: { 'content-type': response.headers.get('content-type') || 'application/json' }
+        headers: { 'content-type': response.headers.get('content-type') || 'application/json', 'cache-control': 'no-store' }
       });
     }
 
     if (incoming.pathname === '/api/market-search') {
       const target = new URL('/v1/finance/search', YAHOO_ORIGIN);
       target.search = incoming.search;
-      const response = await fetch(target, { headers: { accept: 'application/json' } });
+      const response = await fetch(target, { headers: UPSTREAM_HEADERS });
       return new Response(response.body, {
         status: response.status,
         headers: { 'content-type': response.headers.get('content-type') || 'application/json' }
+      });
+    }
+
+    if (incoming.pathname === '/api/fx-rates') {
+      const target = new URL('/v2/rates', FRANKFURTER_ORIGIN);
+      target.search = incoming.search;
+      const response = await fetch(target, { headers: { accept: 'application/json' } });
+      return new Response(response.body, {
+        status: response.status,
+        headers: { 'content-type': response.headers.get('content-type') || 'application/json', 'cache-control': 'no-store' }
       });
     }
 

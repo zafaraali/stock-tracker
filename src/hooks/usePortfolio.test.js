@@ -1,8 +1,23 @@
 import { describe, expect, it } from 'vitest';
-import { getRealizedGains, rebuildHoldings, toUSD, fromUSD } from './usePortfolio';
+import { getRealizedGains, loadSavedPortfolio, rebuildHoldings, toUSD, fromUSD } from './usePortfolio';
 import { isTseSymbol, toYahooSymbol, detectSymbolCurrency } from '../services/marketApi';
 
 describe('portfolio calculations', () => {
+  it('loads valid saved portfolio data instead of falling back to pending state', () => {
+    const saved = {
+      holdings: [],
+      transactions: [{ id: 'cash-1', type: 'DEPOSIT', date: '2026-11-09', currency: 'CAD', total: 22.75 }],
+      watchlist: [], snapshots: [], accounts: [{ id: 'account-main', name: 'Main', type: 'Taxable', currency: 'CAD' }],
+      selectedAccountId: 'account-main', currency: 'CAD', theme: 'dark', accent: 'green', mode: 'personal', trash: []
+    };
+    const storage = { getItem: key => key === 'st_pro_data_v2' ? JSON.stringify(saved) : null, setItem: () => {} };
+    const result = loadSavedPortfolio(storage);
+    expect(result.errors).toEqual([]);
+    expect(result.data.mode).toBe('personal');
+    expect(result.data.transactions).toHaveLength(1);
+    expect(result.data.transactions[0].total).toBe(22.75);
+  });
+
   it('rebuilds average cost after a partial sale', () => {
     const holdings = [{ id: 'h-1', symbol: 'AAPL', shares: 0, avgCost: 0 }];
     const transactions = [

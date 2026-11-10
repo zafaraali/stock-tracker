@@ -85,6 +85,13 @@ describe('contribution-aware performance', () => {
   it('treats imported positions as contributed assets, not gains', () => {
     expect(externalContributions([{ ...buy, cashImpact: false, openingValue: 250 }], holdings)).toBe(250);
   });
+
+  it('preserves a manual position with no trade history', () => {
+    const imported = [{ ...holdings[0], shares: 12, avgCost: 25 }];
+    const result = positionLedger(imported, [deposit]);
+    expect(result.holdings[0].shares).toBe(12);
+    expect(result.holdings[0].avgCost).toBe(25);
+  });
   it('excludes legacy value-only observations from measured performance', () => {
     expect(performanceHistory([{ date: '2020-01-01', valueUSD: 1000 }], [], [])).toEqual([]);
   });

@@ -1,3 +1,5 @@
+import { inferSymbolMetadata } from './marketApi';
+
 const normalizeHeader = header => String(header || '').toLowerCase().replace(/[^a-z0-9]/g, '');
 
 export function parseCsvRows(text) {
@@ -31,6 +33,9 @@ export function parsePortfolioCsv(text, selectedAccountId) {
   const headers = rows[0].map(normalizeHeader);
   const indexOf = aliases => headers.findIndex(header => aliases.some(alias => header === alias || header.startsWith(alias)));
   const symbolIndex = indexOf(['symbol', 'ticker', 'tickersymbol', 'instrument', 'security']);
+  const listIndex = indexOf(['holdingslist', 'listname', 'accountname']);
+  // Do not use the broad `curr` alias: it also matches `currentprice`.
+  const currencyIndex = indexOf(['currency', 'assetcurrency', 'currencycode', 'currcode']);
   const sharesIndex = indexOf(['shares', 'quantity', 'units']);
   const actionIndex = indexOf(['type', 'action', 'transactiontype', 'activity']);
   const dateIndex = indexOf(['date', 'tradedate', 'transactiondate', 'settlementdate']);
@@ -42,6 +47,7 @@ export function parsePortfolioCsv(text, selectedAccountId) {
   const currentPriceIndex = indexOf(['currentprice', 'lastprice', 'shareprice', 'markprice']);
   const marketValueIndex = indexOf(['marketvalue', 'currentvalue', 'value']);
   const nameIndex = indexOf(['name', 'description', 'investmentname']);
+  const sectorIndex = indexOf(['sector', 'category']);
   const broker = headers.some(header => header.includes('accountname')) ? 'Broker export' : headers.includes('tickersymbol') ? 'Fidelity / generic' : headers.includes('instrument') ? 'Robinhood / generic' : headers.includes('investmentname') ? 'Vanguard / generic' : 'ApexFinance CSV';
   const dataRows = rows.slice(1);
   const hasTransactions = actionIndex >= 0 && dateIndex >= 0 && symbolIndex >= 0 && sharesIndex >= 0 && (priceIndex >= 0 || amountIndex >= 0);
@@ -71,8 +77,9 @@ export function parsePortfolioCsv(text, selectedAccountId) {
     const shares = parseCsvNumber(row[sharesIndex]);
     const avgCost = avgIndex >= 0 ? parseCsvNumber(row[avgIndex]) : parseCsvNumber(row[totalCostIndex]) / shares;
     const currentPrice = currentPriceIndex >= 0 ? parseCsvNumber(row[currentPriceIndex]) : marketValueIndex >= 0 ? parseCsvNumber(row[marketValueIndex]) / shares : avgCost;
-    return { symbol: row[symbolIndex], name: nameIndex >= 0 ? row[nameIndex] : row[symbolIndex], category: 'Other', shares, avgCost, currentPrice, targetPercent: 0, dividendYield: 0, notes: `Imported from ${broker}`, accountId: selectedAccountId };
-  }).filter(item => item.symbol && item.shares > 0 && item.avgCost > 0);
+    const metadata = inferSymbolMetadata(row[symbolIndex]);
+    return { symbol: row[symbolIndex], name: nameIndex >= 0 ? row[nameIndex] : row[symbolIndex], category: sectorIndex >= 0 ? String(row[sectorIndex] || '').trim() || metadata.category : metadata.category, assetType: metadata.assetType, exchange: metadata.exchange, shares, avgCost, currentPrice, currency: currencyIndex >= 0 ? String(row[currencyIndex] || '').toUpperCase() || metadata.currency : metadata.currency, targetPercent: 0, dividendYield: 0, notes: `Imported from ${broker}`, accountId: selectedAccountId, accountName: listIndex >= 0 ? String(row[listIndex] || '').trim() : '' };
+  }).filter(item => item.symbol && item.shares > 0 && item.avgCost >= 0 && item.currentPrice >= 0);
   if (!holdings.length) throw new Error('No valid holdings were found in the CSV.');
   return { kind: 'holdings', rows: holdings, broker };
 }

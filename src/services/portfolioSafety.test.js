@@ -34,6 +34,14 @@ describe('backup validation', () => {
   ])('rejects malformed financial data (%#)', mutate => {
     const data = backup(); mutate(data); expect(validateBackup(data)).not.toBe('');
   });
+
+  it('accepts imported holdings with zero prices awaiting live data', () => {
+    const data = backup();
+    data.holdings[0].currentPrice = 0;
+    data.holdings[0].avgCost = 0;
+    data.transactions = [];
+    expect(validateBackup(data)).toBe('');
+  });
 });
 
 describe('storage recovery', () => {

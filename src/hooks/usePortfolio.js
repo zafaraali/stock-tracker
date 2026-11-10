@@ -4,7 +4,7 @@ import { INITIAL_HOLDINGS, INITIAL_WATCHLIST, INITIAL_TRANSACTIONS, CURRENCY_RAT
 import { compareTrades, validateLedger, validateBackup, validWatchlist, validSnapshots } from '../services/portfolioValidation';
 import { readJSON, writeJSON, browserStorage } from '../services/storage';
 import { fallbackRates, validRates, fetchExchangeRates } from '../services/exchangeRates';
-import { fetchMarketQuote, isTseSymbol, detectSymbolCurrency } from '../services/marketApi';
+import { fetchMarketQuote, isTseSymbol, detectSymbolCurrency, inferSymbolMetadata } from '../services/marketApi';
 import { parsePortfolioCsv } from '../services/csvImport';
 
 const today = () => {
@@ -12,7 +12,8 @@ const today = () => {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 };
 
-const DEFAULT_ACCOUNT = { id: 'account-main', name: 'Main', type: 'Taxable', currency: 'USD' };
+const DEFAULT_ACCOUNT = { id: 'account-main', name: 'Main', type: '', currency: 'USD' };
+export const COMBINED_ACCOUNT_ID = '__combined__';
 export const ACCENT_THEMES = {
   green: { label: 'Green', color: '#2f6f52' },
   red: { label: 'Red', color: '#8f3f4b' },
@@ -30,6 +31,14 @@ const normalizeAccounts = value => Array.isArray(value) && value.length
   : [DEFAULT_ACCOUNT];
 const accountIdFor = (item, fallback = DEFAULT_ACCOUNT.id) => item?.accountId || fallback;
 const assignDefaultAccount = (items, fallback = DEFAULT_ACCOUNT.id) => items.map(item => ({ ...item, accountId: accountIdFor(item, fallback) }));
+const normalizeTransactionDate = value => {
+  const raw = String(value || '').trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+  const slashDate = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (slashDate) return `${slashDate[3]}-${slashDate[1].padStart(2, '0')}-${slashDate[2].padStart(2, '0')}`;
+  const parsed = Date.parse(raw);
+  return Number.isNaN(parsed) ? raw : new Date(parsed).toISOString().slice(0, 10);
+};
 
 export function migratePortfolioData(holdings, transactions) {
   const migratedTransactions = transactions.map(transaction => {
@@ -84,7 +93,7 @@ export function getRealizedGains(transactions, holdings = [], historical = {}) {
 export function loadSavedPortfolio(storage) {
     const errors = [];
     const failed = message => errors.push(message);
-    const saved = readJSON(storage, 'st_pro_data_v2', null, value => !validateBackup(value), failed);
+    const saved = readJSON(storage, 'st_pro_data_v2', null, value => validateBackup(value) === '', failed);
     if (saved) {
       const accounts = normalizeAccounts(saved.accounts);
       return { data: { ...saved, accounts, holdings: assignDefaultAccount(saved.holdings || [], accounts[0].id), transactions: assignDefaultAccount(saved.transactions || [], accounts[0].id), mode: saved.mode || 'personal' }, errors };
@@ -122,19 +131,20 @@ export function usePortfolio() {
   const [portfolioData, setPortfolioData] = useState(() => ({ holdings: rebuildHoldings(recovery.data.holdings, recovery.data.transactions), transactions: recovery.data.transactions }));
   const [accounts, setAccounts] = useState(() => normalizeAccounts(recovery.data.accounts));
   const [selectedAccountId, setSelectedAccountId] = useState(() => recovery.data.selectedAccountId || normalizeAccounts(recovery.data.accounts)[0].id);
+  const activeAccountId = selectedAccountId === COMBINED_ACCOUNT_ID ? accounts[0].id : selectedAccountId;
   const [mode, setMode] = useState(recovery.data.mode || 'personal');
   const [trash, setTrash] = useState(recovery.data.trash || []);
   const modeRef = useRef(mode);
   modeRef.current = mode;
   const allHoldings = portfolioData.holdings;
   const allTransactions = portfolioData.transactions;
-  const holdings = useMemo(() => allHoldings.filter(item => accountIdFor(item) === selectedAccountId), [allHoldings, selectedAccountId]);
-  const transactions = useMemo(() => allTransactions.filter(item => accountIdFor(item) === selectedAccountId), [allTransactions, selectedAccountId]);
+  const holdings = useMemo(() => selectedAccountId === COMBINED_ACCOUNT_ID ? allHoldings : allHoldings.filter(item => accountIdFor(item) === selectedAccountId), [allHoldings, selectedAccountId]);
+  const transactions = useMemo(() => selectedAccountId === COMBINED_ACCOUNT_ID ? allTransactions : allTransactions.filter(item => accountIdFor(item) === selectedAccountId), [allTransactions, selectedAccountId]);
   const [watchlistData, setWatchlist] = useState(() => assignDefaultAccount(recovery.data.watchlist || []));
-  const watchlist = useMemo(() => watchlistData.filter(item => accountIdFor(item) === selectedAccountId), [watchlistData, selectedAccountId]);
+  const watchlist = useMemo(() => selectedAccountId === COMBINED_ACCOUNT_ID ? watchlistData : watchlistData.filter(item => accountIdFor(item) === selectedAccountId), [watchlistData, selectedAccountId]);
   const [snapshots, setSnapshots] = useState(recovery.data.snapshots);
-  const [currency, setCurrency] = useState(recovery.data.currency || 'USD');
-  const [theme, setTheme] = useState(recovery.data.theme || 'dark');
+  const [currency, setCurrency] = useState(recovery.data.currency || 'CAD');
+  const [theme, setTheme] = useState(recovery.data.theme || 'light');
   const [accent, setAccent] = useState(() => Object.hasOwn(ACCENT_THEMES, recovery.data.accent) ? recovery.data.accent : 'green');
   const [fxData, setFxData] = useState(() => readJSON(browserStorage, 'st_pro_fx', { date: null, rates: fallbackRates }, validRates));
   const [historicalFx, setHistoricalFx] = useState(() => readJSON(browserStorage, 'st_pro_fx_history', {}, value => value && typeof value === 'object' && Object.values(value).every(validRates)));
@@ -151,7 +161,11 @@ export function usePortfolio() {
 
   useEffect(() => {
     if (storageBlocked || mode === 'pending') return;
-    setStorageError(writeJSON(browserStorage, 'st_pro_data_v2', { holdings: allHoldings, transactions: allTransactions, accounts, selectedAccountId, watchlist: watchlistData, snapshots, currency, theme, accent, mode, trash }));
+    const savePortfolio = () => writeJSON(browserStorage, 'st_pro_data_v2', { holdings: allHoldings, transactions: allTransactions, accounts, selectedAccountId, watchlist: watchlistData, snapshots, currency, theme, accent, mode, trash });
+    setStorageError(savePortfolio());
+    const flushOnPageHide = () => { savePortfolio(); };
+    window.addEventListener('pagehide', flushOnPageHide);
+    return () => window.removeEventListener('pagehide', flushOnPageHide);
   }, [allHoldings, allTransactions, accounts, selectedAccountId, watchlistData, snapshots, currency, theme, accent, storageBlocked, mode, trash]);
 
   useEffect(() => {
@@ -184,12 +198,15 @@ export function usePortfolio() {
   }, [historicalFx]);
 
   const refreshMarketData = useCallback(async () => {
-    if (modeRef.current !== 'personal') return;
+    if (modeRef.current === 'pending') return;
     const symbols = [...new Set([
       ...holdingsRef.current.map(item => item.symbol),
       ...watchlistRef.current.map(item => item.symbol)
     ].filter(Boolean))];
-    if (!symbols.length) return;
+    if (!symbols.length) {
+      setMarketStatus({ loading: false, error: 'Add a holding or watchlist ticker to refresh live prices.', lastUpdated: null });
+      return;
+    }
 
     setMarketStatus(previous => ({ ...previous, loading: true, error: '' }));
     const results = await Promise.allSettled(symbols.map(symbol => fetchMarketQuote(symbol)));
@@ -281,6 +298,7 @@ export function usePortfolio() {
         currency: holdingCurrency,
         nativeCurrentPrice: rawCurrentPrice,
         nativeAvgCost: rawAvgCost,
+        nativeTotalValue: Number(h.shares || 0) * rawCurrentPrice,
         currentPriceUSD,
         avgCostUSD,
         currentPrice: currentPriceUSD * rate,
@@ -297,6 +315,7 @@ export function usePortfolio() {
     const cashBalances = calculateCash(transactions, holdings);
     const cashUSD = Object.entries(cashBalances).reduce((sum, [code, value]) => sum + toUSD(value, code, fxRates), 0);
     totalValueUSD += cashUSD;
+    if (cashUSD > 0) categoryMap.Cash = cashUSD;
 
     const itemsWithRebalance = items.map(item => {
       const actualPercent = totalValueUSD > 0 ? (item.totalValue / (totalValueUSD * rate)) * 100 : 0;
@@ -392,6 +411,10 @@ export function usePortfolio() {
       setUiMessage('Restored ' + entry.label.toLowerCase() + '.');
     } catch (error) { setUiMessage('Could not undo: ' + error.message); }
   };
+  const clearRecentlyDeleted = () => {
+    setTrash([]);
+    setUiMessage('Recently deleted was cleared.');
+  };
 
   const startPortfolio = nextMode => {
     setMode(nextMode);
@@ -425,13 +448,15 @@ export function usePortfolio() {
     const itemCurrency = newHolding.currency || detectSymbolCurrency(sym);
     const item = {
       id: 'h-' + crypto.randomUUID(),
-      accountId: newHolding.accountId || selectedAccountId,
+      accountId: newHolding.accountId || activeAccountId,
       symbol: sym,
       name: newHolding.name || sym + ' Corp',
       shares,
       avgCost,
       currentPrice,
       category: newHolding.category || 'Tech',
+      assetType: newHolding.assetType || inferSymbolMetadata(sym).assetType,
+      exchange: newHolding.exchange || inferSymbolMetadata(sym).exchange,
       dividendYield,
       targetPercent,
       notes: newHolding.notes || '',
@@ -440,7 +465,7 @@ export function usePortfolio() {
       priceSource: 'manual', priceUpdatedAt: new Date().toISOString()
     };
 
-    const tx = {
+    const tx = avgCost > 0 ? {
       id: 'tx-' + crypto.randomUUID(),
       accountId: item.accountId,
       holdingId: item.id,
@@ -451,10 +476,10 @@ export function usePortfolio() {
       price: avgCost,
       currency: itemCurrency,
       total: shares * avgCost, cashImpact: false, openingValue: shares * currentPrice
-    };
+    } : null;
     if (item.buyDate < today()) resetPerformance();
     setPortfolioData(previous => {
-      const nextTransactions = [tx, ...previous.transactions];
+      const nextTransactions = tx ? [tx, ...previous.transactions] : previous.transactions;
       return {
         transactions: nextTransactions,
         holdings: rebuildHoldings([...previous.holdings, item], nextTransactions)
@@ -480,6 +505,41 @@ export function usePortfolio() {
     }));
   };
 
+  const updateHolding = (id, changes) => {
+    const shares = Number(changes.shares);
+    const hasAvgCost = changes.avgCost !== '' && changes.avgCost !== undefined && changes.avgCost !== null;
+    const hasCurrentPrice = changes.currentPrice !== '' && changes.currentPrice !== undefined && changes.currentPrice !== null;
+    const avgCost = hasAvgCost ? Number(changes.avgCost) : 0;
+    const currentPrice = hasCurrentPrice ? Number(changes.currentPrice) : 0;
+    const dividendYield = Number(changes.dividendYield || 0);
+    const targetPercent = Number(changes.targetPercent || 0);
+    if (!String(changes.symbol || '').trim() || !Number.isFinite(shares) || shares <= 0 ||
+      (hasAvgCost && (!Number.isFinite(avgCost) || avgCost <= 0)) ||
+      (hasCurrentPrice && (!Number.isFinite(currentPrice) || currentPrice <= 0)) ||
+      !Number.isFinite(dividendYield) || dividendYield < 0 || dividendYield > 100 ||
+      !Number.isFinite(targetPercent) || targetPercent < 0 || targetPercent > 100) {
+      setUiMessage('Enter a ticker, positive shares, and valid nonnegative prices.');
+      return false;
+    }
+    setPortfolioData(previous => ({
+      ...previous,
+      holdings: previous.holdings.map(holding => holding.id === id ? {
+        ...holding,
+        ...changes,
+        symbol: String(changes.symbol).trim().toUpperCase(),
+        shares,
+        avgCost,
+        currentPrice,
+        dividendYield,
+        targetPercent,
+        currency: changes.currency || holding.currency,
+        priceSource: currentPrice > 0 ? 'manual' : holding.priceSource,
+        priceUpdatedAt: currentPrice > 0 ? new Date().toISOString() : holding.priceUpdatedAt
+      } : holding)
+    }));
+    return true;
+  };
+
   const updateHoldingTarget = (id, targetPercent) => {
     if (!Number.isFinite(Number(targetPercent)) || Number(targetPercent) < 0 || Number(targetPercent) > 100) {
       setUiMessage('Target allocation must be between 0 and 100%.');
@@ -502,17 +562,28 @@ export function usePortfolio() {
   };
 
   const saveTransaction = (transaction, onError = setUiMessage) => {
+    const normalizedType = String(transaction.type || '').trim().toUpperCase();
+    const normalizedDate = normalizeTransactionDate(transaction.date);
+    const normalizedCurrency = String(transaction.currency || '').trim().toUpperCase();
     const holding = allHoldings.find(item => item.id === transaction.holdingId);
-    const isCash = CASH_TYPES.includes(transaction.type);
+    const isCash = CASH_TYPES.includes(normalizedType);
     const updated = {
-      ...transaction, id: transaction.id || 'tx-' + crypto.randomUUID(), accountId: transaction.accountId || holding?.accountId || selectedAccountId,
+      ...transaction, id: transaction.id || 'tx-' + crypto.randomUUID(), accountId: transaction.accountId || holding?.accountId || activeAccountId,
+      type: normalizedType,
+      date: normalizedDate,
       holdingId: isCash ? undefined : transaction.holdingId,
-      symbol: isCash ? transaction.currency : holding?.symbol,
-      currency: isCash ? transaction.currency : holding?.currency || detectSymbolCurrency(holding?.symbol),
-      fee: ['BUY', 'SELL'].includes(transaction.type) ? Number(transaction.fee || 0) : 0,
-      total: ['DIVIDEND', ...CASH_TYPES].includes(transaction.type) ? Number(transaction.total) : transaction.type === 'SPLIT' ? 0 : Number(transaction.shares) * Number(transaction.price)
+      symbol: isCash ? normalizedCurrency : holding?.symbol,
+      currency: isCash ? normalizedCurrency : holding?.currency || detectSymbolCurrency(holding?.symbol),
+      fee: ['BUY', 'SELL'].includes(normalizedType) ? Number(transaction.fee || 0) : 0,
+      total: ['DIVIDEND', ...CASH_TYPES].includes(normalizedType) ? Number(transaction.total) : normalizedType === 'SPLIT' ? 0 : Number(transaction.shares) * Number(transaction.price)
     };
-    const nextTransactions = transaction.id ? allTransactions.map(item => item.id === transaction.id ? updated : item) : [updated, ...allTransactions];
+    const normalizedExisting = allTransactions.map(item => ({
+      ...item,
+      type: String(item.type || '').trim().toUpperCase(),
+      date: normalizeTransactionDate(item.date),
+      currency: String(item.currency || (item.holdingId ? allHoldings.find(holdingItem => holdingItem.id === item.holdingId)?.currency : 'USD') || 'USD').trim().toUpperCase()
+    }));
+    const nextTransactions = transaction.id ? normalizedExisting.map(item => item.id === transaction.id ? updated : item) : [updated, ...normalizedExisting];
     const error = validateLedger(allHoldings.filter(item => accountIdFor(item) === updated.accountId), nextTransactions.filter(item => accountIdFor(item) === updated.accountId));
     if (error) { onError(error); return false; }
     if (transaction.id || transaction.date < today()) resetPerformance();
@@ -533,20 +604,22 @@ export function usePortfolio() {
     stashDeleted('Cleared portfolio', { holdings: allHoldings, transactions: allTransactions, watchlist: watchlistData, snapshots });
     setStorageBlocked(false);
     setPortfolioData({ holdings: [], transactions: [] });
+    setAccounts([DEFAULT_ACCOUNT]);
+    setSelectedAccountId(DEFAULT_ACCOUNT.id);
     setWatchlist([]);
     setSnapshots([]);
-    setCurrency('USD');
-    setTheme('dark');
+    setCurrency('CAD');
     setAccent('indigo');
   };
 
   // Watchlist actions
   const addWatchlistItem = (item) => {
-    const currentPrice = Number(item.currentPrice);
-    const targetBuyPrice = Number(item.targetBuyPrice || item.currentPrice);
-    if (!item.symbol?.trim() || !Number.isFinite(currentPrice) || currentPrice <= 0 ||
-      !Number.isFinite(targetBuyPrice) || targetBuyPrice <= 0) {
-      setUiMessage('Enter a ticker and current/target prices greater than zero.');
+    const currentPrice = item.currentPrice === '' || item.currentPrice === undefined ? 0 : Number(item.currentPrice);
+    const hasTargetBuyPrice = item.targetBuyPrice !== '' && item.targetBuyPrice !== undefined && item.targetBuyPrice !== null;
+    const targetBuyPrice = hasTargetBuyPrice ? Number(item.targetBuyPrice) : 0;
+    if (!item.symbol?.trim() || !Number.isFinite(currentPrice) || currentPrice < 0 ||
+      (hasTargetBuyPrice && (!Number.isFinite(targetBuyPrice) || targetBuyPrice <= 0))) {
+      setUiMessage('Enter a ticker. Current and target prices are optional.');
       return;
     }
     const sym = item.symbol.toUpperCase();
@@ -562,7 +635,7 @@ export function usePortfolio() {
       notes: item.notes || '',
       currency: itemCurrency
     };
-    setWatchlist(prev => [...prev, { ...newItem, accountId: selectedAccountId }]);
+    setWatchlist(prev => [...prev, { ...newItem, accountId: activeAccountId }]);
   };
 
   const updateWatchlistPrice = (id, currentPrice) => {
@@ -589,31 +662,42 @@ export function usePortfolio() {
     URL.revokeObjectURL(url);
   };
 
-  const exportCSV = () => {
-    const headers = ['Symbol', 'Name', 'Category', 'Shares', `Avg Cost (${currency})`, `Current Price (${currency})`, 'Target %', 'Dividend Yield %', `Annual Dividend (${currency})`, `Total Value (${currency})`, `Gain/Loss (${currency})`, 'Gain/Loss (%)', 'Notes'];
-    const rows = portfolioSummary.items.map(item => [
-      item.symbol,
-      `"${item.name || ''}"`,
-      item.category,
-      item.shares,
-      item.avgCost.toFixed(2),
-      item.currentPrice.toFixed(2),
-      item.targetPercent + '%',
-      (item.dividendYield || 0).toFixed(2) + '%',
-      item.annualDividend.toFixed(2),
-      item.totalValue.toFixed(2),
-      item.gainLoss.toFixed(2),
-      item.gainLossPercent.toFixed(2) + '%',
-      `"${(item.notes || '').replace(/"/g, '""')}"`
-    ]);
-
-    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
+  const exportCSV = (scope = 'selected') => {
+    const headers = ['Holdings List', 'Symbol', 'Name', 'Sector', 'Currency', 'Shares', 'Avg Cost (Native Currency)', 'Current Price (Native Currency)', 'Target %', 'Dividend Yield %', `Annual Dividend (${currency})`, `Total Value (${currency})`, `Gain/Loss (${currency})`, 'Gain/Loss (%)', 'Notes'];
+    const selectedAccount = accounts.find(account => account.id === selectedAccountId);
+    const exportAccounts = scope === 'all' || selectedAccountId === COMBINED_ACCOUNT_ID ? accounts : [selectedAccount];
+    const rows = [];
+    exportAccounts.forEach(account => {
+      if (!account) return;
+      const accountHoldings = allHoldings.filter(item => accountIdFor(item) === account.id);
+      const accountTransactions = allTransactions.filter(item => accountIdFor(item) === account.id);
+      const items = scope === 'selected' && selectedAccountId !== COMBINED_ACCOUNT_ID ? portfolioSummary.items : rebuildHoldings(accountHoldings, accountTransactions, historicalFx).map(item => {
+        const holdingCurrency = item.currency || detectSymbolCurrency(item.symbol);
+        const currentPriceUSD = toUSD(Number(item.currentPrice ?? item.avgCost ?? 0), holdingCurrency, fxRates);
+        const avgCostUSD = toUSD(Number(item.avgCost || 0), holdingCurrency, fxRates);
+        const valueUSD = Number(item.shares || 0) * currentPriceUSD;
+        const costUSD = Number(item.costBasisUSD || 0);
+        const gainUSD = valueUSD - costUSD;
+        return { ...item, currency: holdingCurrency, nativeAvgCost: Number(item.avgCost || 0), nativeCurrentPrice: Number(item.currentPrice ?? item.avgCost ?? 0), avgCost: avgCostUSD * rate, currentPrice: currentPriceUSD * rate, annualDividend: valueUSD * Number(item.dividendYield || 0) / 100 * rate, totalValue: valueUSD * rate, gainLoss: gainUSD * rate, gainLossPercent: costUSD > 0 ? gainUSD / costUSD * 100 : 0 };
+      });
+      items.forEach(item => rows.push([
+        `"${(account.name || '').replace(/"/g, '""')}"`, item.symbol, `"${item.name || ''}"`, item.category, item.currency || detectSymbolCurrency(item.symbol), item.shares,
+        Number(item.nativeAvgCost ?? item.avgCost ?? 0).toFixed(2), Number(item.nativeCurrentPrice ?? item.currentPrice ?? 0).toFixed(2), Number(item.targetPercent || 0) + '%', Number(item.dividendYield || 0).toFixed(2) + '%', Number(item.annualDividend || 0).toFixed(2), Number(item.totalValue || 0).toFixed(2), Number(item.gainLoss || 0).toFixed(2), Number(item.gainLossPercent || 0).toFixed(2) + '%', `"${(item.notes || '').replace(/"/g, '""')}"`
+      ]));
+      Object.entries(calculateCash(accountTransactions, accountHoldings)).filter(([, amount]) => Math.abs(amount) > 1e-8).forEach(([code, amount]) => {
+        const displayAmount = toUSD(amount, code, fxRates) * rate;
+        rows.push([`"${(account.name || '').replace(/"/g, '""')}"`, `${code} CASH`, `"${code} Cash"`, 'Cash', code, 1, displayAmount.toFixed(2), displayAmount.toFixed(2), '0%', '0.00%', '0.00', displayAmount.toFixed(2), '0.00', '0.00%', '"Cash balance"']);
+      });
+    });
+    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(row => row.join(','))].join('\n');
     const encodedUri = encodeURI(csvContent);
     const a = document.createElement('a');
     a.href = encodedUri;
-    a.download = `pro_portfolio_holdings_${new Date().toISOString().split('T')[0]}.csv`;
+    const suffix = scope === 'all' || selectedAccountId === COMBINED_ACCOUNT_ID ? 'all_lists' : (selectedAccount?.name || 'holdings_list').replace(/[^a-z0-9]+/gi, '_').toLowerCase();
+    a.download = `pro_portfolio_holdings_${suffix}_${new Date().toISOString().split('T')[0]}.csv`;
     a.click();
   };
+  const exportAllCSV = () => exportCSV('all');
 
   const importJSON = (event) => {
     const file = event.target.files[0];
@@ -640,13 +724,13 @@ export function usePortfolio() {
     const reader = new FileReader();
     reader.onload = e => {
       try {
-        const parsed = parsePortfolioCsv(e.target.result, selectedAccountId);
-        const accountHoldings = allHoldings.filter(item => accountIdFor(item) === selectedAccountId);
-        const accountTransactions = allTransactions.filter(item => accountIdFor(item) === selectedAccountId);
+        const parsed = parsePortfolioCsv(e.target.result, activeAccountId);
+        const accountHoldings = allHoldings.filter(item => accountIdFor(item) === activeAccountId);
+        const accountTransactions = allTransactions.filter(item => accountIdFor(item) === activeAccountId);
         const duplicates = parsed.kind === 'holdings'
           ? parsed.rows.filter(row => accountHoldings.some(item => item.symbol.toUpperCase() === row.symbol.toUpperCase())).length
           : parsed.rows.filter(row => accountTransactions.some(item => item.date === row.date && item.type === row.type && item.symbol?.toUpperCase() === row.symbol?.toUpperCase() && Number(item.shares || 0) === Number(row.shares || 0) && Number(item.price || 0) === Number(row.price || 0))).length;
-        setPendingCsvImport({ ...parsed, duplicates, accountId: selectedAccountId, fileName: file.name });
+        setPendingCsvImport({ ...parsed, duplicates, accountId: activeAccountId, fileName: file.name });
         return;
       } catch (error) { setUiMessage(`Could not import CSV: ${error.message}`); }
       event.target.value = '';
@@ -680,7 +764,61 @@ export function usePortfolio() {
       setPendingCsvImport(null);
       return;
     }
-    pendingCsvImport.rows.forEach(item => addHolding({ ...item, accountId: pendingCsvImport.accountId }));
+    const listNames = [...new Set(pendingCsvImport.rows.map(item => item.accountName).filter(Boolean))];
+    const includesMain = listNames.some(name => name.toLowerCase() === DEFAULT_ACCOUNT.name.toLowerCase());
+    if (listNames.length && !includesMain) {
+      setAccounts(previous => previous.filter(account => account.id !== DEFAULT_ACCOUNT.id));
+      setPortfolioData(previous => ({
+        holdings: previous.holdings.filter(item => accountIdFor(item) !== DEFAULT_ACCOUNT.id),
+        transactions: previous.transactions.filter(item => accountIdFor(item) !== DEFAULT_ACCOUNT.id)
+      }));
+      setWatchlist(previous => previous.filter(item => accountIdFor(item) !== DEFAULT_ACCOUNT.id));
+    }
+    const existingByName = new Map(accounts.map(account => [account.name.toLowerCase(), account]));
+    const importedAccounts = listNames.map(name => existingByName.get(name.toLowerCase()) || { id: 'account-' + crypto.randomUUID(), name, type: '', currency });
+    if (listNames.length && !includesMain && importedAccounts[0]) setSelectedAccountId(importedAccounts[0].id);
+    if (importedAccounts.some(account => !existingByName.has(account.name.toLowerCase()))) setAccounts(previous => [...previous, ...importedAccounts.filter(account => !previous.some(existing => existing.id === account.id))]);
+    const importedHoldings = pendingCsvImport.rows.map(item => {
+      const account = item.accountName
+        ? (existingByName.get(item.accountName.toLowerCase()) || importedAccounts.find(candidate => candidate.name.toLowerCase() === item.accountName.toLowerCase()))
+        : null;
+      const avgCost = Number(item.avgCost || 0);
+      const currentPrice = Number(item.currentPrice || 0);
+      return {
+        ...item,
+        id: 'h-' + crypto.randomUUID(),
+        accountId: account?.id || pendingCsvImport.accountId,
+        symbol: String(item.symbol || '').trim().toUpperCase(),
+        shares: Number(item.shares || 0),
+        avgCost,
+        currentPrice,
+        currency: item.currency || detectSymbolCurrency(item.symbol),
+        buyDate: item.buyDate || today(),
+        priceSource: 'manual',
+        priceUpdatedAt: new Date().toISOString()
+      };
+    });
+    const importedTransactions = importedHoldings.filter(item => item.avgCost > 0).map(item => ({
+      id: 'tx-' + crypto.randomUUID(),
+      accountId: item.accountId,
+      holdingId: item.id,
+      date: item.buyDate,
+      type: 'BUY',
+      symbol: item.symbol,
+      shares: item.shares,
+      price: item.avgCost,
+      currency: item.currency,
+      total: item.shares * item.avgCost,
+      cashImpact: false,
+      openingValue: item.shares * item.currentPrice
+    }));
+    setPortfolioData(previous => {
+      const nextTransactions = [...importedTransactions, ...previous.transactions];
+      return {
+        transactions: nextTransactions,
+        holdings: rebuildHoldings([...previous.holdings, ...importedHoldings], nextTransactions)
+      };
+    });
     setUiMessage(`Imported ${pendingCsvImport.rows.length} holding${pendingCsvImport.rows.length === 1 ? '' : 's'} from ${pendingCsvImport.broker}.`);
     setPendingCsvImport(null);
   };
@@ -706,12 +844,30 @@ export function usePortfolio() {
     setPendingImport(null);
   };
 
-  const addAccount = (name, type = 'Taxable', accountCurrency = currency) => {
+  const addAccount = (name, type = '', accountCurrency = currency) => {
     const cleanName = String(name || '').trim();
     if (!cleanName) { setUiMessage('Enter an account name.'); return; }
     const account = { id: 'account-' + crypto.randomUUID(), name: cleanName, type, currency: accountCurrency };
     setAccounts(previous => [...previous, account]);
     setSelectedAccountId(account.id);
+  };
+  const deleteAccount = id => {
+    if (accounts.length <= 1) { setUiMessage('Keep at least one holdings list.'); return; }
+    const account = accounts.find(item => item.id === id);
+    if (!account) return;
+    const replacement = accounts.find(item => item.id !== id);
+    stashDeleted(`Deleted list ${account.name}`, {
+      holdings: allHoldings.filter(item => accountIdFor(item) === id),
+      transactions: allTransactions.filter(item => accountIdFor(item) === id),
+      watchlist: watchlistData.filter(item => accountIdFor(item) === id)
+    });
+    setAccounts(previous => previous.filter(item => item.id !== id));
+    setPortfolioData(previous => ({
+      holdings: previous.holdings.filter(item => accountIdFor(item) !== id),
+      transactions: previous.transactions.filter(item => accountIdFor(item) !== id)
+    }));
+    setWatchlist(previous => previous.filter(item => accountIdFor(item) !== id));
+    if (selectedAccountId === id) setSelectedAccountId(replacement.id);
   };
 
   const renameAccount = (id, name) => {
@@ -721,7 +877,7 @@ export function usePortfolio() {
   };
 
   return {
-    mode, startPortfolio, trash, restoreDeleted, performance,
+    mode, startPortfolio, trash, restoreDeleted, clearRecentlyDeleted, performance,
     holdings,
     watchlist,
     transactions,
@@ -737,6 +893,7 @@ export function usePortfolio() {
     portfolioSummary,
     addHolding,
     updateHoldingPrice,
+    updateHolding,
     updateHoldingNotes,
     updateHoldingTarget,
     removeHolding,
@@ -748,10 +905,11 @@ export function usePortfolio() {
     removeWatchlistItem,
     exportJSON,
     exportCSV,
+    exportAllCSV,
     importJSON,
     importCSV,
     pendingCsvImport, confirmCsvImport, cancelCsvImport,
-    accounts, selectedAccountId, setSelectedAccountId, addAccount, renameAccount,
+    accounts, selectedAccountId, setSelectedAccountId, addAccount, renameAccount, deleteAccount,
     refreshMarketData,
     marketStatus, uiMessage, dismissMessage, storageError, storageBlocked, resumeSaving: () => { if (window.confirm('Replace unreadable browser data with the recovered portfolio shown here? Export a backup first.')) setStorageBlocked(false); },
     pendingImport, confirmImport, cancelImport: () => setPendingImport(null), fxRates, fxData, fxError, historicalFx,

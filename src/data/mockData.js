@@ -1,4 +1,4 @@
-export const INITIAL_CATEGORIES = ['Tech', 'Semi', 'Retail', 'EV', 'Crypto', 'Dividend', 'ETF', 'Real Estate', 'Other'];
+export const INITIAL_CATEGORIES = ['Tech', 'Semi', 'Retail', 'EV', 'Crypto', 'Dividend', 'ETF', 'Real Estate', 'Cash', 'Other'];
 
 export const INITIAL_HOLDINGS = [
   { 

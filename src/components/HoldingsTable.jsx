@@ -2,15 +2,16 @@ import { Modal, FormError } from './Modal';
 import { PriceStatus } from './PriceStatus';
 import React, { useState } from 'react';
 import { Trash2, Plus, ArrowUpRight, ArrowDownRight, FileSpreadsheet, Edit2, Check, FileText, X } from 'lucide-react';
-import { INITIAL_CATEGORIES } from '../data/mockData';
+import { CURRENCY_RATES, INITIAL_CATEGORIES } from '../data/mockData';
 import { TickerAutocomplete } from './TickerAutocomplete';
-import { isTseSymbol } from '../services/marketApi';
+import { isTseSymbol, searchMarketSymbols, inferSymbolMetadata } from '../services/marketApi';
 import { EmptyState } from './EmptyState';
 import { TickerLinks } from './TickerLinks';
 
-export function HoldingsTable({ summary, symbol, onAddHolding, onUpdateHoldingPrice, onUpdateHoldingNotes, onRemoveHolding, onExportCSV, globalFilter = '' }) {
+export function HoldingsTable({ summary, symbol, currencyCode = 'USD', onAddHolding, onUpdateHolding, onUpdateHoldingPrice, onUpdateHoldingNotes, onRemoveHolding, onExportCSV, onImportCSV, globalFilter = '' }) {
   const [formError, setFormError] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingHoldingId, setEditingHoldingId] = useState(null);
   const [editingId, setEditingId] = useState(null);
   const [editPriceVal, setEditPriceVal] = useState('');
   const [filter, setFilter] = useState('');
@@ -18,6 +19,7 @@ export function HoldingsTable({ summary, symbol, onAddHolding, onUpdateHoldingPr
 
   const [notesModalId, setNotesModalId] = useState(null);
   const [notesVal, setNotesVal] = useState('');
+  const [customCategory, setCustomCategory] = useState('');
 
   const [formData, setFormData] = useState({
     symbol: '',
@@ -30,6 +32,7 @@ export function HoldingsTable({ summary, symbol, onAddHolding, onUpdateHoldingPr
     targetPercent: '',
     notes: '',
     currency: 'USD'
+    , assetType: 'Stock', exchange: ''
   });
   const activeFilter = globalFilter || filter;
   const visibleItems = [...summary.items]
@@ -46,7 +49,8 @@ export function HoldingsTable({ summary, symbol, onAddHolding, onUpdateHoldingPr
     setFormData(prev => ({
       ...prev,
       symbol: sym,
-      currency: isCad ? 'CAD' : prev.currency
+      currency: isCad ? 'CAD' : prev.currency,
+      ...inferSymbolMetadata(sym)
     }));
   };
 
@@ -57,12 +61,29 @@ export function HoldingsTable({ summary, symbol, onAddHolding, onUpdateHoldingPr
       symbol: ticker.symbol,
       name: ticker.name,
       category: ticker.category,
-      currency: isCad ? 'CAD' : (ticker.currency || 'USD')
+      currency: isCad ? 'CAD' : (ticker.currency || 'USD'),
+      assetType: ticker.assetType || (ticker.category === 'ETF' ? 'ETF' : 'Stock'),
+      exchange: ticker.exchange || inferSymbolMetadata(ticker.symbol).exchange
     }));
   };
 
+  React.useEffect(() => {
+    const symbol = formData.symbol.trim();
+    if (!symbol || symbol.length < 2) return undefined;
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => {
+      searchMarketSymbols(symbol, controller.signal).then(results => {
+        const match = results.find(item => item.symbol.toUpperCase() === symbol.toUpperCase());
+        if (match) handleTickerSelect(match);
+      }).catch(() => {});
+    }, 500);
+    return () => { window.clearTimeout(timer); controller.abort(); };
+  }, [formData.symbol]);
+
   const handleSubmit = (e) => {
     e.preventDefault();
+    const category = formData.category === 'Custom' ? customCategory.trim() : formData.category;
+    const payload = { ...formData, category };
     const shares = Number(formData.shares);
     const hasCurrentPrice = formData.currentPrice !== '';
     const hasAvgCost = formData.avgCost !== '';
@@ -74,13 +95,27 @@ export function HoldingsTable({ summary, symbol, onAddHolding, onUpdateHoldingPr
       (hasAvgCost && (!Number.isFinite(avgCost) || avgCost <= 0)) ||
       (hasCurrentPrice && (!Number.isFinite(currentPrice) || currentPrice <= 0)) ||
       !Number.isFinite(dividendYield) || dividendYield < 0 || dividendYield > 100 ||
-      !Number.isFinite(targetPercent) || targetPercent < 0 || targetPercent > 100) {
+      !Number.isFinite(targetPercent) || targetPercent < 0 || targetPercent > 100 || !category) {
       setFormError('Enter a ticker and positive shares. Prices are optional and can be filled from live market data.');
       return;
     }
-    onAddHolding(formData);
-    setFormData({ symbol: '', name: '', shares: '', avgCost: '', currentPrice: '', category: 'Tech', dividendYield: '', targetPercent: '', notes: '', currency: 'USD' });
+    const saved = editingHoldingId
+      ? onUpdateHolding(editingHoldingId, payload)
+      : (onAddHolding(payload), true);
+    if (!saved) return;
+    setFormData({ symbol: '', name: '', shares: '', avgCost: '', currentPrice: '', category: 'Tech', dividendYield: '', targetPercent: '', notes: '', currency: 'USD', assetType: 'Stock', exchange: '' });
+    setCustomCategory('');
+    setEditingHoldingId(null);
     setIsModalOpen(false);
+  };
+
+  const openEditHolding = item => {
+    setEditingHoldingId(item.id);
+    const knownCategory = INITIAL_CATEGORIES.includes(item.category) ? item.category : 'Custom';
+    setCustomCategory(knownCategory === 'Custom' ? item.category || '' : '');
+    setFormData({ symbol: item.symbol || '', name: item.name || '', shares: item.shares ?? '', avgCost: item.avgCost ?? '', currentPrice: item.nativeCurrentPrice ?? item.currentPrice ?? '', category: knownCategory, dividendYield: item.dividendYield ?? '', targetPercent: item.targetPercent ?? '', notes: item.notes || '', currency: item.currency || 'USD', assetType: item.assetType || 'Stock', exchange: item.exchange || '' });
+    setFormError('');
+    setIsModalOpen(true);
   };
 
   const handleSaveInlinePrice = (id) => {
@@ -137,7 +172,7 @@ export function HoldingsTable({ summary, symbol, onAddHolding, onUpdateHoldingPr
             <FileSpreadsheet className="w-4 h-4 text-emerald-400" /> Export CSV
           </button>
           <button
-            onClick={() => setIsModalOpen(true)}
+            onClick={() => { setEditingHoldingId(null); setFormError(''); setIsModalOpen(true); }}
             className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold shadow-lg shadow-indigo-500/20 transition"
           >
             <Plus className="w-4 h-4" /> Add Position
@@ -162,12 +197,16 @@ export function HoldingsTable({ summary, symbol, onAddHolding, onUpdateHoldingPr
           <tbody className="divide-y divide-slate-800/60">
             {visibleItems.length === 0 ? (
               <tr>
-                <td colSpan={7}><EmptyState compact title={activeFilter ? 'No matching holdings' : 'Your portfolio is empty'} description={activeFilter ? 'Try a different search term.' : 'Add a position or import a broker CSV to get started.'} actionLabel={!activeFilter ? 'Add position' : undefined} onAction={!activeFilter ? () => setIsModalOpen(true) : undefined} /></td>
+                <td colSpan={7}>
+                  <EmptyState compact title={activeFilter ? 'No matching holdings' : 'Your portfolio is empty'} description={activeFilter ? 'Try a different search term.' : 'Add a position or import a broker CSV to get started.'} actionLabel={!activeFilter ? 'Add position' : undefined} onAction={!activeFilter ? () => setIsModalOpen(true) : undefined} />
+                  {!activeFilter && onImportCSV && <div className="flex justify-center -mt-4 pb-5"><label className="secondary-button mx-auto cursor-pointer">Import CSV<input aria-label="Import holdings CSV" type="file" accept=".csv,text/csv" className="absolute w-px h-px opacity-0" onChange={onImportCSV} /></label></div>}
+                </td>
               </tr>
             ) : (
               visibleItems.map((item) => {
                 const isPositive = item.gainLoss >= 0;
                 const isEditing = editingId === item.id;
+                const nativeSymbol = CURRENCY_RATES[item.currency || 'USD']?.symbol || item.currency || '$';
 
                 return (
                   <tr key={item.id} className="hover:bg-slate-800/40 transition">
@@ -176,7 +215,7 @@ export function HoldingsTable({ summary, symbol, onAddHolding, onUpdateHoldingPr
                         <span className="font-bold text-white text-base">{item.symbol}</span><TickerLinks symbol={item.symbol} />
                         <span className="text-[10px] bg-indigo-500/10 text-indigo-300 border border-indigo-500/30 px-2 py-0.5 rounded-full">{item.category || 'Other'}</span>
                         {(item.currency === 'CAD' || isTseSymbol(item.symbol)) && (
-                          <span className="text-[10px] bg-red-500/10 text-red-400 border border-red-500/30 px-1.5 py-0.5 rounded-full font-bold">
+                          <span className="inline-flex items-center whitespace-nowrap text-[10px] bg-red-500/10 text-red-400 border border-red-500/30 px-2 py-0.5 rounded-full font-bold">
                             TSE · CAD
                           </span>
                         )}
@@ -191,7 +230,7 @@ export function HoldingsTable({ summary, symbol, onAddHolding, onUpdateHoldingPr
                     </td>
                     <td data-label="Shares" className="py-3.5 px-4 font-medium">{item.shares}</td>
                     <td data-label="Buy / Current Price" className="py-3.5 px-4">
-                      <div className="text-xs text-slate-400">Buy: {symbol}{item.avgCost.toFixed(2)}</div>
+                        <div className="text-xs text-slate-400">Buy: {nativeSymbol}{Number(item.nativeAvgCost ?? item.avgCost).toFixed(2)} {item.currency || 'USD'}</div>
                       <div className="flex items-center gap-1.5 mt-0.5">
                         {isEditing ? (
                           <div className="flex items-center gap-1">
@@ -215,12 +254,7 @@ export function HoldingsTable({ summary, symbol, onAddHolding, onUpdateHoldingPr
                           </div>
                         ) : (
                           <div className="flex items-center gap-1.5 font-semibold text-white">
-                            <span>Now: {symbol}{item.currentPrice.toFixed(2)}</span>
-                            {item.currency === 'CAD' && Number.isFinite(item.nativeCurrentPrice) && (
-                              <span className="text-[10px] text-slate-400 font-normal">
-                                (CA${item.nativeCurrentPrice.toFixed(2)})
-                              </span>
-                            )}
+                            <span>Now: {nativeSymbol}{Number(item.nativeCurrentPrice ?? item.currentPrice).toFixed(2)} {item.currency || 'USD'}</span>
                             <button onClick={() => { setEditingId(item.id); setEditPriceVal(item.nativeCurrentPrice ?? item.currentPriceUSD); }} className="text-indigo-400 hover:text-indigo-300" title="Edit current price">
                               <Edit2 className="w-3 h-3" />
                             </button>
@@ -232,15 +266,16 @@ export function HoldingsTable({ summary, symbol, onAddHolding, onUpdateHoldingPr
                       <div className="text-xs text-indigo-300">Target: {item.targetPercent || 0}% (Actual: {item.actualPercent.toFixed(1)}%)</div>
                       <div className="text-[11px] text-emerald-400 mt-0.5">{item.dividendYield || 0}% Yield (+{symbol}{item.annualDividend.toFixed(2)}/yr)</div>
                     </td>
-                    <td data-label="Total Value" className="py-3.5 px-4 font-bold text-white">{symbol}{item.totalValue.toFixed(2)}</td>
+                    <td data-label="Total Value" className="py-3.5 px-4 font-bold text-white">{nativeSymbol}{Number(item.nativeTotalValue ?? item.totalValue).toFixed(2)} {item.currency || 'USD'}</td>
                     <td data-label="Gain / Loss" className="py-3.5 px-4">
                       <div className={`inline-flex items-center gap-1 font-semibold ${isPositive ? 'text-emerald-400' : 'text-rose-400'}`}>
                         {isPositive ? <ArrowUpRight className="w-3.5 h-3.5" /> : <ArrowDownRight className="w-3.5 h-3.5" />}
-                        {symbol}{Math.abs(item.gainLoss).toFixed(2)} ({item.gainLossPercent.toFixed(2)}%)
+                        {symbol}{Math.abs(item.gainLoss).toFixed(2)} {currencyCode} ({item.gainLossPercent.toFixed(2)}%)
                       </div>
                     </td>
                     <td data-label="Actions" className="py-3.5 px-4 text-right">
                       <div className="flex items-center justify-end gap-1.5">
+                        <button onClick={() => openEditHolding(item)} className="p-1.5 text-indigo-400 hover:text-indigo-300 rounded-lg transition" title="Edit holding" aria-label={`Edit ${item.symbol}`}><Edit2 className="w-4 h-4" /></button>
                         <button
                           onClick={() => { setNotesModalId(item.id); setNotesVal(item.notes || ''); }}
                           className={`p-1.5 rounded-lg transition ${item.notes ? 'text-indigo-400 bg-indigo-500/10' : 'text-slate-500 hover:text-slate-300'}`}
@@ -268,7 +303,10 @@ export function HoldingsTable({ summary, symbol, onAddHolding, onUpdateHoldingPr
       {/* Mobile Card View */}
       <div className="sm:hidden divide-y divide-slate-800">
         {visibleItems.length === 0 ? (
-          <EmptyState compact title={activeFilter ? 'No matching holdings' : 'Your portfolio is empty'} description={activeFilter ? 'Try a different search term.' : 'Add a position or import a broker CSV to get started.'} actionLabel={!activeFilter ? 'Add position' : undefined} onAction={!activeFilter ? () => setIsModalOpen(true) : undefined} />
+          <>
+            <EmptyState compact title={activeFilter ? 'No matching holdings' : 'Your portfolio is empty'} description={activeFilter ? 'Try a different search term.' : 'Add a position or import a broker CSV to get started.'} actionLabel={!activeFilter ? 'Add position' : undefined} onAction={!activeFilter ? () => setIsModalOpen(true) : undefined} />
+            {!activeFilter && onImportCSV && <div className="flex justify-center -mt-4 pb-5"><label className="secondary-button mx-auto relative cursor-pointer">Import CSV<input aria-label="Import holdings CSV" type="file" accept=".csv,text/csv" className="absolute w-px h-px opacity-0" onChange={onImportCSV} /></label></div>}
+          </>
         ) : (
           visibleItems.map((item) => {
             const isPositive = item.gainLoss >= 0;
@@ -287,6 +325,7 @@ export function HoldingsTable({ summary, symbol, onAddHolding, onUpdateHoldingPr
                     )}
                   </div>
                   <div className="flex items-center gap-1">
+                    <button onClick={() => openEditHolding(item)} aria-label="Edit holding" className="p-2 text-indigo-400"><Edit2 className="w-4 h-4" /></button>
                     <button onClick={() => { setNotesModalId(item.id); setNotesVal(item.notes || ''); }} aria-label="Edit holding notes" className="p-2 text-indigo-400"><FileText className="w-4 h-4" /></button>
                     <button onClick={() => onRemoveHolding(item.id)} aria-label="Delete holding" className="p-2 text-rose-400"><Trash2 className="w-4 h-4" /></button>
                   </div>
@@ -299,7 +338,7 @@ export function HoldingsTable({ summary, symbol, onAddHolding, onUpdateHoldingPr
                 <div className="grid grid-cols-2 gap-2 text-xs bg-slate-950 p-3 rounded-xl border border-slate-800/60">
                   <div>
                     <span className="text-slate-500 block">Shares / Buy:</span>
-                    <span className="font-semibold text-white">{item.shares} @ {symbol}{item.avgCost.toFixed(2)}</span>
+                    <span className="font-semibold text-white">{item.shares} @ {symbol}{item.avgCost.toFixed(2)} {currencyCode}</span>
                   </div>
                   <div>
                     <span className="text-slate-500 block">Current Price:</span>
@@ -320,7 +359,7 @@ export function HoldingsTable({ summary, symbol, onAddHolding, onUpdateHoldingPr
                       </div>
                     ) : (
                       <div className="flex items-center gap-1 font-bold text-white">
-                        <span>{symbol}{item.currentPrice.toFixed(2)}</span>
+                        <span>{symbol}{item.currentPrice.toFixed(2)} {currencyCode}</span>
                         {item.currency === 'CAD' && Number.isFinite(item.nativeCurrentPrice) && (
                           <span className="text-[10px] text-slate-400 font-normal">
                             (CA${item.nativeCurrentPrice.toFixed(2)})
@@ -333,10 +372,10 @@ export function HoldingsTable({ summary, symbol, onAddHolding, onUpdateHoldingPr
                 </div>
 
                 <div className="flex items-center justify-between text-xs pt-1">
-                  <span className="text-slate-400">Total Value: <strong className="text-white">{symbol}{item.totalValue.toFixed(2)}</strong></span>
+                    <span className="text-slate-400">Total Value: <strong className="text-white">{symbol}{item.totalValue.toFixed(2)} {currencyCode}</strong></span>
                   <span className={`font-semibold flex items-center gap-1 ${isPositive ? 'text-emerald-400' : 'text-rose-400'}`}>
                     {isPositive ? <ArrowUpRight className="w-3.5 h-3.5" /> : <ArrowDownRight className="w-3.5 h-3.5" />}
-                    {symbol}{Math.abs(item.gainLoss).toFixed(2)} ({item.gainLossPercent.toFixed(2)}%)
+                    {symbol}{Math.abs(item.gainLoss).toFixed(2)} {currencyCode} ({item.gainLossPercent.toFixed(2)}%)
                   </span>
                 </div>
               </div>
@@ -347,10 +386,10 @@ export function HoldingsTable({ summary, symbol, onAddHolding, onUpdateHoldingPr
 
       {/* Add Position Modal */}
       {isModalOpen && (
-        <Modal title="Add asset position" onClose={() => { setIsModalOpen(false); setFormError(''); }}>
+        <Modal title={editingHoldingId ? 'Edit holding' : 'Add asset position'} onClose={() => { setIsModalOpen(false); setEditingHoldingId(null); setFormError(''); }}>
           <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-lg p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
             <form onChange={() => setFormError('')} onSubmit={handleSubmit} className="space-y-4">
-              <p className="text-sm text-slate-400">Add an existing position without changing cash. To buy more using tracked cash, record a BUY in Transactions.</p>
+              <p className="text-sm text-slate-400">{editingHoldingId ? 'Update the holding details directly. Transaction history remains unchanged.' : 'Add an existing position without changing cash. To buy more using tracked cash, record a BUY in Transactions.'}</p>
               <FormError message={formError} />
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -386,7 +425,9 @@ export function HoldingsTable({ summary, symbol, onAddHolding, onUpdateHoldingPr
                     className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white"
                   >
                     {INITIAL_CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                    <option value="Custom">Custom…</option>
                   </select>
+                  {formData.category === 'Custom' && <input value={customCategory} onChange={e => setCustomCategory(e.target.value)} placeholder="e.g. Utilities" className="w-full mt-2 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white" required />}
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-slate-400 uppercase mb-1">Asset Currency</label>
@@ -410,7 +451,7 @@ export function HoldingsTable({ summary, symbol, onAddHolding, onUpdateHoldingPr
                   <input
                     type="number"
                     step="any"
-                    min="0.00000001"
+                    min="0"
                     placeholder="e.g. 10"
                     value={formData.shares}
                     onChange={e => setFormData({ ...formData, shares: e.target.value })}
@@ -488,7 +529,7 @@ export function HoldingsTable({ summary, symbol, onAddHolding, onUpdateHoldingPr
 
               <div className="flex items-center justify-end gap-3 pt-3">
                 <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-slate-400 hover:text-slate-200 text-xs font-semibold">Cancel</button>
-                <button type="submit" className="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold shadow-lg">Save Position</button>
+                <button type="submit" className="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold shadow-lg">{editingHoldingId ? 'Save Changes' : 'Save Position'}</button>
               </div>
             </form>
           </div>

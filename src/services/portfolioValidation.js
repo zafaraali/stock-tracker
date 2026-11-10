@@ -10,7 +10,7 @@ const positive = value => number(value) && value > 0;
 const text = value => typeof value === 'string' && value.trim().length > 0;
 const unique = items => items.every(item => item && text(item.id)) && new Set(items.map(item => item.id)).size === items.length;
 const currency = item => item.currency === undefined || Object.hasOwn(CURRENCY_RATES, item.currency);
-const asset = item => text(item.symbol) && currency(item) && positive(item.currentPrice) &&
+const asset = item => text(item.symbol) && currency(item) && number(item.currentPrice) &&
   ['name', 'notes', 'category'].every(key => item[key] === undefined || typeof item[key] === 'string');
 
 export function validateLedger(holdings, transactions) {

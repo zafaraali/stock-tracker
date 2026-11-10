@@ -2,19 +2,20 @@ import { Modal, FormError } from './Modal';
 import { PriceStatus } from './PriceStatus';
 import React, { useState } from 'react';
 import { Eye, Plus, Trash2, Edit2, Check, ArrowRight, ExternalLink } from 'lucide-react';
-import { INITIAL_CATEGORIES } from '../data/mockData';
+import { INITIAL_CATEGORIES, CURRENCY_RATES } from '../data/mockData';
 import { TickerAutocomplete } from './TickerAutocomplete';
 import { isTseSymbol, detectSymbolCurrency } from '../services/marketApi';
 import { toUSD } from '../hooks/usePortfolio';
 import { EmptyState } from './EmptyState';
 import { TickerLinks } from './TickerLinks';
 
-export function WatchlistView({ watchlist, symbol, rate, fxRates, onAddWatchlistItem, onUpdateWatchlistPrice, onRemoveWatchlistItem, onAddHolding, globalFilter = '' }) {
+export function WatchlistView({ watchlist, symbol, currencyCode = 'USD', rate, fxRates, onAddWatchlistItem, onUpdateWatchlistPrice, onRemoveWatchlistItem, onAddHolding, globalFilter = '' }) {
   const [formError, setFormError] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [editPriceVal, setEditPriceVal] = useState('');
   const [filter, setFilter] = useState('');
+  const [customCategory, setCustomCategory] = useState('');
 
   const [convertToHoldingItem, setConvertToHoldingItem] = useState(null);
   const [convertShares, setConvertShares] = useState('10');
@@ -56,15 +57,18 @@ export function WatchlistView({ watchlist, symbol, rate, fxRates, onAddWatchlist
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    const currentPrice = Number(formData.currentPrice);
-    const targetBuyPrice = formData.targetBuyPrice === '' ? currentPrice : Number(formData.targetBuyPrice);
-    if (!formData.symbol.trim() || !Number.isFinite(currentPrice) || currentPrice <= 0 ||
-      !Number.isFinite(targetBuyPrice) || targetBuyPrice <= 0) {
-      setFormError('Enter a ticker and current/target prices greater than zero.');
+    const category = formData.category === 'Custom' ? customCategory.trim() : formData.category;
+    const currentPrice = formData.currentPrice === '' ? 0 : Number(formData.currentPrice);
+    const hasTargetBuyPrice = formData.targetBuyPrice !== '';
+    const targetBuyPrice = hasTargetBuyPrice ? Number(formData.targetBuyPrice) : 0;
+    if (!formData.symbol.trim() || !category || !Number.isFinite(currentPrice) || currentPrice < 0 ||
+      (hasTargetBuyPrice && (!Number.isFinite(targetBuyPrice) || targetBuyPrice <= 0))) {
+      setFormError('Enter a ticker. Current and target prices are optional.');
       return;
     }
-    onAddWatchlistItem(formData);
+    onAddWatchlistItem({ ...formData, category });
     setFormData({ symbol: '', name: '', currentPrice: '', targetBuyPrice: '', category: 'Tech', notes: '', currency: 'USD' });
+    setCustomCategory('');
     setIsModalOpen(false);
   };
 
@@ -152,11 +156,13 @@ export function WatchlistView({ watchlist, symbol, rate, fxRates, onAddWatchlist
                   const isEditing = editingId === item.id;
                   const itemCurrency = item.currency || detectSymbolCurrency(item.symbol);
                   const curPriceUSD = toUSD(item.currentPrice, itemCurrency, fxRates);
-                  const targetBuyPriceUSD = toUSD(item.targetBuyPrice, itemCurrency, fxRates);
+                  const targetBuyPriceUSD = item.targetBuyPrice > 0 ? toUSD(item.targetBuyPrice, itemCurrency, fxRates) : 0;
                   const curPriceNum = curPriceUSD * rate;
                   const targetNum = targetBuyPriceUSD * rate;
-                  const isNearTarget = item.currentPrice <= item.targetBuyPrice;
+                  const isNearTarget = item.targetBuyPrice > 0 && item.currentPrice <= item.targetBuyPrice;
                   const isCad = itemCurrency === 'CAD' || isTseSymbol(item.symbol);
+                  const nativeSymbol = CURRENCY_RATES[itemCurrency]?.symbol || itemCurrency;
+                  const displayCurrencyDiffers = nativeSymbol !== symbol;
 
                   return (
                     <tr key={item.id} className="hover:bg-slate-800/40 transition">
@@ -193,10 +199,10 @@ export function WatchlistView({ watchlist, symbol, rate, fxRates, onAddWatchlist
                           </div>
                         ) : (
                           <div className="flex items-center gap-1.5 font-bold text-white">
-                            <span>{symbol}{curPriceNum.toFixed(2)}</span>
-                            {isCad && (
+                            <span>{nativeSymbol}{Number(item.currentPrice).toFixed(2)}</span>
+                            {displayCurrencyDiffers && (
                               <span className="text-[10px] text-slate-400 font-normal">
-                                (CA${Number(item.currentPrice).toFixed(2)})
+                                ({symbol}{curPriceNum.toFixed(2)} {currencyCode})
                               </span>
                             )}
                             <button onClick={() => { setEditingId(item.id); setEditPriceVal(item.currentPrice); }} className="text-indigo-400 hover:text-indigo-300" title="Edit price">
@@ -207,10 +213,10 @@ export function WatchlistView({ watchlist, symbol, rate, fxRates, onAddWatchlist
                       </td>
                       <td data-label="Target Buy Price" className="py-3.5 px-4">
                         <div className="text-xs text-slate-300 font-medium">
-                          {symbol}{targetNum.toFixed(2)}
+                          {item.targetBuyPrice > 0 ? `${nativeSymbol}${Number(item.targetBuyPrice).toFixed(2)} ${itemCurrency}` : 'Not set'}
                           {isCad && (
                             <span className="text-[10px] text-slate-400 font-normal ml-1">
-                              (CA${Number(item.targetBuyPrice).toFixed(2)})
+                              ({symbol}{targetNum.toFixed(2)} {currencyCode})
                             </span>
                           )}
                         </div>
@@ -290,7 +296,9 @@ export function WatchlistView({ watchlist, symbol, rate, fxRates, onAddWatchlist
                     className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white"
                   >
                     {INITIAL_CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                    <option value="Custom">Custom…</option>
                   </select>
+                  {formData.category === 'Custom' && <input value={customCategory} onChange={e => setCustomCategory(e.target.value)} placeholder="e.g. Utilities" className="w-full mt-2 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white" required />}
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-slate-400 uppercase mb-1">Asset Currency</label>
@@ -310,7 +318,7 @@ export function WatchlistView({ watchlist, symbol, rate, fxRates, onAddWatchlist
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-400 uppercase mb-1">Current Price ({formData.currency || 'USD'})</label>
+                  <label className="block text-xs font-semibold text-slate-400 uppercase mb-1">Current Price ({formData.currency || 'USD'}) <span className="normal-case font-normal">(optional)</span></label>
                   <input
                     type="number"
                     step="any"
@@ -319,7 +327,6 @@ export function WatchlistView({ watchlist, symbol, rate, fxRates, onAddWatchlist
                     value={formData.currentPrice}
                     onChange={e => setFormData({ ...formData, currentPrice: e.target.value })}
                     className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white"
-                    required
                   />
                 </div>
                 <div>

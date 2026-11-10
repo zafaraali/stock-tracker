@@ -14,7 +14,7 @@ export function CashPanel({ summary, symbol, onRecord }) {
   </section>;
 }
 
-export function RecentlyDeleted({ entries, onRestore }) {
+export function RecentlyDeleted({ entries, onRestore, onClear }) {
   if (!entries.length) return null;
-  return <details className="no-print bg-slate-900 border border-slate-800 rounded-xl p-4 mb-6"><summary className="cursor-pointer font-semibold">Recently deleted ({entries.length}) · Undo available</summary><p className="text-sm text-slate-400 my-3">The last 20 deletions are saved in this browser. Undo restores removed records without replacing newer work.</p><ul className="space-y-2">{entries.map(entry => <li key={entry.id} className="flex items-center justify-between gap-4"><span>{entry.label}</span><button className="secondary-button" aria-label={`Undo ${entry.label}`} onClick={() => onRestore(entry.id)}>Undo</button></li>)}</ul></details>;
+  return <details className="no-print bg-slate-900 border border-slate-800 rounded-xl p-4 mb-6"><summary className="cursor-pointer font-semibold flex items-center justify-between gap-4"><span>Recently deleted ({entries.length}) · Undo available</span><button type="button" className="secondary-button text-rose-400 shrink-0" onClick={event => { event.preventDefault(); onClear(); }}>Dismiss all</button></summary><p className="text-sm text-slate-400 my-3">The last 20 deletions are saved in this browser. Undo restores removed records without replacing newer work.</p><ul className="space-y-2">{entries.map(entry => <li key={entry.id} className="flex items-center justify-between gap-4"><span>{entry.label}</span><button className="secondary-button" aria-label={`Undo ${entry.label}`} onClick={() => onRestore(entry.id)}>Undo</button></li>)}</ul></details>;
 }
