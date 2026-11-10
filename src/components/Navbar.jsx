@@ -9,6 +9,7 @@ export function Navbar({ activeTab, setActiveTab, currency, setCurrency, theme, 
   const [installPrompt, setInstallPrompt] = useState(null);
   const [newAccountName, setNewAccountName] = useState('');
   const [driveStatus, setDriveStatus] = useState('');
+  const [driveBusy, setDriveBusy] = useState(false);
   const isLight = theme === 'light';
 
   useEffect(() => {
@@ -33,16 +34,22 @@ export function Navbar({ activeTab, setActiveTab, currency, setCurrency, theme, 
   };
 
   const backupToDrive = async () => {
+    if (driveBusy) return;
+    setDriveBusy(true);
     setDriveStatus('Backing up…');
     try {
       await uploadGoogleDriveBackup(backupPayload);
       setDriveStatus('Backup saved to Google Drive.');
     } catch (error) {
       setDriveStatus(error.message);
+    } finally {
+      setDriveBusy(false);
     }
   };
 
   const restoreFromDrive = async () => {
+    if (driveBusy) return;
+    setDriveBusy(true);
     setDriveStatus('Loading backup…');
     try {
       const payload = await downloadGoogleDriveBackup();
@@ -50,6 +57,8 @@ export function Navbar({ activeTab, setActiveTab, currency, setCurrency, theme, 
       setDriveStatus('Backup loaded for review below.');
     } catch (error) {
       setDriveStatus(error.message);
+    } finally {
+      setDriveBusy(false);
     }
   };
 
@@ -169,7 +178,7 @@ export function Navbar({ activeTab, setActiveTab, currency, setCurrency, theme, 
               <div className="rounded-xl border border-slate-800 p-3">
                 <p className="text-sm font-semibold mb-1">Google Drive backup</p>
                 <p className="text-xs text-slate-500 mb-3">{isGoogleDriveConfigured() ? 'Save or restore your complete portfolio backup from Google Drive.' : 'Add VITE_GOOGLE_CLIENT_ID to enable Google Drive backup.'}</p>
-                {isGoogleDriveConfigured() && <div className="flex flex-wrap gap-2"><button type="button" className="primary-button" onClick={backupToDrive}>Back up to Drive</button><button type="button" className="secondary-button" onClick={restoreFromDrive}>Restore from Drive</button></div>}
+                {isGoogleDriveConfigured() && <div className="flex flex-wrap gap-2"><button type="button" className="primary-button" disabled={driveBusy} onClick={backupToDrive}>Back up to Drive</button><button type="button" className="secondary-button" disabled={driveBusy} onClick={restoreFromDrive}>Restore from Drive</button></div>}
                 {driveStatus && <p className="text-xs text-slate-400 mt-2" role="status">{driveStatus}</p>}
               </div>
               <div className="rounded-xl border border-slate-800 p-3">
