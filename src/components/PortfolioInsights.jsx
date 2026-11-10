@@ -1,10 +1,12 @@
 import React from 'react';
+import { Money } from './Money';
+import { formatQuantity, formatPercent } from '../services/formatNumber';
 import { AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { formatMoney } from '../services/formatMoney';
 
 const money = formatMoney;
 const returnColor = value => value > 0 ? 'text-emerald-400' : value < 0 ? 'text-rose-400' : 'text-slate-400';
-const returnLabel = value => `${value > 0 ? '+' : ''}${Number(value || 0).toFixed(1)}%`;
+const returnLabel = value => formatPercent(value || 0, { signed: true });
 
 export function PortfolioInsights({ summary, currencyCode = 'USD' }) {
   const cashPercent = Number.isFinite(summary.cashAllocation)
@@ -35,9 +37,9 @@ export function PortfolioInsights({ summary, currencyCode = 'USD' }) {
         {!hasTargets ? <span className="text-xs text-slate-400">Allocation targets not configured</span> : targetGap < 0.01 ? <span className="text-xs rounded-full px-3 py-1 bg-emerald-500/10 text-emerald-400">Targets total 100%</span> : <span className="text-xs rounded-full px-3 py-1 bg-amber-500/10 text-amber-400">Targets off by {targetGap.toFixed(1)}%</span>}
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
-        <div className="rounded-xl bg-slate-800/60 p-4"><p className="text-xs text-slate-400">Cash allocation</p><p className="text-xl font-semibold mt-1">{summary.totalValue > 0 ? `${cashPercent.toFixed(1)}%` : 'Not available yet'}</p><p className="text-xs text-slate-500 mt-1">{money(summary.cashValue, currencyCode)} available</p></div>
+        <div className="rounded-xl bg-slate-800/60 p-4"><p className="text-xs text-slate-400">Cash allocation</p><p className="text-xl font-semibold mt-1">{summary.totalValue > 0 ? `${cashPercent.toFixed(1)}%` : 'Not available yet'}</p><p className="text-xs text-slate-500 mt-1"><Money amount={money(summary.cashValue, currencyCode)} /> available</p></div>
         <div className="rounded-xl bg-slate-800/60 p-4"><p className="text-xs text-slate-400">Holdings</p><p className="text-xl font-semibold mt-1">{summary.items.length}</p><p className="text-xs text-slate-500 mt-1">Across {summary.categoryBreakdown.length} categories</p></div>
-        <div className="rounded-xl bg-slate-800/60 p-4"><p className="text-xs text-slate-400">Income yield</p><p className="text-xl font-semibold mt-1">{summary.totalValue > 0 && Number.isFinite(summary.portfolioYield) ? `${summary.portfolioYield.toFixed(2)}%` : 'Not available yet'}</p><p className="text-xs text-slate-500 mt-1">{money(summary.annualDividend, currencyCode)} estimated / year</p></div>
+        <div className="rounded-xl bg-slate-800/60 p-4"><p className="text-xs text-slate-400">Income yield</p><p className="text-xl font-semibold mt-1">{summary.totalValue > 0 && Number.isFinite(summary.portfolioYield) ? `${summary.portfolioYield.toFixed(2)}%` : 'Not available yet'}</p><p className="text-xs text-slate-500 mt-1"><Money amount={money(summary.annualDividend, currencyCode)} /> estimated / year</p></div>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         <div><h3 className="text-sm font-semibold text-slate-300 mb-2">Top performers</h3>{winners.length ? <ul className="space-y-2">{winners.map(item => <li key={item.id} className="flex justify-between gap-3 text-sm"><span className="truncate">{item.symbol}</span><span className={returnColor(item.gainLossPercent)}>{returnLabel(item.gainLossPercent)}</span></li>)}</ul> : <p className="text-sm text-slate-500">Add holdings to see performance.</p>}</div>

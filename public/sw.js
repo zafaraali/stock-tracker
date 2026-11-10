@@ -1,5 +1,5 @@
-/* global self, caches */
-const CACHE_NAME = 'apexfinance-shell-v1';
+/* global self, caches, Response */
+const CACHE_NAME = 'apexfinance-shell-v2';
 const APP_SHELL = ['/', '/index.html', '/manifest.webmanifest', '/favicon.svg', '/icon-192.svg', '/icon-512.svg'];
 
 self.addEventListener('install', event => {
@@ -16,8 +16,7 @@ self.addEventListener('fetch', event => {
   const request = event.request;
   if (request.method !== 'GET' || new URL(request.url).origin !== self.location.origin || request.url.includes('/api/')) return;
   event.respondWith(fetch(request).then(response => {
-    const copy = response.clone();
-    caches.open(CACHE_NAME).then(cache => cache.put(request, copy));
+    if (response.ok) { const copy = response.clone(); caches.open(CACHE_NAME).then(cache => cache.put(request, copy)); }
     return response;
-  }).catch(() => caches.match(request).then(cached => cached || caches.match('/index.html'))));
+  }).catch(() => caches.match(request).then(async cached => cached || (request.mode === 'navigate' ? await caches.match('/index.html') : null) || new Response('This resource is not available offline.', { status: 503 }))));
 });

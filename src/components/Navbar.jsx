@@ -1,12 +1,16 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Modal } from './Modal';
 import { requestBackupPassword } from './BackupPasswordDialog';
-import { TrendingUp, PieChart as PieIcon, ArrowDownUp, Sliders, History, Eye, Download, Upload, Sun, Moon, Trash2, RefreshCw, Settings, CalendarDays, Activity, Menu, X } from 'lucide-react';
+import { withBackupProgress } from '../services/backupProgress';
+import { BackupReminder, useBackupReminder } from './BackupReminder';
+import { recordBackup } from '../services/backupReminder';
+import { TrendingUp, PieChart as PieIcon, ArrowDownUp, Sliders, History, Eye, EyeOff, Download, Upload, Sun, Moon, Trash2, RefreshCw, Settings, CalendarDays, Activity, Menu, X } from 'lucide-react';
 import { CURRENCY_RATES } from '../data/mockData';
 import { downloadGoogleDriveBackup, downloadLatestGoogleDriveBackup, ENCRYPTED_DRIVE_BACKUP_PREFIX, isGoogleDriveConfigured, uploadGoogleDriveBackup } from '../services/googleDrive';
 import { decryptBackup, encryptBackup } from '../services/encryptedBackup';
 
-export function Navbar({ activeTab, setActiveTab, currency, setCurrency, theme, toggleTheme, accent, setAccent, exportJSON, exportEncryptedJSON, backupPayload, restoreJSONBackup, exportCSV, exportAllCSV, importJSON, importEncryptedJSON, importCSV, accounts = [], selectedAccountId, setSelectedAccountId, addAccount, renameAccount, deleteAccount, onDeleteAllData, refreshMarketData, marketStatus }) {
+export function Navbar({ privateMode, onTogglePrivacy, activeTab, setActiveTab, currency, setCurrency, theme, toggleTheme, accent, setAccent, exportJSON, exportEncryptedJSON, backupPayload, restoreJSONBackup, exportCSV, exportAllCSV, importJSON, importEncryptedJSON, importCSV, accounts = [], selectedAccountId, setSelectedAccountId, addAccount, renameAccount, deleteAccount, onDeleteAllData, refreshMarketData, marketStatus }) {
+  const reminder = useBackupReminder();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsSection, setSettingsSection] = useState('appearance');
   const [installPrompt, setInstallPrompt] = useState(null);
@@ -88,8 +92,9 @@ export function Navbar({ activeTab, setActiveTab, currency, setCurrency, theme, 
     setDriveBusy(true);
     setDriveStatus('Backing up…');
     try {
-      await uploadGoogleDriveBackup(backupPayload);
+      await withBackupProgress('Uploading backup…', () => uploadGoogleDriveBackup(backupPayload));
       setDriveStatus('Backup saved to Google Drive.');
+      recordBackup('drive');
     } catch (error) {
       setDriveStatus(error.message);
     } finally {
@@ -102,9 +107,9 @@ export function Navbar({ activeTab, setActiveTab, currency, setCurrency, theme, 
     setDriveBusy(true);
     setDriveStatus('Loading backup…');
     try {
-      const payload = await downloadGoogleDriveBackup();
+      const payload = await withBackupProgress('Downloading backup…', () => downloadGoogleDriveBackup());
       restoreJSONBackup(payload);
-      setDriveStatus('Backup loaded for review below.');
+      setDriveStatus('Restore awaiting confirmation. Review the backup preview; your data has not changed.');
     } catch (error) {
       setDriveStatus(error.message);
     } finally {
@@ -119,10 +124,11 @@ export function Navbar({ activeTab, setActiveTab, currency, setCurrency, theme, 
     setDriveBusy(true);
     setDriveStatus('Encrypting and backing up…');
     try {
-      const envelope = await encryptBackup(backupPayload, password);
+      const envelope = await withBackupProgress('Encrypting backup…', () => encryptBackup(backupPayload, password));
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-      await uploadGoogleDriveBackup(JSON.parse(envelope), `${ENCRYPTED_DRIVE_BACKUP_PREFIX} ${timestamp}.json`);
+      await withBackupProgress('Uploading encrypted backup…', () => uploadGoogleDriveBackup(JSON.parse(envelope), `${ENCRYPTED_DRIVE_BACKUP_PREFIX} ${timestamp}.json`));
       setDriveStatus('Encrypted backup saved to Google Drive.');
+      recordBackup('drive');
     } catch (error) { setDriveStatus(error.message); }
     finally { setDriveBusy(false); }
   };
@@ -134,9 +140,9 @@ export function Navbar({ activeTab, setActiveTab, currency, setCurrency, theme, 
     setDriveBusy(true);
     setDriveStatus('Loading encrypted backup…');
     try {
-      const envelope = await downloadLatestGoogleDriveBackup(ENCRYPTED_DRIVE_BACKUP_PREFIX);
-      restoreJSONBackup(await decryptBackup(JSON.stringify(envelope), password));
-      setDriveStatus('Encrypted backup loaded for review below.');
+      const envelope = await withBackupProgress('Downloading encrypted backup…', () => downloadLatestGoogleDriveBackup(ENCRYPTED_DRIVE_BACKUP_PREFIX));
+      restoreJSONBackup(await withBackupProgress('Decrypting backup…', () => decryptBackup(JSON.stringify(envelope), password)));
+      setDriveStatus('Encrypted restore awaiting confirmation. Review the backup preview; your data has not changed.');
     } catch (error) { setDriveStatus(error.message); }
     finally { setDriveBusy(false); }
   };
@@ -185,7 +191,7 @@ export function Navbar({ activeTab, setActiveTab, currency, setCurrency, theme, 
           </button>
 
           {installPrompt && <button aria-label="Install ApexFinance app" title="Install ApexFinance app" onClick={installApp} className="icon-button"><Download className="w-5 h-5" /></button>}
-          <button aria-label="Open settings" onClick={() => { setMobileMenuOpen(false); setSettingsOpen(true); }} className="icon-button"><Settings className="w-5 h-5" /></button>
+          <button aria-label={reminder.due ? 'Open settings · Backup due' : 'Open settings'} onClick={() => { setMobileMenuOpen(false); setSettingsOpen(true); }} className="icon-button"><Settings className="w-5 h-5" />{reminder.due && <span className="backup-due-dot" aria-hidden="true" />}</button>
 </>;
 
   return (
@@ -202,6 +208,7 @@ export function Navbar({ activeTab, setActiveTab, currency, setCurrency, theme, 
           </span>
         </button>
 
+        <button type="button" className={`navbar-privacy icon-button ${privateMode ? 'privacy-active' : ''}`} aria-label={privateMode ? 'Show balances' : 'Hide balances'} title={privateMode ? 'Privacy on · Show balances' : 'Hide balances'} aria-pressed={privateMode} onClick={onTogglePrivacy}>{privateMode ? <EyeOff aria-hidden="true" className="w-5 h-5" /> : <Eye aria-hidden="true" className="w-5 h-5" />}</button>
         <span className="navbar-current lg:hidden">{({ dashboard: 'Dashboard', holdings: 'Holdings', history: 'Transactions', watchlist: 'Watchlist', dividends: 'Dividends', performance: 'Performance', rebalance: 'Rebalance' })[activeTab]}</span>
         <button
           type="button"
@@ -274,6 +281,7 @@ export function Navbar({ activeTab, setActiveTab, currency, setCurrency, theme, 
             </nav>
             <section id="settings-app-panel" aria-labelledby="settings-app-title" className="settings-category-panel" hidden={settingsSection !== 'app'}>
               <h3 id="settings-app-title" className="section-title">App</h3>
+              <p className="supporting-text mb-3">Privacy mode hides displayed amounts and quantities for screen sharing. It does not encrypt data, redact notes, or change backup contents. Turn it off before printing financial reports.</p>
               <p className="supporting-text mb-3">Install ApexFinance for quick access from your device.</p>
               {installPrompt ? <button type="button" onClick={installApp} className="primary-button"><Download className="w-4 h-4" /> Install ApexFinance app</button> : <p className="supporting-text">If installation is available, you can also find it in your browser’s menu. An installed app can be opened from your device.</p>}
             </section>
@@ -292,6 +300,7 @@ export function Navbar({ activeTab, setActiveTab, currency, setCurrency, theme, 
 
             </section>
             <section id="settings-data-panel" aria-labelledby="settings-data-title" className="settings-category-panel" hidden={settingsSection !== 'data'}>
+              <BackupReminder reminder={reminder} />
               <h3 id="settings-data-title" className="section-title">Everyday data tools</h3><p className="supporting-text">Save copies, export spreadsheets, or add holdings from CSV. Recovery and deletion are grouped below.</p>
               <div className="rounded-xl border border-slate-800 p-3">
                 <p className="text-sm font-semibold mb-1">Google Drive backup</p>

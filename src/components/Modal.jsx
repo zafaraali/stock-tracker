@@ -18,12 +18,16 @@ function prepareFormContent(nodes) {
   });
 }
 
-export function Modal({ title, onClose, children }) {
+export function Modal({ title, onClose, children, protectEdits = true, closeLabel = 'Close dialog' }) {
   const ref = useRef(null);
   const id = useId();
   const [fieldErrors, setFieldErrors] = useState([]);
   const close = useRef(onClose);
-  close.current = onClose;
+  const dirty = useRef(false);
+  const requestClose = () => {
+    if (!protectEdits || !dirty.current || window.confirm('Discard your unsaved changes?')) onClose();
+  };
+  close.current = requestClose;
   useEffect(() => {
     const previous = document.activeElement;
     const overflow = document.body.style.overflow;
@@ -48,6 +52,7 @@ export function Modal({ title, onClose, children }) {
       });
     };
     const clearError = event => {
+      if (event.target.closest('form')) dirty.current = true;
       const control = event.target;
       control.removeAttribute('aria-invalid');
       const descriptions = (control.getAttribute('aria-describedby') || '').split(' ').filter(value => value && value !== `${control.id}-error`);
@@ -87,9 +92,12 @@ export function Modal({ title, onClose, children }) {
       if (previous?.isConnected) previous.focus();
     };
   }, [id]);
-  return createPortal(<div className="modal-backdrop" onMouseDown={event => { if (event.target === event.currentTarget) onClose(); }}>
+  return createPortal(<div className="modal-backdrop" onMouseDown={event => { if (event.target === event.currentTarget) requestClose(); }} onClickCapture={event => {
+    const button = event.target.closest('button');
+    if (button?.closest('form') && button.type !== 'submit' && /^(cancel|close)$/i.test(button.textContent.trim()) && dirty.current && protectEdits && !window.confirm('Discard your unsaved changes?')) { event.preventDefault(); event.stopPropagation(); }
+  }}>
     <section ref={ref} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby={id} className="modal-panel">
-      <header className="flex items-center justify-between gap-4 mb-5"><h2 id={id} className="text-xl font-bold">{title}</h2><button type="button" onClick={onClose} aria-label="Close dialog" className="icon-button"><X className="w-5 h-5" /></button></header>
+      <header className="flex items-center justify-between gap-4 mb-5"><h2 id={id} className="text-xl font-bold">{title}</h2><button type="button" onClick={requestClose} aria-label={closeLabel} title={closeLabel} className="icon-button"><X className="w-5 h-5" /></button></header>
       {prepareFormContent(children)}
       {fieldErrors.filter(error => error.control.isConnected).map(error => createPortal(<p id={error.errorId} className="field-error" role="alert">{error.message}</p>, error.control.closest('label') || error.control.parentElement, error.id))}
     </section>

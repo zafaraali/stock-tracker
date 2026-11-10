@@ -1,4 +1,5 @@
 import { formatMoney } from '../services/formatMoney';
+import { Money } from './Money';
 export function Onboarding({ onStart }) {
   return <section className="bg-slate-900 border border-slate-800 rounded-2xl p-8 max-w-2xl mx-auto my-12">
     <p className="text-indigo-400 font-semibold mb-3">Welcome to ApexFinance</p>
@@ -10,7 +11,7 @@ export function Onboarding({ onStart }) {
 
 export function CashPanel({ summary, currencyCode = 'USD', hasCashRecords = false, onRecord }) {
   return <section aria-labelledby="cash-title" className="bg-slate-900 border border-slate-800 p-5 rounded-2xl mb-6 flex flex-wrap items-center justify-between gap-5">
-    <div><h2 id="cash-title" className="font-semibold">Available cash</h2><p className="text-2xl font-bold tabular-nums mt-1">{hasCashRecords ? formatMoney(summary.cashValue, currencyCode) : 'Not recorded'}</p><p className="text-sm text-slate-400 mt-1">{Object.entries(summary.cashBalances).filter(([, amount]) => Math.abs(amount) > 1e-8).map(([code, amount]) => formatMoney(amount, code)).join(' · ') || (hasCashRecords ? 'Recorded cash balance is zero.' : 'An opening cash balance has not been recorded.')}</p><p className="text-sm text-slate-400">{hasCashRecords ? 'Total portfolio value includes holdings and recorded cash.' : 'Use a deposit to record your opening cash and establish contributed capital.'}</p></div>
+    <div><h2 id="cash-title" className="font-semibold">Available cash</h2><p className="text-2xl font-bold tabular-nums mt-1">{hasCashRecords ? <Money amount={formatMoney(summary.cashValue, currencyCode)} /> : 'Not recorded'}</p><p className="text-sm text-slate-400 mt-1">{Object.entries(summary.cashBalances).filter(([, amount]) => Math.abs(amount) > 1e-8).map(([code, amount]) => <span key={code}><Money amount={formatMoney(amount, code)} /> </span>)}{!Object.values(summary.cashBalances).some(amount => Math.abs(amount) > 1e-8) && (hasCashRecords ? 'Recorded cash balance is zero.' : 'An opening cash balance has not been recorded.')}</p><p className="text-sm text-slate-400">{hasCashRecords ? 'Total portfolio value includes holdings and recorded cash.' : 'Use a deposit to record your opening cash and establish contributed capital.'}</p></div>
     <div><div className="flex flex-wrap gap-2"><button className="primary-button" onClick={() => onRecord('DEPOSIT')} >{hasCashRecords ? 'Record deposit' : 'Set opening balance'}</button><button className="secondary-button" disabled={!hasCashRecords} aria-describedby={!hasCashRecords ? 'withdrawal-help' : undefined} onClick={() => onRecord('WITHDRAW')}>Record withdrawal</button></div>{!hasCashRecords && <p id="withdrawal-help" className="text-xs text-slate-400 mt-2">Record an opening balance before withdrawing cash.</p>}</div>
   </section>;
 }

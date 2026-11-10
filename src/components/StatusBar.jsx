@@ -1,7 +1,9 @@
 import { Printer, MoreHorizontal, ChevronDown } from 'lucide-react';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 export function StatusBar({ marketStatus, priceDates = [], fxData, fxError, lastSavedAt, historicalEstimated, onRetry, children }) {
+  const [online, setOnline] = useState(() => typeof window === 'undefined' || window.navigator.onLine);
+  useEffect(() => { const update = () => setOnline(window.navigator.onLine); window.addEventListener('online', update); window.addEventListener('offline', update); return () => { window.removeEventListener('online', update); window.removeEventListener('offline', update); }; }, []);
   const reportRef = useRef(null);
   useEffect(() => {
     const outside = event => { const report = reportRef.current; if (report && !report.contains(event.target)) report.open = false; };
@@ -32,11 +34,12 @@ export function StatusBar({ marketStatus, priceDates = [], fxData, fxError, last
     <details className="min-w-0 flex-1">
       <summary className="cursor-pointer min-h-11 flex items-center gap-2 flex-wrap">
         <span className={`h-2 w-2 rounded-full ${marketStatus.error ? 'bg-amber-400' : 'bg-emerald-400'}`} />
-        <span>{marketStatus.loading ? 'Refreshing prices...' : marketStatus.error ? 'Some prices may be out of date' : marketStatus.lastUpdated ? `Prices refreshed ${new Date(marketStatus.lastUpdated).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}` : 'Showing saved prices'}</span>
+        <span>{!online ? 'Offline · using saved data' : marketStatus.loading ? 'Refreshing prices...' : marketStatus.error ? 'Some prices may be out of date' : marketStatus.lastUpdated ? `Prices refreshed ${new Date(marketStatus.lastUpdated).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}` : 'Showing saved prices'}</span>
         <span className="text-slate-400">· {lastSavedAt ? 'Saved' : 'Save pending'}</span>
         <ChevronDown aria-hidden="true" className="w-3.5 h-3.5" />
       </summary>
       <div className="text-sm text-slate-400 pb-3 space-y-2">
+        {!online && <p role="status">Saved holdings, local edits, and file backups work offline. Prices, ticker search, exchange-rate updates, and Google Drive need a connection. Previously cached app screens can open offline. New transaction drafts stay in this browser tab until saved or discarded; they are not included in backups.</p>}
         {lastSavedAt && <p>Last saved: {new Date(lastSavedAt).toLocaleString()}</p>}
         <p>{marketStatus.error ? 'Prices that could not refresh retain their saved values; totals may be out of date.' : 'Prices refresh every five minutes.'} {marketStatus.error}</p>
         <p>{savedPriceLabel} {priceDates.length > savedDates.length && 'Some holdings have no saved price timestamp.'}</p>

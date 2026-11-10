@@ -1,4 +1,6 @@
 import { Money } from './Money';
+import { formatQuantity, formatPercent } from '../services/formatNumber';
+import { RebalancePreview } from './RebalancePreview';
 import { formatMoney } from '../services/formatMoney';
 import React, { useEffect, useMemo, useState } from 'react';
 import { Sliders, ArrowUpRight, ArrowDownRight, CheckCircle2, Target } from 'lucide-react';
@@ -73,9 +75,10 @@ export function RebalanceView({ summary, currencyCode = 'USD', onUpdateTarget, o
 
       <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 text-sm space-y-2">
         <p>Targets include holdings and available cash. Sales can fund buys in the same currency; these estimates exclude fees.</p>
-        {Object.entries(required).map(([code, amount]) => <p key={code}>{code}: cash available <Money amount={formatMoney(summary.cashBalances[code] || 0, code)} /> · net cash required <Money amount={formatMoney(Math.max(0, amount), code)} /> · <strong className={amount > (summary.cashBalances[code] || 0) + 0.01 ? 'text-amber-400' : 'text-emerald-400'}>{amount > (summary.cashBalances[code] || 0) + 0.01 ? `shortfall $<Money amount={formatMoney(amount - (summary.cashBalances[code] || 0), code)} />; deposit or convert funds first` : 'covered by cash and proposed sales'}</strong></p>)}
+        {Object.entries(required).map(([code, amount]) => <p key={code}>{code}: cash available <Money amount={formatMoney(summary.cashBalances[code] || 0, code)} /> · net cash required <Money amount={formatMoney(Math.max(0, amount), code)} /> · <strong className={amount > (summary.cashBalances[code] || 0) + 0.01 ? 'text-amber-400' : 'text-emerald-400'}>{amount > (summary.cashBalances[code] || 0) + 0.01 ? <>shortfall <Money amount={formatMoney(amount - (summary.cashBalances[code] || 0), code)} />; deposit or convert funds first</> : 'covered by cash and proposed sales'}</strong></p>)}
         {Math.abs(totalTarget - 100) >= 0.1 && <p className="text-amber-400">Complete your targets to 100% before using these provisional trade amounts.</p>}
       </div>
+      <RebalancePreview summary={summary} currencyCode={currencyCode} />
       {/* Rebalance Table */}
       <div className="bg-slate-900 border border-slate-800/80 rounded-2xl overflow-hidden shadow-xl">
         <div className="overflow-x-auto">
@@ -112,7 +115,7 @@ export function RebalanceView({ summary, currencyCode = 'USD', onUpdateTarget, o
                         <div className="text-xs text-slate-400">{item.name}</div>
                       </td>
                       <td data-label="Current Value" className="py-3.5 px-4 font-bold text-white"><Money amount={formatMoney(item.totalValue, currencyCode)} /></td>
-                      <td data-label="Actual %" className="py-3.5 px-4 font-semibold text-indigo-300">{item.actualPercent.toFixed(1)}%</td>
+                      <td data-label="Actual %" className="py-3.5 px-4 font-semibold text-indigo-300">{formatPercent(item.actualPercent)}</td>
                       <td data-label="Target %" className="py-3.5 px-4">
                         <div className="flex items-center gap-2">
                           <input
@@ -136,7 +139,7 @@ export function RebalanceView({ summary, currencyCode = 'USD', onUpdateTarget, o
                         <div className={item.actualPercent - item.targetPercent > 0.5 ? 'text-rose-400' : item.actualPercent - item.targetPercent < -0.5 ? 'text-emerald-400' : 'text-slate-300'}>
                           {item.actualPercent - item.targetPercent > 0 ? '+' : ''}{(item.actualPercent - item.targetPercent).toFixed(1)} pp
                         </div>
-                        <div className="text-xs text-slate-500 mt-1">{item.rebalanceAction === 'HOLD' ? 'On target' : `$<Money amount={formatMoney(item.rebalanceDiffValue, currencyCode)} /> ${item.rebalanceAction === 'BUY' ? 'under' : 'over'}`}</div>
+                        <div className="text-xs text-slate-500 mt-1">{item.rebalanceAction === 'HOLD' ? 'On target' : <><Money amount={formatMoney(item.rebalanceDiffValue, currencyCode)} /> {item.rebalanceAction === 'BUY' ? 'under' : 'over'}</>}</div>
                       </td>
                       <td data-label="Rebalance Action" className="py-3.5 px-4">
                         {item.rebalanceAction === 'HOLD' ? (
@@ -145,11 +148,11 @@ export function RebalanceView({ summary, currencyCode = 'USD', onUpdateTarget, o
                           </span>
                         ) : isBuy ? (
                           <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 rounded-lg text-xs font-semibold">
-                            <ArrowUpRight className="w-3.5 h-3.5" /> BUY {item.rebalanceShares} shares (<Money amount={formatMoney(item.rebalanceDiffValue, currencyCode)} />)
+                            <ArrowUpRight className="w-3.5 h-3.5" /> BUY <span className="private-quantity">{formatQuantity(item.rebalanceShares)}</span> shares (<Money amount={formatMoney(item.rebalanceDiffValue, currencyCode)} />)
                           </span>
                         ) : (
                           <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-rose-500/10 text-rose-400 border border-rose-500/30 rounded-lg text-xs font-semibold">
-                            <ArrowDownRight className="w-3.5 h-3.5" /> SELL {item.rebalanceShares} shares (<Money amount={formatMoney(item.rebalanceDiffValue, currencyCode)} />)
+                            <ArrowDownRight className="w-3.5 h-3.5" /> SELL <span className="private-quantity">{formatQuantity(item.rebalanceShares)}</span> shares (<Money amount={formatMoney(item.rebalanceDiffValue, currencyCode)} />)
                           </span>
                         )}
                       </td>

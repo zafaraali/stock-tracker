@@ -129,7 +129,7 @@ export async function fetchMarketFundamentals(symbol, signal) {
       const dividendYield = Number.isFinite(annualDividend) && annualDividend > 0 && price > 0
         ? (annualDividend / price) * 100
         : Number.isFinite(reportedYield) && reportedYield > 0 ? reportedYield * 100 : 0;
-      if (dividendYield > 0) return { dividendYield };
+      if (dividendYield > 0) return { dividendYield, source: 'provider' };
     }
   } catch (error) {
     if (error.name === 'AbortError') throw error;
@@ -141,5 +141,5 @@ export async function fetchMarketFundamentals(symbol, signal) {
   const price = Number(chart?.meta?.regularMarketPrice ?? chart?.meta?.previousClose);
   const dividends = Object.values(chart?.events?.dividends || {}).map(event => Number(event.amount)).filter(amount => Number.isFinite(amount) && amount > 0);
   const annualDividend = dividends.reduce((total, amount) => total + amount, 0);
-  return { dividendYield: price > 0 ? (annualDividend / price) * 100 : 0 };
+  return { dividendYield: price > 0 ? (annualDividend / price) * 100 : 0, source: 'historical' };
 }

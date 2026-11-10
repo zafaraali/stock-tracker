@@ -1,4 +1,11 @@
 import { Money } from './components/Money';
+import { formatPercent } from './services/formatNumber';
+import { CsvMapping } from './components/CsvMapping';
+import { CsvImportReview } from './components/CsvImportReview';
+import { RestoreReview } from './components/RestoreComparison';
+import { PrivacyContext, OverviewControls, useOverviewLayout } from './components/OverviewControls';
+import { DataQuality } from './components/DataQuality';
+import { WhatChanged } from './components/WhatChanged';
 import { usePreference } from './hooks/usePreference';
 import { holdingDisplay } from './services/holdingDisplay';
 import { CurrencyMode } from './components/CurrencyMode';
@@ -27,6 +34,9 @@ const PerformanceView = lazy(() => import('./components/PerformanceView').then(m
 const WatchlistView = lazy(() => import('./components/WatchlistView').then(module => ({ default: module.WatchlistView })));
 
 export default function App() {
+  const [privateMode, setPrivateMode] = usePreference('apex-private-mode', false, [true, false]);
+  const [overviewLayout, setOverviewLayout] = useOverviewLayout();
+  const [reviewSymbol, setReviewSymbol] = useState('');
   const [transactionIntent, setTransactionIntent] = useState(null);
   const consumeTransactionIntent = React.useCallback(() => setTransactionIntent(null), []);
   const [valueCurrencyMode, setValueCurrencyMode] = usePreference('apex-value-currency', 'display', ['display', 'native']);
@@ -78,6 +88,7 @@ export default function App() {
     updateHoldingPrice,
     updateHoldingNotes,
     updateHoldingTarget,
+    updateHoldingsBulk, csvSource, previewCsvImport, cancelCsvMapping,
     removeHolding,
     saveTransaction,
     deleteTransaction,
@@ -146,11 +157,13 @@ export default function App() {
     : [];
 
   return (
-    <div className={`app-shell accent-${accent} min-h-screen ${isLight ? 'theme-light bg-slate-50 text-slate-900' : 'bg-slate-950 text-slate-100'} flex flex-col font-sans transition-colors duration-200`}>
+    <PrivacyContext.Provider value={privateMode}><div className={`app-shell accent-${accent} ${privateMode ? 'privacy-mode' : ''} min-h-screen ${isLight ? 'theme-light bg-slate-50 text-slate-900' : 'bg-slate-950 text-slate-100'} flex flex-col font-sans transition-colors duration-200`}>
       <a className="skip-link" href="#main-content">Skip to main content</a>
       
       {/* Navigation */}
       <Navbar
+        privateMode={privateMode}
+        onTogglePrivacy={() => setPrivateMode(value => !value)}
         activeTab={activeTab}
         setActiveTab={changeTab}
         currency={currency}
@@ -186,20 +199,9 @@ export default function App() {
         {storageError && <div role="alert" className="mb-4 rounded-xl border border-amber-500 p-4 text-sm text-amber-500">{storageError} {storageBlocked && <button className="underline" onClick={resumeSaving}>Replace saved data with recovered portfolio</button>}</div>}
         <Toast message={uiMessage} onDismiss={dismissMessage} onUndo={undoNotificationId ? () => restoreDeleted(undoNotificationId) : undefined} />
         {confirmAction && <ConfirmDialog {...confirmAction} danger onConfirm={runConfirmedAction} onCancel={() => setConfirmAction(null)} />}
-        {pendingImport && <Modal title="Review backup restore" onClose={cancelImport}>
-          <p className="mb-5">This backup contains {pendingImport.holdings.length} holdings, {pendingImport.transactions.length} transactions, {pendingImport.watchlist.length} watchlist items, and {pendingImport.snapshots.length} snapshots. Restoring replaces your current portfolio and preferences.</p>
-          <div className="flex justify-end gap-3"><button className="secondary-button" onClick={cancelImport}>Cancel</button><button className="primary-button" onClick={confirmImport}>Replace portfolio</button></div>
-        </Modal>}
-        {pendingCsvImport && <Modal title="Review CSV import" onClose={cancelCsvImport}>
-          <p className="mb-4">Detected <strong>{pendingCsvImport.broker}</strong> format in <strong>{pendingCsvImport.fileName}</strong>. The import will add {pendingCsvImport.rows.length} {pendingCsvImport.kind === 'transactions' ? 'transactions' : 'holdings'} to the selected account.</p>
-          {pendingCsvImport.duplicates > 0 && <p role="alert" className="form-error mb-4">{pendingCsvImport.duplicates} row{pendingCsvImport.duplicates === 1 ? '' : 's'} appear to already exist in this account. Review carefully before importing.</p>}
-          <div className="max-h-64 overflow-auto rounded-xl border border-slate-800 mb-5">
-            {pendingCsvImport.kind === 'transactions' ? <table className="w-full text-sm"><thead className="text-left text-slate-400 border-b border-slate-800"><tr><th className="p-3">Date</th><th className="p-3">Type</th><th className="p-3">Symbol</th><th className="p-3">Shares</th><th className="p-3">Price</th></tr></thead><tbody>{pendingCsvImport.rows.slice(0, 50).map((row, index) => <tr key={`${row.symbol}-${row.date}-${index}`} className="border-b border-slate-800/60"><td className="p-3">{row.date}</td><td className="p-3 font-semibold">{row.type}</td><td className="p-3">{row.symbol || 'Cash'}</td><td className="p-3">{row.shares || '—'}</td><td className="p-3">{row.price ? formatMoney(row.price, row.currency || currency) : '—'}</td></tr>)}</tbody></table> : <table className="w-full text-sm"><thead className="text-left text-slate-400 border-b border-slate-800"><tr><th className="p-3">Holdings list</th><th className="p-3">Symbol</th><th className="p-3">Shares</th><th className="p-3">Avg cost</th><th className="p-3">Current</th></tr></thead><tbody>{previewGroups.flatMap(group => [<tr key={`group-${group.name}`} className="bg-slate-800/70"><td colSpan={5} className="p-3 font-semibold text-indigo-200">{group.name}</td></tr>, ...group.rows.map((row, index) => <tr key={`${group.name}-${row.symbol}-${index}`} className="border-b border-slate-800/60"><td className="p-3 text-slate-500">{group.name}</td><td className="p-3 font-semibold">{row.symbol}</td><td className="p-3">{row.shares}</td><td className="p-3"><Money amount={formatMoney(row.avgCost, row.currency || currency)} /></td><td className="p-3"><Money amount={formatMoney(row.currentPrice, row.currency || currency)} /></td></tr>)])}</tbody></table>}
-          </div>
-          {pendingCsvImport.rows.length > 50 && <p className="text-xs text-slate-400 mb-4">Showing the first 50 rows. All {pendingCsvImport.rows.length} valid holdings will be imported.</p>}
-          <p className="text-sm text-slate-400 mb-4">Rows with zero cost or current prices will still be imported; use Refresh live market prices to fill current values.</p>
-          <div className="flex justify-end gap-3"><button className="secondary-button" onClick={cancelCsvImport}>Cancel</button><button className="primary-button" onClick={confirmCsvImport}>Import holdings</button></div>
-        </Modal>}
+        {pendingImport && <RestoreReview current={backupPayload} incoming={pendingImport} onCancel={cancelImport} onConfirm={confirmImport} />}
+        {csvSource && <CsvMapping source={csvSource} onPreview={previewCsvImport} onCancel={cancelCsvMapping} />}
+        {pendingCsvImport && <CsvImportReview data={pendingCsvImport} onConfirm={confirmCsvImport} onCancel={cancelCsvImport} />}
         {mode !== 'pending' && <>
         {mode === 'demo' && <div className="form-error mb-5 flex flex-wrap justify-between gap-3 items-center"><span><strong>Demo portfolio</strong> · Sample holdings and prices. Changes stay in this demo.</span><button className="secondary-button" onClick={() => askToConfirm('Clear all saved data?', 'This removes the demo portfolio, transactions, watchlist, snapshots, and saved preferences. Recently deleted can undo this action.', () => { deleteAllData(); changeTab('dashboard'); }, 'Clear all data')}>Clear all data</button></div>}
         <StatusBar onRetry={refreshMarketData} marketStatus={marketStatus} priceDates={holdings.map(item => item.priceUpdatedAt)} fxData={fxData} fxError={fxError} lastSavedAt={lastSavedAt} historicalEstimated={historicalEstimated}>
@@ -213,9 +215,18 @@ export default function App() {
         </div>
 
         <header className="page-heading mb-6"><p className="account-context">Holdings list: <strong>{selectedAccountId === '__combined__' ? 'Combined · All lists' : accounts.find(account => account.id === selectedAccountId)?.name || 'Default list'}</strong><span>Display currency: {currency}</span></p><h1 id="page-title" tabIndex={-1}>{({ dashboard: 'Portfolio overview', holdings: 'Holdings', history: 'Transactions', watchlist: 'Watchlist', dividends: 'Dividends', performance: 'Performance', rebalance: 'Rebalance' })[activeTab]}</h1><p className="supporting-text">{({ dashboard: 'Your portfolio at a glance, from allocation to your largest positions.', holdings: 'Manage your holdings, prices, and investment notes.', history: 'Record trades, dividends, and cash movements.', watchlist: 'Track investment ideas before adding a holding.', dividends: 'Review income received and upcoming dividend estimates.', performance: 'Explore portfolio returns and compare with the market.', rebalance: 'Compare your current allocation with your targets.' })[activeTab]}</p></header>
-        {/* KPI Summary Cards */}
+        {/* Tab Switcher Content */}
+        <div id="tab-content" className="tab-scroll-target">
+        <Suspense fallback={<LoadingSkeleton />}>
         {activeTab === 'dashboard' && <>
-        <section id="portfolio-summary" className="summary-section tab-scroll-target mb-6" aria-labelledby="summary-title">
+          <div className="overview-tools no-print">
+            <OverviewControls layout={overviewLayout} onChange={setOverviewLayout} />
+            <DataQuality holdings={holdings} onReview={symbol => { setReviewSymbol(symbol); changeTab('holdings'); }} />
+            <WhatChanged snapshots={snapshots} transactions={transactions} holdings={holdings} summary={portfolioSummary} rate={rate} currency={currency} historicalFx={historicalFx} netContributionsUSD={netContributionsUSD} scope={selectedAccountId} allowLegacy={accounts.length === 1} enabled={selectedAccountId === '__combined__' || accounts.length === 1} />
+          </div>
+          {holdings.length === 0 && <DashboardSetup onNavigate={changeTab} onExploreDemo={() => startPortfolio('demo')} />}
+          {overviewLayout.order.filter(key => !overviewLayout.hidden.includes(key)).map(key => <React.Fragment key={key}>{({
+            summary: (<section id="portfolio-summary" className="summary-section tab-scroll-target mb-6" aria-labelledby="summary-title">
         <div className={`summary-balance w-full ${isLight ? 'bg-white border-slate-200' : 'bg-slate-900 border-slate-800'} border rounded-2xl px-5 py-3 flex items-center justify-between text-left`}>
           <span><span id="summary-title" className="block text-xs font-semibold uppercase tracking-wide text-slate-400">Portfolio summary</span><span className={`summary-value block font-bold mt-1 ${isLight ? 'text-slate-900' : 'text-white'}`}><Money amount={formatMoney(portfolioSummary.totalValue, currency)} /> <span className="text-xs font-normal text-slate-400">total value</span></span></span>
           <button type="button" className="secondary-button no-print shrink-0" onClick={() => setSummaryOpen(previous => !previous)} aria-expanded={summaryOpen} aria-controls="summary-metrics">{summaryOpen ? 'Hide details' : 'Show details'}<ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${summaryOpen ? 'rotate-180' : ''}`} /></button>
@@ -226,7 +237,7 @@ export default function App() {
           <div className={`${isLight ? 'bg-white border-slate-200 shadow-md' : 'bg-slate-900 border-slate-800/80 shadow-xl'} border p-5 rounded-2xl flex items-center justify-between transition-colors order-3`}>
             <div>
               <MetricLabel label="Realized P/L" explanation="Profit or loss from positions you have sold, after recorded fees." />
-              <h2 className={`text-2xl font-bold mt-1 ${portfolioSummary.realizedGainLoss >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
+              <h2 className={`text-2xl font-bold mt-1 ${portfolioSummary.realizedGainLoss === 0 ? 'text-slate-400' : portfolioSummary.realizedGainLoss > 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
                 <Money amount={formatMoney(portfolioSummary.realizedGainLoss, currency, { signed: true })} />
               </h2>
             </div>
@@ -250,10 +261,10 @@ export default function App() {
           <div className={`${isLight ? 'bg-white border-slate-200 shadow-md' : 'bg-slate-900 border-slate-800/80 shadow-xl'} border p-5 rounded-2xl flex items-center justify-between transition-colors order-4`}>
             <div>
               <MetricLabel label="Unrealized P/L" explanation="Current market value minus the remaining cost basis of holdings you still own. Currency movements may affect this amount." />
-              <h2 className={`text-xl font-bold mt-1 flex items-center gap-1 ${isTotalPositive ? 'text-emerald-500 dark:text-emerald-400' : 'text-rose-500 dark:text-rose-400'}`}>
+              <h2 className={`text-xl font-bold mt-1 flex items-center gap-1 ${portfolioSummary.totalGainLoss === 0 ? 'text-slate-400' : isTotalPositive ? 'text-emerald-500 dark:text-emerald-400' : 'text-rose-500 dark:text-rose-400'}`}>
                 <Money amount={formatMoney(portfolioSummary.totalGainLoss, currency, { signed: true })} />
                 <span className={`text-[10px] px-1.5 py-0.5 rounded ${isLight ? 'bg-slate-100 text-slate-700' : 'bg-slate-800 text-slate-300'}`}>
-                  {portfolioSummary.totalCost > 0 ? `${portfolioSummary.totalGainLossPercent.toFixed(1)}%` : 'Not available yet'}
+                  {portfolioSummary.totalCost > 0 ? formatPercent(portfolioSummary.totalGainLossPercent) : 'Not available yet'}
                 </span>
               </h2>
             </div>
@@ -267,7 +278,7 @@ export default function App() {
               <MetricLabel label="Est. Annual Dividends" explanation="Estimated yearly income from current holdings and saved dividend yields. The percentage is estimated income divided by total portfolio value, including cash; payments are not guaranteed." />
               <h2 className="text-2xl font-bold text-emerald-500 dark:text-emerald-400 mt-1 flex items-center gap-1">
                 <Money amount={formatMoney(portfolioSummary.annualDividend, currency)} />
-                <span className="text-[10px] text-slate-400 font-normal">{portfolioSummary.totalValue > 0 ? `(${portfolioSummary.portfolioYield.toFixed(2)}%)` : 'Not available yet'}</span>
+                <span className="text-[10px] text-slate-400 font-normal">{portfolioSummary.totalValue > 0 ? `(${formatPercent(portfolioSummary.portfolioYield)})` : 'Not available yet'}</span>
               </h2>
               <p className="text-[10px] text-slate-400 mt-1">Received: <Money amount={formatMoney(portfolioSummary.dividendsReceived, currency)} /></p>
             </div>
@@ -277,21 +288,11 @@ export default function App() {
           </div>
 
         </div>
-        </section>
-
-        <CashPanel summary={portfolioSummary} currencyCode={currency} hasCashRecords={transactions.some(entry => ['DEPOSIT', 'WITHDRAW'].includes(entry.type) || entry.cashImpact === true)} onRecord={type => { setTransactionIntent({ type, currency, id: Date.now() }); changeTab('history'); }} />
-        </>}
-        {/* Tab Switcher Content */}
-        <div id="tab-content" className="tab-scroll-target">
-        <Suspense fallback={<LoadingSkeleton />}>
-        {activeTab === 'dashboard' && (
-          <>
-            {holdings.length === 0 && <DashboardSetup onNavigate={changeTab} onExploreDemo={() => startPortfolio('demo')} />}
-            {holdings.length > 0 && <>
-              <PortfolioCharts performance={performance} backtestHistory={backtestHistory} summary={portfolioSummary} snapshots={snapshots} symbol={symbol} currencyCode={currency} rate={rate} theme={theme} showPerformanceChart={false} />
-              <PortfolioInsights summary={portfolioSummary} currencyCode={currency} />
-            </>}
-            {holdings.length > 0 && <section className="overview-panel mt-6" aria-labelledby="top-holdings-title">
+        </section>),
+            cash: (<CashPanel summary={portfolioSummary} currencyCode={currency} hasCashRecords={transactions.some(entry => ['DEPOSIT', 'WITHDRAW'].includes(entry.type) || entry.cashImpact === true)} onRecord={type => { setTransactionIntent({ type, currency, id: Date.now() }); changeTab('history'); }} />),
+            charts: holdings.length > 0 ? (<PortfolioCharts performance={performance} backtestHistory={backtestHistory} summary={portfolioSummary} snapshots={snapshots} symbol={symbol} currencyCode={currency} rate={rate} theme={theme} showPerformanceChart={false} />) : null,
+            insights: holdings.length > 0 ? (<PortfolioInsights summary={portfolioSummary} currencyCode={currency} />) : null,
+            holdings: holdings.length > 0 ? (<section className="overview-panel mt-6" aria-labelledby="top-holdings-title">
               <header className="flex items-center justify-between flex-wrap gap-3 mb-4">
                 <div><h2 id="top-holdings-title" className="section-title">Top holdings</h2><p className="supporting-text">Your five largest holdings · {valueCurrencyMode === 'display' ? `Values and gains in ${currency}, including currency effects.` : 'Values and gains in each asset’s currency, excluding currency effects.'}</p></div>
                 <div className="top-holdings-actions"><CurrencyMode mode={valueCurrencyMode} onChange={setValueCurrencyMode} currencyCode={currency} /><button className="secondary-button" onClick={() => changeTab('holdings')}>View all holdings</button></div>
@@ -299,16 +300,18 @@ export default function App() {
               <ul className="top-holdings">
                 {[...portfolioSummary.items].sort((a, b) => b.totalValue - a.totalValue).slice(0, 5).map(item => { const display = holdingDisplay(item, valueCurrencyMode, currency); return <li key={item.id}>
                   <div className="min-w-0"><strong>{item.symbol}</strong><p className="supporting-text truncate">{item.name}</p></div>
-                  <div className="text-right shrink-0"><strong><Money amount={formatMoney(display.value, display.currency)} /></strong><p className={display.gain >= 0 ? 'text-emerald-500 text-sm' : 'text-rose-500 text-sm'}><Money amount={formatMoney(display.gain, display.currency, { signed: true })} /> <span className="text-xs">({display.percent.toFixed(1)}%)</span></p></div>
+                  <div className="text-right shrink-0"><strong><Money amount={formatMoney(display.value, display.currency)} /></strong><p className={display.gain === 0 ? 'text-slate-400 text-sm' : display.gain > 0 ? 'text-emerald-500 text-sm' : 'text-rose-500 text-sm'}><Money amount={formatMoney(display.gain, display.currency, { signed: true })} /> <span className="text-xs">({formatPercent(display.percent)})</span></p></div>
                 </li>; })}
               </ul>
-            </section>}
-          </>
-        )}
+            </section>) : null
+          })[key]}</React.Fragment>)}
+        </>}
 
         {activeTab === 'holdings' && (
           <HoldingsTable
-            key={selectedAccountId}
+            onBulkUpdate={updateHoldingsBulk}
+            key={`${selectedAccountId}-${reviewSymbol}`}
+            initialFilter={reviewSymbol}
             valueCurrencyMode={valueCurrencyMode}
             setValueCurrencyMode={setValueCurrencyMode}
             summary={portfolioSummary}
@@ -352,6 +355,7 @@ export default function App() {
 
         {activeTab === 'history' && (
           <HistoryView
+            draftScope={selectedAccountId}
             key={selectedAccountId}
             intent={transactionIntent}
             onIntentHandled={consumeTransactionIntent}
@@ -376,6 +380,6 @@ export default function App() {
       <footer className={`no-print border-t ${isLight ? 'border-slate-200 bg-white text-slate-500' : 'border-slate-900 bg-slate-950 text-slate-500'} py-4 text-center text-xs mb-12 sm:mb-0 transition-colors`}>
         ApexFinance · {new Date().getFullYear()}
       </footer>
-    </div>
+    </div></PrivacyContext.Provider>
   );
 }

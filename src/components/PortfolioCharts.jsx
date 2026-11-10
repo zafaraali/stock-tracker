@@ -1,4 +1,5 @@
 import { Money } from './Money';
+import { formatQuantity, formatPercent } from '../services/formatNumber';
 import { chartColor } from '../services/chartColors';
 import { formatMoney } from '../services/formatMoney';
 import React, { useEffect, useRef, useState } from 'react';
@@ -128,8 +129,8 @@ export function PortfolioCharts({ performance, backtestHistory = [], summary, sn
       {/* Asset Allocation Pie Chart */}
       <div ref={assetCard} className={`${cardBg} chart-card border p-5 rounded-2xl lg:col-span-1 transition-colors`}>
         <h3 className={`text-xs font-semibold ${headingColor} mb-4 tracking-wider uppercase`}>Asset Allocation</h3>
-        {assetPieData.length > 0 && <p className="chart-summary">{assetPieData[0].name === 'Cash' ? 'Largest allocation' : 'Largest holding'}: <strong>{assetPieData[0].name}</strong> · {(assetPieData[0].value / assetTotal * 100).toFixed(1)}% of portfolio</p>}
-        {selectedAsset && <button className="secondary-button no-print" onClick={() => { setSelectedAsset(null); setHoverAsset(null); }}>Clear asset selection</button>}
+        {assetPieData.length > 0 && <p className="chart-summary">{assetPieData[0].name === 'Cash' ? 'Largest allocation' : 'Largest holding'}: <strong>{assetPieData[0].name}</strong> · {formatPercent(assetPieData[0].value / assetTotal * 100)} of portfolio</p>}
+        <div className="chart-selection-slot no-print" aria-live="polite">{selectedAsset && <button className="secondary-button" onClick={() => { setSelectedAsset(null); setHoverAsset(null); }}>Pinned: {selectedAsset} · Clear</button>}</div>
         {assetPieData.length === 0 ? (
           <div className="h-64 flex items-center justify-center text-slate-500 text-sm">Add a holding to see how your portfolio is allocated.</div>
         ) : (
@@ -169,7 +170,7 @@ export function PortfolioCharts({ performance, backtestHistory = [], summary, sn
                       <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: chartColor(item.name) }} aria-hidden="true" />
                       <span className="truncate">{item.name}</span>
                     </span>
-                    <span className="chart-legend-value font-semibold text-slate-100"><Money amount={formatMoney(item.value, currencyCode)} /><small>{percentage.toFixed(1)}%</small></span>
+                    <span className="chart-legend-value font-semibold text-slate-100"><Money amount={formatMoney(item.value, currencyCode)} /><small>{formatPercent(percentage)}</small></span>
                   </button>
                 );
               })}
@@ -182,8 +183,8 @@ export function PortfolioCharts({ performance, backtestHistory = [], summary, sn
       {/* Sector / Category Breakdown Pie Chart */}
       <div ref={sectorCard} className={`${cardBg} chart-card border p-5 rounded-2xl lg:col-span-1 transition-colors`}>
         <h3 className={`text-xs font-semibold ${headingColor} mb-4 tracking-wider uppercase`}>Sector Breakdown</h3>
-        {sectorPieData.length > 0 && sectorTotal > 0 && <p className="chart-summary">Largest sector: <strong>{sectorPieData[0].name}</strong> · {(sectorPieData[0].value / sectorTotal * 100).toFixed(1)}% of holdings</p>}
-        {selectedSector && <button className="secondary-button no-print" onClick={() => { setSelectedSector(null); setHoverSector(null); }}>Clear sector selection</button>}
+        {sectorPieData.length > 0 && sectorTotal > 0 && <p className="chart-summary">Largest sector: <strong>{sectorPieData[0].name}</strong> · {formatPercent(sectorPieData[0].value / sectorTotal * 100)} of holdings</p>}
+        <div className="chart-selection-slot no-print" aria-live="polite">{selectedSector && <button className="secondary-button" onClick={() => { setSelectedSector(null); setHoverSector(null); }}>Pinned: {selectedSector} · Clear</button>}</div>
         {sectorPieData.length === 0 ? (
           <div className="h-64 flex items-center justify-center text-slate-500 text-sm">No sector data</div>
         ) : (
@@ -219,7 +220,7 @@ export function PortfolioCharts({ performance, backtestHistory = [], summary, sn
               const percentage = sectorTotal > 0 ? (item.value / sectorTotal) * 100 : 0;
               return <button type="button" key={`sector-allocation-${item.name}`} className={`chart-legend-row w-full text-left flex items-center justify-between gap-3 text-sm ${index >= 5 && !showAllSectors ? 'legend-extra' : ''} ${activeSector === index ? 'is-active' : ''}`} aria-pressed={selectedSector === item.name} onFocus={() => setHoverSector(index)} onBlur={() => setHoverSector(null)} onClick={() => setSelectedSector(value => value === item.name ? null : item.name)} onKeyDown={event => { if (event.key === 'Escape') { setSelectedSector(null); setHoverSector(null); } }} onMouseEnter={() => setHoverSector(index)} onMouseLeave={() => setHoverSector(null)}>
                 <span className="flex min-w-0 items-center gap-2 text-slate-300"><span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: chartColor(item.name, 'sector') }} aria-hidden="true" /><span className="truncate">{item.name}</span></span>
-                <span className="chart-legend-value font-semibold text-slate-100"><Money amount={formatMoney(item.value, currencyCode)} /> · {percentage.toFixed(1)}%</span>
+                <span className="chart-legend-value font-semibold text-slate-100"><Money amount={formatMoney(item.value, currencyCode)} /> · {formatPercent(percentage)}</span>
               </button>;
             })}
             {sectorPieData.length > 5 && <button className="secondary-button no-print w-full" aria-expanded={showAllSectors} onClick={() => { setShowAllSectors(value => !value); setHoverSector(null); }}>{showAllSectors ? 'Show fewer sectors' : `Show all ${sectorPieData.length} sectors`}</button>}

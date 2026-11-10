@@ -31,6 +31,10 @@ export function requestBackupPassword({ confirm = false } = {}) {
     const previous = document.activeElement;
     const dialog = document.createElement('dialog');
     dialog.className = 'backup-password-dialog app-shell';
+    const app = document.querySelector('.app-shell');
+    if (app?.classList.contains('theme-light')) dialog.classList.add('theme-light');
+    if (app) for (const name of ['--accent', '--accent-text', '--surface', '--surface-muted', '--surface-raised', '--border', '--foreground', '--muted']) dialog.style.setProperty(name, window.getComputedStyle(app).getPropertyValue(name));
+    dialog.style.colorScheme = app?.classList.contains('theme-light') ? 'light' : 'dark';
     dialog.setAttribute('aria-labelledby', 'backup-password-title');
     document.body.append(dialog);
     const root = createRoot(dialog);
