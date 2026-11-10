@@ -13,6 +13,7 @@ A comprehensive, fully offline-ready React + Vite stock tracking, dividend, and 
 - **Multi-Currency & TSE / Canadian Market Support**: Native support for Toronto Stock Exchange (TSE/TSX) securities in CAD (`.TO`, `.V`, `TSE:`, `TSX:`), alongside USD, EUR, GBP, CAD, and JPY portfolio display conversions + JSON/CSV backup tools.
 - **Live Market Refresh**: Current prices refresh on launch, from the refresh button, and every five minutes using ticker-only requests to Yahoo Finance. Preserves native currency (CAD for TSE, USD for US markets) and provides saved/manual prices as a fallback.
 - **Validation & Tests**: Backup schema validation, resilient local storage loading, ESLint, and portfolio calculation tests.
+- **Optional Google Drive Backup**: Manually save and restore the complete validated portfolio backup through Google Drive using browser OAuth.
 
 ## Getting Started
 
@@ -58,3 +59,14 @@ The Worker serves `/api/market-quote/*` and `/api/market-search` by proxying Yah
 - Current portfolio prices use dated daily exchange rates from [Frankfurter](https://frankfurter.dev/). Transaction proceeds, dividends, and cost basis use historical transaction-date rates, using the preceding published rate for weekends and holidays. Realized gains include currency movements. Display currency conversions use the current reference rate. These are portfolio estimates, not jurisdiction-specific tax calculations.
 - Exchange rates are cached locally. Offline or unavailable historical rates fall back to explicitly labeled estimates. JSON exports include the cached exchange-rate data. Requests to Frankfurter contain currencies and dates only.
 - Each asset shows its price source and market/manual timestamp. Failed refreshes preserve prices and mark them as saved. Charts and secondary views load on demand.
+### Configure Google Drive backup (optional)
+
+1. Open [Google Cloud Console](https://console.cloud.google.com/), create or select a project, and enable the **Google Drive API**.
+2. Configure the OAuth consent screen as an external app. Add your Google account as a test user while the app is in testing.
+3. Create an OAuth client ID under **APIs & Services → Credentials → Create credentials → OAuth client ID**, choosing **Web application**.
+4. Add every local URL you use as an authorized JavaScript origin: `http://localhost:5173`, `http://127.0.0.1:5173`, `http://localhost:5174`, and `http://127.0.0.1:5174`.
+5. Copy `.env.example` to `.env` and set `VITE_GOOGLE_CLIENT_ID` to the client ID. Restart Vite after changing `.env`.
+6. Open Settings in ApexFinance and use **Back up to Drive** or **Restore from Drive**. The app requests only the `drive.file` scope and keeps the access token in memory.
+
+Google Drive backup is manual and stores one file named `ApexFinance backup.json` in the user's Drive. Local JSON export remains available if Drive is not configured.
+

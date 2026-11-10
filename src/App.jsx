@@ -61,7 +61,8 @@ export default function App() {
     addWatchlistItem,
     updateWatchlistPrice,
     removeWatchlistItem,
-    exportJSON,
+    backupPayload, exportJSON,
+    restoreJSONBackup,
     exportCSV, exportAllCSV,
     importJSON, importCSV, pendingCsvImport, confirmCsvImport, cancelCsvImport, accounts, selectedAccountId, setSelectedAccountId, addAccount, renameAccount, deleteAccount,
     refreshMarketData, customCategories,
@@ -112,6 +113,8 @@ export default function App() {
         accent={accent}
         setAccent={setAccent}
         exportJSON={exportJSON}
+        backupPayload={backupPayload}
+        restoreJSONBackup={restoreJSONBackup}
         exportCSV={exportCSV}
         exportAllCSV={exportAllCSV}
         importJSON={importJSON}

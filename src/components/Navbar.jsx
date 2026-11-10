@@ -2,11 +2,13 @@ import React, { useEffect, useState } from 'react';
 import { Modal } from './Modal';
 import { TrendingUp, PieChart as PieIcon, ArrowDownUp, Sliders, History, Eye, Download, Upload, Sun, Moon, Trash2, RefreshCw, Settings, Search } from 'lucide-react';
 import { CURRENCY_RATES } from '../data/mockData';
+import { downloadGoogleDriveBackup, isGoogleDriveConfigured, uploadGoogleDriveBackup } from '../services/googleDrive';
 
-export function Navbar({ activeTab, setActiveTab, currency, setCurrency, theme, toggleTheme, accent, setAccent, exportJSON, exportCSV, exportAllCSV, importJSON, importCSV, accounts = [], selectedAccountId, setSelectedAccountId, addAccount, renameAccount, deleteAccount, onDeleteAllData, refreshMarketData, marketStatus, globalQuery, setGlobalQuery }) {
+export function Navbar({ activeTab, setActiveTab, currency, setCurrency, theme, toggleTheme, accent, setAccent, exportJSON, backupPayload, restoreJSONBackup, exportCSV, exportAllCSV, importJSON, importCSV, accounts = [], selectedAccountId, setSelectedAccountId, addAccount, renameAccount, deleteAccount, onDeleteAllData, refreshMarketData, marketStatus, globalQuery, setGlobalQuery }) {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [installPrompt, setInstallPrompt] = useState(null);
   const [newAccountName, setNewAccountName] = useState('');
+  const [driveStatus, setDriveStatus] = useState('');
   const isLight = theme === 'light';
 
   useEffect(() => {
@@ -28,6 +30,27 @@ export function Navbar({ activeTab, setActiveTab, currency, setCurrency, theme, 
     await installPrompt.prompt();
     const { outcome } = await installPrompt.userChoice;
     if (outcome === 'accepted' || outcome === 'dismissed') setInstallPrompt(null);
+  };
+
+  const backupToDrive = async () => {
+    setDriveStatus('Backing up…');
+    try {
+      await uploadGoogleDriveBackup(backupPayload);
+      setDriveStatus('Backup saved to Google Drive.');
+    } catch (error) {
+      setDriveStatus(error.message);
+    }
+  };
+
+  const restoreFromDrive = async () => {
+    setDriveStatus('Loading backup…');
+    try {
+      const payload = await downloadGoogleDriveBackup();
+      restoreJSONBackup(payload);
+      setDriveStatus('Backup loaded for review below.');
+    } catch (error) {
+      setDriveStatus(error.message);
+    }
   };
 
   return (
@@ -143,6 +166,12 @@ export function Navbar({ activeTab, setActiveTab, currency, setCurrency, theme, 
             <p className="text-sm text-slate-400 mb-5">Your holdings, transactions, watchlist, settings, and snapshots stay in this browser's local storage. Keep an encrypted or otherwise secure copy of exported backups.</p>
             <div className="grid gap-3">
               {installPrompt && <button type="button" onClick={installApp} className="primary-button w-full"><Download className="w-4 h-4" /> Install ApexFinance app</button>}
+              <div className="rounded-xl border border-slate-800 p-3">
+                <p className="text-sm font-semibold mb-1">Google Drive backup</p>
+                <p className="text-xs text-slate-500 mb-3">{isGoogleDriveConfigured() ? 'Save or restore your complete portfolio backup from Google Drive.' : 'Add VITE_GOOGLE_CLIENT_ID to enable Google Drive backup.'}</p>
+                {isGoogleDriveConfigured() && <div className="flex flex-wrap gap-2"><button type="button" className="primary-button" onClick={backupToDrive}>Back up to Drive</button><button type="button" className="secondary-button" onClick={restoreFromDrive}>Restore from Drive</button></div>}
+                {driveStatus && <p className="text-xs text-slate-400 mt-2" role="status">{driveStatus}</p>}
+              </div>
               <div className="rounded-xl border border-slate-800 p-3">
                 <p className="text-sm font-semibold mb-1">Holdings lists</p>
                 <p className="text-xs text-slate-500 mb-3">Create separate named lists and switch between them with the selector.</p>

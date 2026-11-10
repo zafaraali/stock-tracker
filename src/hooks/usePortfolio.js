@@ -92,13 +92,27 @@ export function getRealizedGains(transactions, holdings = [], historical = {}) {
   return positionLedger(inferred, transactions, historical).realizedUSD;
 }
 
+function normalizeSavedBackup(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return value;
+  return {
+    ...value,
+    // These collections were added after the original saved-data format. Keep
+    // older, otherwise valid portfolios load without entering recovery mode.
+    holdings: value.holdings ?? [],
+    transactions: value.transactions ?? [],
+    watchlist: value.watchlist ?? [],
+    snapshots: value.snapshots ?? [],
+  };
+}
+
 export function loadSavedPortfolio(storage) {
     const errors = [];
     const failed = message => errors.push(message);
-    const saved = readJSON(storage, 'st_pro_data_v2', null, value => validateBackup(value) === '', failed);
+    const saved = readJSON(storage, 'st_pro_data_v2', null, value => validateBackup(normalizeSavedBackup(value)) === '', failed);
     if (saved) {
-      const accounts = normalizeAccounts(saved.accounts);
-      return { data: { ...saved, accounts, holdings: assignDefaultAccount(saved.holdings || [], accounts[0].id), transactions: assignDefaultAccount(saved.transactions || [], accounts[0].id), mode: saved.mode || 'personal' }, errors };
+      const normalized = normalizeSavedBackup(saved);
+      const accounts = normalizeAccounts(normalized.accounts);
+      return { data: { ...normalized, accounts, holdings: assignDefaultAccount(normalized.holdings, accounts[0].id), transactions: assignDefaultAccount(normalized.transactions, accounts[0].id), mode: normalized.mode || 'personal' }, errors };
     }
     const empty = { holdings: [], transactions: [], watchlist: [], snapshots: [], mode: 'personal' };
     try {
@@ -427,12 +441,29 @@ export function usePortfolio() {
     if (!entry) return;
     try {
       const restored = mergeDeleted({ holdings: allHoldings, transactions: allTransactions, watchlist: watchlistData }, entry);
-      const error = validateBackup({ ...restored, snapshots });
+      const restoredSnapshots = entry.snapshots || snapshots;
+      const error = validateBackup({ ...restored, snapshots: restoredSnapshots });
       if (error) throw new Error(error);
+      const restoredAccounts = entry.accounts
+        ? normalizeAccounts(entry.accounts)
+        : entry.account && !accounts.some(account => account.id === entry.account.id)
+          ? [...accounts, entry.account]
+          : accounts;
+      const restoredSelectedAccountId = entry.selectedAccountId && restoredAccounts.some(account => account.id === entry.selectedAccountId)
+        ? entry.selectedAccountId
+        : entry.account?.id && restoredAccounts.some(account => account.id === entry.account.id)
+          ? entry.account.id
+          : selectedAccountId;
       setPortfolioData({ holdings: rebuildHoldings(restored.holdings, restored.transactions), transactions: restored.transactions });
       setWatchlist(restored.watchlist);
-      if (entry.snapshots) setSnapshots(previous => [...new Map([...entry.snapshots, ...previous].map(s => [s.date, { date: s.date, valueUSD: s.valueUSD }])).values()]);
+      setAccounts(restoredAccounts);
+      setSelectedAccountId(restoredSelectedAccountId);
+      if (entry.snapshots) setSnapshots(restoredSnapshots);
       else if (entry.holdings.length || entry.transactions.length) resetPerformance();
+      if (entry.currency && Object.hasOwn(CURRENCY_RATES, entry.currency)) setCurrency(entry.currency);
+      if (entry.theme && ['light', 'dark'].includes(entry.theme)) setTheme(entry.theme);
+      if (entry.accent && Object.hasOwn(ACCENT_THEMES, entry.accent)) setAccent(entry.accent);
+      if (entry.mode && ['personal', 'demo'].includes(entry.mode)) setMode(entry.mode);
       setTrash(previous => previous.filter(item => item.id !== id));
       setUiMessage('Restored ' + entry.label.toLowerCase() + '.');
     } catch (error) { setUiMessage('Could not undo: ' + error.message); }
@@ -628,7 +659,18 @@ export function usePortfolio() {
   };
 
   const deleteAllData = () => {
-    stashDeleted('Cleared portfolio', { holdings: allHoldings, transactions: allTransactions, watchlist: watchlistData, snapshots });
+    stashDeleted('Cleared portfolio', {
+      holdings: allHoldings,
+      transactions: allTransactions,
+      watchlist: watchlistData,
+      snapshots,
+      accounts,
+      selectedAccountId,
+      currency,
+      theme,
+      accent,
+      mode
+    });
     setStorageBlocked(false);
     setPortfolioData({ holdings: [], transactions: [] });
     setAccounts([DEFAULT_ACCOUNT]);
@@ -732,6 +774,27 @@ export function usePortfolio() {
   };
   const exportAllCSV = () => exportCSV('all');
 
+  const previewJSONBackup = parsed => {
+    const data = {
+      ...parsed,
+      holdings: Array.isArray(parsed.holdings) ? parsed.holdings : [],
+      transactions: Array.isArray(parsed.transactions) ? parsed.transactions : [],
+      watchlist: Array.isArray(parsed.watchlist) ? parsed.watchlist : [],
+      snapshots: Array.isArray(parsed.snapshots) ? parsed.snapshots : []
+    };
+    const error = validateBackup(data);
+    if (error) throw new Error(error);
+    setPendingImport(data);
+  };
+
+  const restoreJSONBackup = parsed => {
+    try {
+      previewJSONBackup(parsed);
+    } catch (err) {
+      setUiMessage('Could not import backup: ' + err.message);
+    }
+  };
+
   const importJSON = (event) => {
     const file = event.target.files[0];
     if (!file) return;
@@ -739,16 +802,7 @@ export function usePortfolio() {
     reader.onload = (e) => {
       try {
         const parsed = JSON.parse(e.target.result);
-        const data = {
-          ...parsed,
-          holdings: Array.isArray(parsed.holdings) ? parsed.holdings : [],
-          transactions: Array.isArray(parsed.transactions) ? parsed.transactions : [],
-          watchlist: Array.isArray(parsed.watchlist) ? parsed.watchlist : [],
-          snapshots: Array.isArray(parsed.snapshots) ? parsed.snapshots : []
-        };
-        const error = validateBackup(data);
-        if (error) throw new Error(error);
-        setPendingImport(data);
+        previewJSONBackup(parsed);
       } catch (err) {
         setUiMessage('Could not import backup: ' + err.message);
       }
@@ -801,6 +855,7 @@ export function usePortfolio() {
       if (error) { setUiMessage(`Could not import transactions: ${error}`); return; }
       setPortfolioData({ holdings: rebuildHoldings(nextHoldings, nextTransactions), transactions: nextTransactions });
       setUiMessage(`Imported ${transactions.length} transaction${transactions.length === 1 ? '' : 's'} from ${pendingCsvImport.broker}.`);
+      setStorageBlocked(false);
       setPendingCsvImport(null);
       return;
     }
@@ -860,6 +915,7 @@ export function usePortfolio() {
       };
     });
     setUiMessage(`Imported ${pendingCsvImport.rows.length} holding${pendingCsvImport.rows.length === 1 ? '' : 's'} from ${pendingCsvImport.broker}.`);
+    setStorageBlocked(false);
     setPendingCsvImport(null);
   };
 
@@ -873,6 +929,7 @@ export function usePortfolio() {
     const cashHoldingPattern = /^(USD|CAD|EUR|GBP|JPY)\s+CASH$/i;
     const cashHoldings = importedHoldings.filter(item => cashHoldingPattern.test(String(item.symbol || '').trim()) || (String(item.category || '').toLowerCase() === 'cash' && /^[A-Z]{3}$/.test(String(item.currency || '').toUpperCase())));
     const regularHoldings = importedHoldings.filter(item => !cashHoldings.includes(item));
+    const cashHoldingIds = new Set(cashHoldings.map(item => item.id));
     const cashDeposits = cashHoldings.map(item => {
       const currencyCode = String(item.currency || String(item.symbol || '').split(/\s+/)[0] || 'USD').toUpperCase();
       const amount = Number(item.shares || 1) * Number(item.avgCost || item.currentPrice || 0);
@@ -889,20 +946,46 @@ export function usePortfolio() {
         cashImpact: true
       };
     }).filter(Boolean);
-    const normalizedTransactions = [...cashDeposits, ...importedTransactions];
+    // Cash is represented by deposits in the current ledger. Remove legacy
+    // BUY transactions that pointed at the cash-holding rows we just removed.
+    const normalizedTransactions = [...cashDeposits, ...importedTransactions.filter(transaction => !cashHoldingIds.has(transaction.holdingId))];
+    const nextAccounts = importedAccounts;
+    const nextSelectedAccountId = pendingImport.selectedAccountId || importedAccounts[0].id;
+    const nextWatchlist = assignDefaultAccount(pendingImport.watchlist, importedAccounts[0].id);
+    const nextSnapshots = pendingImport.snapshots;
+    const nextCurrency = pendingImport.currency || currency;
+    const nextTheme = pendingImport.theme || theme;
+    const nextAccent = Object.hasOwn(ACCENT_THEMES, pendingImport.accent) ? pendingImport.accent : accent;
+    const nextMode = pendingImport.mode === 'demo' ? 'demo' : 'personal';
+    const nextHistoricalFx = pendingImport.historicalFx && Object.values(pendingImport.historicalFx).every(validRates) ? pendingImport.historicalFx : {};
+    const nextHoldings = rebuildHoldings(regularHoldings, normalizedTransactions);
+    const persistenceError = writeJSON(browserStorage, 'st_pro_data_v2', {
+      holdings: nextHoldings,
+      transactions: normalizedTransactions,
+      accounts: nextAccounts,
+      selectedAccountId: nextSelectedAccountId,
+      watchlist: nextWatchlist,
+      snapshots: nextSnapshots,
+      currency: nextCurrency,
+      theme: nextTheme,
+      accent: nextAccent,
+      mode: nextMode,
+      trash: []
+    });
     setAccounts(importedAccounts);
-    setSelectedAccountId(pendingImport.selectedAccountId || importedAccounts[0].id);
-    setPortfolioData({ holdings: rebuildHoldings(regularHoldings, normalizedTransactions), transactions: normalizedTransactions });
-    setWatchlist(assignDefaultAccount(pendingImport.watchlist, importedAccounts[0].id));
-    setSnapshots(pendingImport.snapshots);
-    if (pendingImport.currency) setCurrency(pendingImport.currency);
-    if (pendingImport.theme) setTheme(pendingImport.theme);
-    if (Object.hasOwn(ACCENT_THEMES, pendingImport.accent)) setAccent(pendingImport.accent);
+    setSelectedAccountId(nextSelectedAccountId);
+    setPortfolioData({ holdings: nextHoldings, transactions: normalizedTransactions });
+    setWatchlist(nextWatchlist);
+    setSnapshots(nextSnapshots);
+    if (pendingImport.currency) setCurrency(nextCurrency);
+    if (pendingImport.theme) setTheme(nextTheme);
+    if (Object.hasOwn(ACCENT_THEMES, pendingImport.accent)) setAccent(nextAccent);
     if (validRates(pendingImport.fxData)) setFxData(pendingImport.fxData);
-    setHistoricalFx(pendingImport.historicalFx && Object.values(pendingImport.historicalFx).every(validRates) ? pendingImport.historicalFx : {});
-    setMode(pendingImport.mode === 'demo' ? 'demo' : 'personal');
+    setHistoricalFx(nextHistoricalFx);
+    setMode(nextMode);
     setTrash([]);
     setStorageBlocked(false);
+    if (persistenceError) setStorageError(persistenceError);
     setPendingImport(null);
   };
 
@@ -919,6 +1002,7 @@ export function usePortfolio() {
     if (!account) return;
     const replacement = accounts.find(item => item.id !== id);
     stashDeleted(`Deleted list ${account.name}`, {
+      account,
       holdings: allHoldings.filter(item => accountIdFor(item) === id),
       transactions: allTransactions.filter(item => accountIdFor(item) === id),
       watchlist: watchlistData.filter(item => accountIdFor(item) === id)
@@ -966,7 +1050,9 @@ export function usePortfolio() {
     addWatchlistItem,
     updateWatchlistPrice,
     removeWatchlistItem,
+    backupPayload,
     exportJSON,
+    restoreJSONBackup,
     exportCSV,
     exportAllCSV,
     importJSON,
