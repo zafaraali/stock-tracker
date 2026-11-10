@@ -1,9 +1,23 @@
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Sliders, ArrowUpRight, ArrowDownRight, CheckCircle2 } from 'lucide-react';
 import { isTseSymbol } from '../services/marketApi';
 import { EmptyState } from './EmptyState';
 
 export function RebalanceView({ summary, symbol, onUpdateTarget }) {
+  const [targetDrafts, setTargetDrafts] = useState({});
+  const targetSignature = summary.items.map(item => `${item.id}:${item.targetPercent ?? 0}`).join('|');
+  const targetDraftValues = useMemo(
+    () => Object.fromEntries(summary.items.map(item => [item.id, String(item.targetPercent ?? 0)])),
+    // Intentionally key this memo by target values, not the summary array identity,
+    // so live price refreshes do not overwrite an in-progress edit.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [targetSignature]
+  );
+
+  useEffect(() => {
+    setTargetDrafts(targetDraftValues);
+  }, [targetDraftValues]);
+
   const totalTarget = summary.items.reduce((acc, item) => acc + (Number(item.targetPercent) || 0), 0);
   const required = summary.items.reduce((balances, item) => {
     const change = item.rebalanceAction === 'BUY' ? item.rebalanceDiffValue : item.rebalanceAction === 'SELL' ? -item.rebalanceDiffValue : 0;
@@ -80,8 +94,12 @@ export function RebalanceView({ summary, symbol, onUpdateTarget }) {
                             step="any"
                             min="0"
                             max="100"
-                            value={item.targetPercent}
-                            onChange={(e) => onUpdateTarget(item.id, e.target.value)}
+                            value={targetDrafts[item.id] ?? String(item.targetPercent ?? 0)}
+                            onChange={(e) => setTargetDrafts(previous => ({ ...previous, [item.id]: e.target.value }))}
+                            onBlur={() => {
+                              const draft = targetDrafts[item.id];
+                              onUpdateTarget(item.id, draft === '' ? 0 : draft);
+                            }}
                             className="w-20 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-xs text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
                           />
                           <span className="text-xs text-slate-400">%</span>

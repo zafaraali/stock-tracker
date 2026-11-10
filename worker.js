@@ -4,6 +4,14 @@ const YAHOO_ORIGIN = 'https://query1.finance.yahoo.com';
 const FRANKFURTER_ORIGIN = 'https://api.frankfurter.dev';
 const UPSTREAM_HEADERS = { accept: 'application/json', 'user-agent': 'Mozilla/5.0 ApexFinance/1.0' };
 
+async function fetchYahoo(target) {
+  const response = await fetch(target, { headers: UPSTREAM_HEADERS });
+  if (![401, 429, 500, 502, 503, 504].includes(response.status)) return response;
+  const fallback = new URL(target);
+  fallback.hostname = 'query2.finance.yahoo.com';
+  return fetch(fallback, { headers: UPSTREAM_HEADERS });
+}
+
 function jsonResponse(body, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
@@ -23,7 +31,7 @@ export default {
 
       const target = new URL(`/v8/finance/chart/${encodeURIComponent(symbol)}`, YAHOO_ORIGIN);
       target.search = incoming.search;
-      const response = await fetch(target, { headers: UPSTREAM_HEADERS });
+      const response = await fetchYahoo(target);
       return new Response(response.body, {
         status: response.status,
         headers: { 'content-type': response.headers.get('content-type') || 'application/json', 'cache-control': 'no-store' }
@@ -33,7 +41,7 @@ export default {
     if (incoming.pathname === '/api/market-search') {
       const target = new URL('/v1/finance/search', YAHOO_ORIGIN);
       target.search = incoming.search;
-      const response = await fetch(target, { headers: UPSTREAM_HEADERS });
+      const response = await fetchYahoo(target);
       return new Response(response.body, {
         status: response.status,
         headers: { 'content-type': response.headers.get('content-type') || 'application/json' }
@@ -45,7 +53,7 @@ export default {
       if (!symbol || !/^[A-Za-z0-9.=^_-]+$/.test(symbol)) return jsonResponse({ error: 'Invalid market symbol.' }, 400);
       const target = new URL('/v7/finance/quote', YAHOO_ORIGIN);
       target.searchParams.set('symbols', symbol);
-      const response = await fetch(target, { headers: UPSTREAM_HEADERS });
+      const response = await fetchYahoo(target);
       return new Response(response.body, {
         status: response.status,
         headers: { 'content-type': response.headers.get('content-type') || 'application/json', 'cache-control': 'no-store' }

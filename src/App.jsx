@@ -332,7 +332,7 @@ export default function App() {
 
       {/* Footer */}
       <footer className={`no-print border-t ${isLight ? 'border-slate-200 bg-white text-slate-500' : 'border-slate-900 bg-slate-950 text-slate-500'} py-4 text-center text-xs mb-12 sm:mb-0 transition-colors`}>
-        ApexFinance Manual Portfolio Suite - Built with React, Vite & TailwindCSS
+        ApexFinance - Built with React, Vite & TailwindCSS
       </footer>
     </div>
   );

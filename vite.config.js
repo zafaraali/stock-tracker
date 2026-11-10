@@ -8,6 +8,7 @@ export default defineConfig({
       '/api/market-quote': {
         target: 'https://query1.finance.yahoo.com',
         changeOrigin: true,
+        headers: { 'User-Agent': 'Mozilla/5.0 ApexFinance/1.0', accept: 'application/json' },
         rewrite: path => path.replace(/^\/api\/market-quote/, '/v8/finance/chart')
       },
       '/api/market-search': {

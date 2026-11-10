@@ -64,7 +64,7 @@ export function PortfolioCharts({ performance, backtestHistory = [], summary, sn
       <>
       {/* Performance Comparison Chart */}
       <div className={`${cardBg} chart-card hover-lift border p-5 rounded-2xl lg:col-span-2 transition-colors`}>
-        <div className="flex flex-wrap items-center justify-between gap-3 mb-4"><h3 className={`text-xs font-semibold ${headingColor} tracking-wider uppercase`}>Performance vs VOO</h3><div className="chart-range flex gap-1" role="group" aria-label="Chart time range">{['YTD', '1M', '3M', '6M', '1Y', '3Y', '5Y'].map(option => <button key={option} className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold ${range === option ? 'bg-indigo-600 text-white' : isLight ? 'bg-slate-100 text-slate-600' : 'bg-slate-800 text-slate-400'}`} onClick={() => setRange(option)}>{option}</button>)}</div></div>
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-4"><h3 className={`text-xs font-semibold ${headingColor} tracking-wider uppercase`}>Estimated Performance vs VOO</h3><div className="chart-range flex gap-1" role="group" aria-label="Chart time range">{['YTD', '1M', '3M', '6M', '1Y', '3Y', '5Y'].map(option => <button key={option} className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold ${range === option ? 'bg-indigo-600 text-white' : isLight ? 'bg-slate-100 text-slate-600' : 'bg-slate-800 text-slate-400'}`} onClick={() => setRange(option)}>{option}</button>)}</div></div>
         <p className="text-sm text-slate-400 mb-4">Backtested return for your current holdings versus VOO, the Vanguard S&amp;P 500 ETF. Maximum history is five years.</p>
         <div className="h-64 w-full">
           {comparisonHistory.length === 0 ? (
@@ -91,7 +91,7 @@ export function PortfolioCharts({ performance, backtestHistory = [], summary, sn
             </ResponsiveContainer>
           )}
         </div>
-        <div className="flex flex-wrap gap-4 text-sm my-3"><span className="text-indigo-400">● Portfolio</span><span className="text-amber-400">┄ S&amp;P 500</span></div>
+        <div className="flex flex-wrap gap-4 text-sm my-3"><span className="text-indigo-400">● Portfolio</span><span className="text-amber-400">┄ VOO (S&amp;P 500)</span></div>
         <div className="grid grid-cols-3 gap-2 border-t border-slate-800/80 pt-3 mt-3" aria-label="Performance metrics">
           <div><p className="text-[10px] uppercase tracking-wide text-slate-500">Portfolio</p><p className={`text-sm font-semibold ${portfolioReturn >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>{metric(portfolioReturn)}</p></div>
           <div><p className="text-[10px] uppercase tracking-wide text-slate-500">VOO (S&amp;P 500)</p><p className={`text-sm font-semibold ${benchmarkReturn >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>{metric(benchmarkReturn)}</p></div>
