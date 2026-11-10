@@ -1,8 +1,8 @@
-# ApexFinance Pro Manual Portfolio & Rebalancing Suite
+# ApexFinance Manual Portfolio & Rebalancing Suite
 
 A comprehensive, fully offline-ready React + Vite stock tracking, dividend, and portfolio rebalancing suite styled with Tailwind CSS.
 
-## Pro Features Included:
+## Features Included:
 
 - **Manual Price Entry & Inline Editing**: Instant price updates whenever you check Google Finance.
 - **Sector Breakdown & Dashboards**: Visual allocation charts across Tech, Crypto, Dividend, and ETFs.

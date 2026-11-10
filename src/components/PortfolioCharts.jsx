@@ -1,21 +1,38 @@
 import React, { useState } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, AreaChart, Area, XAxis, YAxis, CartesianGrid, Legend } from 'recharts';
+import { BENCHMARK_SYMBOL, buildPerformanceComparison } from '../services/performanceComparison';
 
 const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#14b8a6', '#8b5cf6', '#06b6d4', '#f97316', '#3b82f6'];
 
-export function PortfolioCharts({ performance, summary, snapshots, symbol, currencyCode = 'USD', rate, theme }) {
+export function PortfolioCharts({ performance, backtestHistory = [], summary, snapshots, symbol, currencyCode = 'USD', rate, theme }) {
   const isLight = theme === 'light';
-  const [range, setRange] = useState('ALL');
+  const [range, setRange] = useState('5Y');
   const [activeAsset, setActiveAsset] = useState(null);
   const [activeSector, setActiveSector] = useState(null);
-  const rangeSize = { '1M': 30, '3M': 90, '6M': 180, '1Y': 365 };
-  const visiblePerformance = range === 'ALL' ? performance : performance.slice(-rangeSize[range]);
-
-  const growthHistory = visiblePerformance.map(observation => ({
-    date: observation.date, value: observation.valueUSD * rate,
-    capital: observation.capitalUSD * rate, gain: observation.gainUSD * rate
-  }));
-  const latest = growthHistory.at(-1);
+  const cutoff = new Date();
+  if (range === 'YTD') cutoff.setMonth(0, 1);
+  else if (range === '1M') cutoff.setMonth(cutoff.getMonth() - 1);
+  else if (range === '3M') cutoff.setMonth(cutoff.getMonth() - 3);
+  else if (range === '6M') cutoff.setMonth(cutoff.getMonth() - 6);
+  else if (range === '1Y') cutoff.setFullYear(cutoff.getFullYear() - 1);
+  else if (range === '3Y') cutoff.setFullYear(cutoff.getFullYear() - 3);
+  else if (range === '5Y') cutoff.setFullYear(cutoff.getFullYear() - 5);
+  const cutoffDate = cutoff.toISOString().slice(0, 10);
+  const holdingSeries = summary.items.map(item => ({
+    item,
+    series: backtestHistory.find(history => history.symbol === item.symbol.toUpperCase())?.points || []
+  })).filter(entry => entry.series.length && entry.item.totalValue > 0);
+  const comparisonHistory = buildPerformanceComparison({
+    benchmarkSeries: backtestHistory.find(series => series.symbol === BENCHMARK_SYMBOL)?.points || [],
+    holdingSeries: holdingSeries.map(entry => ({ series: entry.series, weight: entry.item.totalValue })),
+    cutoffDate
+  });
+  const growthHistory = comparisonHistory.map(point => ({ ...point, value: point.portfolio, capital: point.sp500 }));
+  const latestComparison = comparisonHistory.at(-1);
+  const metric = value => Number.isFinite(value) ? `${value >= 0 ? '+' : ''}${value.toFixed(2)}%` : '—';
+  const portfolioReturn = latestComparison?.portfolio;
+  const benchmarkReturn = latestComparison?.sp500;
+  const outperformance = Number.isFinite(portfolioReturn) && Number.isFinite(benchmarkReturn) ? portfolioReturn - benchmarkReturn : null;
 
   const assetPieData = summary.items.filter(item => item.totalValue > 0).map(item => ({
     name: item.symbol,
@@ -35,18 +52,24 @@ export function PortfolioCharts({ performance, summary, snapshots, symbol, curre
 
   const cardBg = isLight ? 'bg-white border-slate-200 shadow-md' : 'bg-slate-900 border-slate-800/80 shadow-xl';
   const headingColor = isLight ? 'text-slate-700' : 'text-slate-400';
+  const chartTheme = isLight
+    ? { grid: '#e2e8f0', axis: '#64748b', portfolio: '#4f46e5', benchmark: '#d97706', tooltip: '#ffffff', tooltipText: '#0f172a' }
+    : { grid: '#334155', axis: '#94a3b8', portfolio: '#a5b4fc', benchmark: '#fbbf24', tooltip: '#0f172a', tooltipText: '#f8fafc' };
+  const showPerformanceChart = true;
   
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
       
-      {/* Portfolio Growth Chart */}
+      {showPerformanceChart && (
+      <>
+      {/* Performance Comparison Chart */}
       <div className={`${cardBg} chart-card hover-lift border p-5 rounded-2xl lg:col-span-2 transition-colors`}>
-        <div className="flex flex-wrap items-center justify-between gap-3 mb-4"><h3 className={`text-xs font-semibold ${headingColor} tracking-wider uppercase`}>Portfolio value & contributions</h3><div className="chart-range flex gap-1" role="group" aria-label="Chart time range">{['1M', '3M', '6M', '1Y', 'ALL'].map(option => <button key={option} className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold ${range === option ? 'bg-indigo-600 text-white' : isLight ? 'bg-slate-100 text-slate-600' : 'bg-slate-800 text-slate-400'}`} onClick={() => setRange(option)}>{option}</button>)}</div></div>
-        <p className="text-sm text-slate-400 mb-4">Investment gain since tracking began: <strong className={latest?.gain >= 0 ? 'text-emerald-400' : 'text-rose-400'}>{symbol}{Number(latest?.gain || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {currencyCode}</strong></p>
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-4"><h3 className={`text-xs font-semibold ${headingColor} tracking-wider uppercase`}>Performance vs VOO</h3><div className="chart-range flex gap-1" role="group" aria-label="Chart time range">{['YTD', '1M', '3M', '6M', '1Y', '3Y', '5Y'].map(option => <button key={option} className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold ${range === option ? 'bg-indigo-600 text-white' : isLight ? 'bg-slate-100 text-slate-600' : 'bg-slate-800 text-slate-400'}`} onClick={() => setRange(option)}>{option}</button>)}</div></div>
+        <p className="text-sm text-slate-400 mb-4">Backtested return for your current holdings versus VOO, the Vanguard S&amp;P 500 ETF. Maximum history is five years.</p>
         <div className="h-64 w-full">
-          {growthHistory.length === 0 ? (
+          {comparisonHistory.length === 0 ? (
             <div className="h-full flex items-center justify-center text-slate-500 text-sm text-center">
-              A portfolio snapshot will be saved when you open the app.
+              VOO performance data is not available yet.
             </div>
           ) : (
             <ResponsiveContainer width="100%" height="100%">
@@ -57,19 +80,27 @@ export function PortfolioCharts({ performance, summary, snapshots, symbol, curre
                   <stop offset="95%" stopColor="#6366f1" stopOpacity={0}/>
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke={isLight ? '#e2e8f0' : '#1e293b'} />
-              <XAxis dataKey="date" stroke={isLight ? '#64748b' : '#64748b'} fontSize={11} />
-              <YAxis stroke={isLight ? '#64748b' : '#64748b'} fontSize={11} tickFormatter={(v) => `${symbol}${v}`} />
-              <Tooltip formatter={value => `${symbol}${Number(value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currencyCode}`} />
-              <Area isAnimationActive animationBegin={80} animationDuration={850} animationEasing="ease-out" type="monotone" name="Portfolio value" dataKey="value" stroke="#6366f1" strokeWidth={3} dot={growthHistory.length === 1} fillOpacity={1} fill="url(#colorVal)" />
-              <Area isAnimationActive animationBegin={160} animationDuration={850} animationEasing="ease-out" type="linear" name="Starting value + net contributions" dataKey="capital" stroke="#f59e0b" fill="none" strokeWidth={2} strokeDasharray="5 5" />
+              <CartesianGrid strokeDasharray="3 3" stroke={chartTheme.grid} />
+              <XAxis dataKey="date" stroke={chartTheme.axis} fontSize={11} />
+              <YAxis stroke={chartTheme.axis} fontSize={11} tickFormatter={value => `${value.toFixed(0)}%`} />
+              <Tooltip contentStyle={{ backgroundColor: chartTheme.tooltip, border: `1px solid ${chartTheme.grid}`, borderRadius: 10, color: chartTheme.tooltipText }} labelStyle={{ color: chartTheme.tooltipText }} itemStyle={{ color: chartTheme.tooltipText }} formatter={value => `${Number(value).toFixed(2)}%`} />
+              <Legend wrapperStyle={{ color: chartTheme.tooltipText }} />
+              <Area isAnimationActive animationBegin={80} animationDuration={850} animationEasing="ease-out" type="monotone" name="Portfolio" dataKey="value" stroke={chartTheme.portfolio} strokeWidth={3} dot={false} fill="none" />
+              <Area isAnimationActive animationBegin={160} animationDuration={850} animationEasing="ease-out" type="monotone" name="VOO (S&P 500)" dataKey="capital" stroke={chartTheme.benchmark} fill="none" strokeWidth={2} />
               </AreaChart>
             </ResponsiveContainer>
           )}
         </div>
-        <div className="flex flex-wrap gap-4 text-sm my-3"><span className="text-indigo-400">● Portfolio value</span><span className="text-amber-400">┄ Starting value + net contributions</span></div>
-        <p className="text-[10px] text-slate-500 mt-1">Value includes cash. The contribution line starts at your first tracked value and changes with deposits, withdrawals, and positions recorded outside cash. Their difference is investment gain, not a percentage return. Observations are saved on days you use the app. Historical ledger corrections restart performance tracking; earlier value-only observations are excluded.</p>
+        <div className="flex flex-wrap gap-4 text-sm my-3"><span className="text-indigo-400">● Portfolio</span><span className="text-amber-400">┄ S&amp;P 500</span></div>
+        <div className="grid grid-cols-3 gap-2 border-t border-slate-800/80 pt-3 mt-3" aria-label="Performance metrics">
+          <div><p className="text-[10px] uppercase tracking-wide text-slate-500">Portfolio</p><p className={`text-sm font-semibold ${portfolioReturn >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>{metric(portfolioReturn)}</p></div>
+          <div><p className="text-[10px] uppercase tracking-wide text-slate-500">VOO (S&amp;P 500)</p><p className={`text-sm font-semibold ${benchmarkReturn >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>{metric(benchmarkReturn)}</p></div>
+          <div><p className="text-[10px] uppercase tracking-wide text-slate-500">Outperformance</p><p className={`text-sm font-semibold ${outperformance >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>{metric(outperformance)}</p></div>
+        </div>
+        <p className="text-[10px] text-slate-500 mt-1">Uses daily closing prices for VOO and your current holding weights, normalized to the selected range. Cash, dividends, and historical contributions are excluded; holdings with shorter histories begin when their data becomes available.</p>
       </div>
+      </>
+      )}
 
       {/* Asset Allocation Pie Chart */}
       <div className={`${cardBg} chart-card hover-lift border p-5 rounded-2xl lg:col-span-1 transition-colors`}>

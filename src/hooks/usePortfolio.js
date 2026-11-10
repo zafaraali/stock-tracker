@@ -1,16 +1,18 @@
 import { CASH_TYPES, positionLedger, calculateCash, externalContributions, performanceHistory, mergeDeleted } from '../services/ledger';
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { INITIAL_HOLDINGS, INITIAL_WATCHLIST, INITIAL_TRANSACTIONS, CURRENCY_RATES } from '../data/mockData';
+import { INITIAL_HOLDINGS, INITIAL_WATCHLIST, INITIAL_TRANSACTIONS, CURRENCY_RATES, INITIAL_CATEGORIES } from '../data/mockData';
 import { compareTrades, validateLedger, validateBackup, validWatchlist, validSnapshots } from '../services/portfolioValidation';
 import { readJSON, writeJSON, browserStorage } from '../services/storage';
 import { fallbackRates, validRates, fetchExchangeRates } from '../services/exchangeRates';
-import { fetchMarketQuote, isTseSymbol, detectSymbolCurrency, inferSymbolMetadata } from '../services/marketApi';
+import { fetchHistoricalMarketData, fetchMarketFundamentals, fetchMarketQuote, isTseSymbol, detectSymbolCurrency, inferSymbolMetadata } from '../services/marketApi';
 import { parsePortfolioCsv } from '../services/csvImport';
+import { BENCHMARK_SYMBOL } from '../services/performanceComparison';
 
 const today = () => {
   const date = new Date();
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 };
+const fileDate = () => today();
 
 const DEFAULT_ACCOUNT = { id: 'account-main', name: 'Main', type: '', currency: 'USD' };
 export const COMBINED_ACCOUNT_ID = '__combined__';
@@ -142,7 +144,10 @@ export function usePortfolio() {
   const transactions = useMemo(() => selectedAccountId === COMBINED_ACCOUNT_ID ? allTransactions : allTransactions.filter(item => accountIdFor(item) === selectedAccountId), [allTransactions, selectedAccountId]);
   const [watchlistData, setWatchlist] = useState(() => assignDefaultAccount(recovery.data.watchlist || []));
   const watchlist = useMemo(() => selectedAccountId === COMBINED_ACCOUNT_ID ? watchlistData : watchlistData.filter(item => accountIdFor(item) === selectedAccountId), [watchlistData, selectedAccountId]);
+  const customCategories = useMemo(() => [...new Set([...allHoldings, ...watchlistData].map(item => String(item.category || '').trim()).filter(category => category && !INITIAL_CATEGORIES.includes(category)))].sort((a, b) => a.localeCompare(b)), [allHoldings, watchlistData]);
   const [snapshots, setSnapshots] = useState(recovery.data.snapshots);
+  const backtestSymbols = useMemo(() => [...new Set([...allHoldings.map(item => item.symbol), BENCHMARK_SYMBOL].filter(Boolean))], [allHoldings]);
+  const [backtestHistory, setBacktestHistory] = useState([]);
   const [currency, setCurrency] = useState(recovery.data.currency || 'CAD');
   const [theme, setTheme] = useState(recovery.data.theme || 'light');
   const [accent, setAccent] = useState(() => Object.hasOwn(ACCENT_THEMES, recovery.data.accent) ? recovery.data.accent : 'green');
@@ -152,6 +157,15 @@ export function usePortfolio() {
   const [pendingImport, setPendingImport] = useState(null);
   const [pendingCsvImport, setPendingCsvImport] = useState(null);
   const fxRates = fxData.rates;
+
+  useEffect(() => {
+    const controller = new AbortController();
+    Promise.allSettled(backtestSymbols.map(async symbol => ({ symbol: symbol.toUpperCase(), points: await fetchHistoricalMarketData(symbol, controller.signal) })))
+      .then(results => {
+        if (!controller.signal.aborted) setBacktestHistory(results.filter(result => result.status === 'fulfilled').map(result => result.value));
+      });
+    return () => controller.abort();
+  }, [backtestSymbols]);
 
   const [marketStatus, setMarketStatus] = useState({ loading: false, error: '', lastUpdated: null });
   const holdingsRef = useRef(holdings);
@@ -210,9 +224,14 @@ export function usePortfolio() {
 
     setMarketStatus(previous => ({ ...previous, loading: true, error: '' }));
     const results = await Promise.allSettled(symbols.map(symbol => fetchMarketQuote(symbol)));
+    const holdingSymbols = [...new Set(holdingsRef.current.map(item => item.symbol).filter(Boolean))];
+    const fundamentals = await Promise.allSettled(holdingSymbols.map(symbol => fetchMarketFundamentals(symbol)));
     const quotes = new Map(results
       .filter(result => result.status === 'fulfilled')
       .map(result => [result.value.symbol, result.value]));
+    const yields = new Map(fundamentals
+      .filter(result => result.status === 'fulfilled')
+      .map((result, index) => [holdingSymbols[index].toUpperCase(), result.value.dividendYield]));
     const failedCount = results.filter(result => result.status === 'rejected').length;
 
     {
@@ -224,6 +243,7 @@ export function usePortfolio() {
           return {
             ...item,
             currentPrice: quote.price,
+            dividendYield: yields.has(item.symbol.toUpperCase()) ? Number(Number(yields.get(item.symbol.toUpperCase()) || 0).toFixed(2)) : item.dividendYield,
             priceSource: 'live', priceUpdatedAt: quote.updatedAt, priceRefreshFailed: false,
             currency: quote.currency || item.currency || detectSymbolCurrency(item.symbol)
           };
@@ -280,7 +300,10 @@ export function usePortfolio() {
       const valUSD = h.shares * currentPriceUSD;
       const costUSD = h.costBasisUSD || 0;
       const gainUSD = valUSD - costUSD;
-      const gainPercent = costUSD > 0 ? (gainUSD / costUSD) * 100 : 0;
+        const nativeShares = Number(h.shares || 0);
+        const nativeCost = nativeShares * rawAvgCost;
+        const nativeGainLoss = nativeShares * (rawCurrentPrice - rawAvgCost);
+        const nativeGainPercent = nativeCost > 0 ? (nativeGainLoss / nativeCost) * 100 : 0;
       
       const divYield = h.dividendYield ? Number(h.dividendYield) : 0;
       const itemAnnualDivUSD = valUSD * (divYield / 100);
@@ -306,7 +329,8 @@ export function usePortfolio() {
         totalValue: valUSD * rate,
         totalCost: costUSD * rate,
         gainLoss: gainUSD * rate,
-        gainLossPercent: gainPercent,
+          nativeGainLoss,
+          gainLossPercent: nativeGainPercent,
         annualDividend: itemAnnualDivUSD * rate
       };
     });
@@ -350,6 +374,7 @@ export function usePortfolio() {
     return {
       items: itemsWithRebalance,
       cashBalances, cashValue: cashUSD * rate, holdingsValue: holdingsValueUSD * rate,
+      cashAllocation: totalValueUSD > 0 ? (cashUSD / totalValueUSD) * 100 : 0,
       totalValue: totalValueUSD * rate,
       totalCost: totalCostUSD * rate,
       totalGainLoss: totalGainUSD * rate,
@@ -371,6 +396,7 @@ export function usePortfolio() {
 
   const netContributionsUSD = externalContributions(transactions, holdings, historicalFx);
   const performance = useMemo(() => performanceHistory(snapshots, transactions, holdings, historicalFx), [snapshots, transactions, holdings, historicalFx]);
+
   const currentSnapshotTracked = snapshots.some(s => s.date === today() && Number.isFinite(s.netContributionsUSD));
 
   useEffect(() => {
@@ -507,14 +533,15 @@ export function usePortfolio() {
 
   const updateHolding = (id, changes) => {
     const shares = Number(changes.shares);
-    const hasAvgCost = changes.avgCost !== '' && changes.avgCost !== undefined && changes.avgCost !== null;
+    const hasAvgCost = changes.avgCost !== '' && changes.avgCost !== undefined && changes.avgCost !== null && Number(changes.avgCost) > 0;
+    const hasInvalidAvgCost = changes.avgCost !== '' && changes.avgCost !== undefined && changes.avgCost !== null && (!Number.isFinite(Number(changes.avgCost)) || Number(changes.avgCost) < 0);
     const hasCurrentPrice = changes.currentPrice !== '' && changes.currentPrice !== undefined && changes.currentPrice !== null;
-    const avgCost = hasAvgCost ? Number(changes.avgCost) : 0;
-    const currentPrice = hasCurrentPrice ? Number(changes.currentPrice) : 0;
+    const avgCost = hasAvgCost ? Number(changes.avgCost) : null;
+    const currentPrice = hasCurrentPrice ? Number(changes.currentPrice) : null;
     const dividendYield = Number(changes.dividendYield || 0);
     const targetPercent = Number(changes.targetPercent || 0);
     if (!String(changes.symbol || '').trim() || !Number.isFinite(shares) || shares <= 0 ||
-      (hasAvgCost && (!Number.isFinite(avgCost) || avgCost <= 0)) ||
+      hasInvalidAvgCost ||
       (hasCurrentPrice && (!Number.isFinite(currentPrice) || currentPrice <= 0)) ||
       !Number.isFinite(dividendYield) || dividendYield < 0 || dividendYield > 100 ||
       !Number.isFinite(targetPercent) || targetPercent < 0 || targetPercent > 100) {
@@ -528,8 +555,8 @@ export function usePortfolio() {
         ...changes,
         symbol: String(changes.symbol).trim().toUpperCase(),
         shares,
-        avgCost,
-        currentPrice,
+        avgCost: hasAvgCost ? avgCost : holding.avgCost,
+        currentPrice: hasCurrentPrice ? currentPrice : holding.currentPrice,
         dividendYield,
         targetPercent,
         currency: changes.currency || holding.currency,
@@ -651,13 +678,14 @@ export function usePortfolio() {
     setWatchlist(prev => prev.filter(w => w.id !== id));
   };
 
+  const backupPayload = useMemo(() => ({ schemaVersion: 4, mode, fxData, historicalFx, accounts, selectedAccountId, holdings: allHoldings, watchlist: watchlistData, transactions: allTransactions, snapshots, currency, theme, accent, exportedAt: new Date().toISOString() }), [mode, fxData, historicalFx, accounts, selectedAccountId, allHoldings, watchlistData, allTransactions, snapshots, currency, theme, accent]);
   const exportJSON = () => {
-    const payload = { schemaVersion: 4, mode, fxData, historicalFx, accounts, selectedAccountId, holdings: allHoldings, watchlist: watchlistData, transactions: allTransactions, snapshots, currency, theme, accent, exportedAt: new Date().toISOString() };
+    const payload = backupPayload;
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `pro_portfolio_backup_${new Date().toISOString().split('T')[0]}.json`;
+    a.download = `pro_portfolio_backup_${fileDate()}.json`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -678,11 +706,16 @@ export function usePortfolio() {
         const valueUSD = Number(item.shares || 0) * currentPriceUSD;
         const costUSD = Number(item.costBasisUSD || 0);
         const gainUSD = valueUSD - costUSD;
-        return { ...item, currency: holdingCurrency, nativeAvgCost: Number(item.avgCost || 0), nativeCurrentPrice: Number(item.currentPrice ?? item.avgCost ?? 0), avgCost: avgCostUSD * rate, currentPrice: currentPriceUSD * rate, annualDividend: valueUSD * Number(item.dividendYield || 0) / 100 * rate, totalValue: valueUSD * rate, gainLoss: gainUSD * rate, gainLossPercent: costUSD > 0 ? gainUSD / costUSD * 100 : 0 };
+          const nativeAvgCost = Number(item.avgCost || 0);
+          const nativeCurrentPrice = Number(item.currentPrice ?? item.avgCost ?? 0);
+          const nativeShares = Number(item.shares || 0);
+          const nativeCost = nativeShares * nativeAvgCost;
+          const nativeGainLoss = nativeShares * (nativeCurrentPrice - nativeAvgCost);
+          return { ...item, currency: holdingCurrency, nativeAvgCost, nativeCurrentPrice, avgCost: avgCostUSD * rate, currentPrice: currentPriceUSD * rate, annualDividend: valueUSD * Number(item.dividendYield || 0) / 100 * rate, totalValue: valueUSD * rate, gainLoss: gainUSD * rate, nativeGainLoss, gainLossPercent: nativeCost > 0 ? nativeGainLoss / nativeCost * 100 : 0 };
       });
       items.forEach(item => rows.push([
         `"${(account.name || '').replace(/"/g, '""')}"`, item.symbol, `"${item.name || ''}"`, item.category, item.currency || detectSymbolCurrency(item.symbol), item.shares,
-        Number(item.nativeAvgCost ?? item.avgCost ?? 0).toFixed(2), Number(item.nativeCurrentPrice ?? item.currentPrice ?? 0).toFixed(2), Number(item.targetPercent || 0) + '%', Number(item.dividendYield || 0).toFixed(2) + '%', Number(item.annualDividend || 0).toFixed(2), Number(item.totalValue || 0).toFixed(2), Number(item.gainLoss || 0).toFixed(2), Number(item.gainLossPercent || 0).toFixed(2) + '%', `"${(item.notes || '').replace(/"/g, '""')}"`
+          Number(item.nativeAvgCost ?? item.avgCost ?? 0).toFixed(2), Number(item.nativeCurrentPrice ?? item.currentPrice ?? 0).toFixed(2), Number(item.targetPercent || 0) + '%', Number(item.dividendYield || 0).toFixed(2) + '%', Number(item.annualDividend || 0).toFixed(2), Number(item.totalValue || 0).toFixed(2), Number(item.nativeGainLoss ?? item.gainLoss ?? 0).toFixed(2), Number(item.gainLossPercent || 0).toFixed(2) + '%', `"${(item.notes || '').replace(/"/g, '""')}"`
       ]));
       Object.entries(calculateCash(accountTransactions, accountHoldings)).filter(([, amount]) => Math.abs(amount) > 1e-8).forEach(([code, amount]) => {
         const displayAmount = toUSD(amount, code, fxRates) * rate;
@@ -694,7 +727,7 @@ export function usePortfolio() {
     const a = document.createElement('a');
     a.href = encodedUri;
     const suffix = scope === 'all' || selectedAccountId === COMBINED_ACCOUNT_ID ? 'all_lists' : (selectedAccount?.name || 'holdings_list').replace(/[^a-z0-9]+/gi, '_').toLowerCase();
-    a.download = `pro_portfolio_holdings_${suffix}_${new Date().toISOString().split('T')[0]}.csv`;
+    a.download = `pro_portfolio_holdings_${suffix}_${fileDate()}.csv`;
     a.click();
   };
   const exportAllCSV = () => exportCSV('all');
@@ -705,7 +738,14 @@ export function usePortfolio() {
     const reader = new FileReader();
     reader.onload = (e) => {
       try {
-        const data = JSON.parse(e.target.result);
+        const parsed = JSON.parse(e.target.result);
+        const data = {
+          ...parsed,
+          holdings: Array.isArray(parsed.holdings) ? parsed.holdings : [],
+          transactions: Array.isArray(parsed.transactions) ? parsed.transactions : [],
+          watchlist: Array.isArray(parsed.watchlist) ? parsed.watchlist : [],
+          snapshots: Array.isArray(parsed.snapshots) ? parsed.snapshots : []
+        };
         const error = validateBackup(data);
         if (error) throw new Error(error);
         setPendingImport(data);
@@ -749,7 +789,7 @@ export function usePortfolio() {
       const transactions = pendingCsvImport.rows.map(row => {
         let holding = importedSymbols.get(row.symbol.toUpperCase());
         if (!holding && row.type === 'BUY') {
-          holding = { id: 'h-' + crypto.randomUUID(), accountId, symbol: row.symbol.toUpperCase(), name: row.symbol.toUpperCase(), shares: 0, avgCost: row.price, currentPrice: row.price, category: 'Other', dividendYield: 0, targetPercent: 0, notes: `Imported from ${pendingCsvImport.broker}`, currency: detectSymbolCurrency(row.symbol), buyDate: row.date, priceSource: 'manual', priceUpdatedAt: new Date().toISOString() };
+          holding = { id: 'h-' + crypto.randomUUID(), accountId, symbol: row.symbol.toUpperCase(), name: row.symbol.toUpperCase(), shares: 0, avgCost: row.price, currentPrice: row.price, category: 'Other', dividendYield: 0, targetPercent: 0, notes: '', currency: detectSymbolCurrency(row.symbol), buyDate: row.date, priceSource: 'manual', priceUpdatedAt: new Date().toISOString() };
           importedSymbols.set(holding.symbol, holding);
           newHoldings.push(holding);
         }
@@ -828,9 +868,31 @@ export function usePortfolio() {
   const confirmImport = () => {
     if (!pendingImport) return;
     const importedAccounts = normalizeAccounts(pendingImport.accounts);
+    const importedTransactions = assignDefaultAccount(pendingImport.transactions, importedAccounts[0].id);
+    const importedHoldings = assignDefaultAccount(pendingImport.holdings, importedAccounts[0].id);
+    const cashHoldingPattern = /^(USD|CAD|EUR|GBP|JPY)\s+CASH$/i;
+    const cashHoldings = importedHoldings.filter(item => cashHoldingPattern.test(String(item.symbol || '').trim()) || (String(item.category || '').toLowerCase() === 'cash' && /^[A-Z]{3}$/.test(String(item.currency || '').toUpperCase())));
+    const regularHoldings = importedHoldings.filter(item => !cashHoldings.includes(item));
+    const cashDeposits = cashHoldings.map(item => {
+      const currencyCode = String(item.currency || String(item.symbol || '').split(/\s+/)[0] || 'USD').toUpperCase();
+      const amount = Number(item.shares || 1) * Number(item.avgCost || item.currentPrice || 0);
+      const date = item.buyDate || today();
+      const alreadyRecorded = importedTransactions.some(transaction => transaction.type === 'DEPOSIT' && transaction.currency === currencyCode && transaction.date === date && Math.abs(Number(transaction.total || 0) - amount) < 1e-8);
+      return alreadyRecorded || !Number.isFinite(amount) || amount <= 0 ? null : {
+        id: 'tx-' + crypto.randomUUID(),
+        accountId: item.accountId,
+        type: 'DEPOSIT',
+        date,
+        currency: currencyCode,
+        symbol: currencyCode,
+        total: amount,
+        cashImpact: true
+      };
+    }).filter(Boolean);
+    const normalizedTransactions = [...cashDeposits, ...importedTransactions];
     setAccounts(importedAccounts);
     setSelectedAccountId(pendingImport.selectedAccountId || importedAccounts[0].id);
-    setPortfolioData({ holdings: rebuildHoldings(assignDefaultAccount(pendingImport.holdings, importedAccounts[0].id), assignDefaultAccount(pendingImport.transactions, importedAccounts[0].id)), transactions: assignDefaultAccount(pendingImport.transactions, importedAccounts[0].id) });
+    setPortfolioData({ holdings: rebuildHoldings(regularHoldings, normalizedTransactions), transactions: normalizedTransactions });
     setWatchlist(assignDefaultAccount(pendingImport.watchlist, importedAccounts[0].id));
     setSnapshots(pendingImport.snapshots);
     if (pendingImport.currency) setCurrency(pendingImport.currency);
@@ -882,6 +944,7 @@ export function usePortfolio() {
     watchlist,
     transactions,
     snapshots,
+    backtestHistory,
     currency,
     setCurrency,
     theme,
@@ -909,7 +972,7 @@ export function usePortfolio() {
     importJSON,
     importCSV,
     pendingCsvImport, confirmCsvImport, cancelCsvImport,
-    accounts, selectedAccountId, setSelectedAccountId, addAccount, renameAccount, deleteAccount,
+    accounts, selectedAccountId, setSelectedAccountId, addAccount, renameAccount, deleteAccount, customCategories,
     refreshMarketData,
     marketStatus, uiMessage, dismissMessage, storageError, storageBlocked, resumeSaving: () => { if (window.confirm('Replace unreadable browser data with the recovered portfolio shown here? Export a backup first.')) setStorageBlocked(false); },
     pendingImport, confirmImport, cancelImport: () => setPendingImport(null), fxRates, fxData, fxError, historicalFx,

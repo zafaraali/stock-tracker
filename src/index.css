@@ -60,9 +60,12 @@
 .chart-legend-row { border: 1px solid transparent; border-radius: .75rem; padding: .45rem .6rem; transition: background-color .18s ease, border-color .18s ease, transform .18s ease; }
 .chart-legend-row:hover, .chart-legend-row.is-active { background: color-mix(in srgb, var(--surface-raised) 78%, var(--accent)); border-color: color-mix(in srgb, var(--accent) 32%, transparent); transform: translateX(2px); }
 .chart-card .recharts-pie-sector:focus { outline: none; filter: brightness(1.16) drop-shadow(0 4px 5px rgb(15 23 42 / .25)); }
+.chart-card { min-width: 0; overflow: hidden; }
+.chart-card .recharts-legend-wrapper, .chart-card .recharts-default-legend { max-width: 100% !important; overflow: hidden; }
 .ticker-links { display: inline-flex; align-items: center; gap: .25rem; margin-left: .15rem; }
 .ticker-links a { display: inline-flex; align-items: center; justify-content: center; width: 1.35rem; height: 1.35rem; border: 1px solid var(--border); border-radius: .35rem; color: var(--muted); font-size: .65rem; font-weight: 700; text-decoration: none; }
 .ticker-links a:hover, .ticker-links a:focus-visible { color: var(--accent); border-color: var(--accent); outline: none; }
+.ticker-option:hover, .ticker-option:focus-visible { background-color: var(--surface-raised); color: var(--foreground); outline: none; }
 button, input, select, textarea, summary { font: inherit; }
 button, select, input:not([type=file]), summary { min-height: 44px; }
 button { touch-action: manipulation; }
@@ -163,6 +166,12 @@ table { font-variant-numeric: tabular-nums; }
   input, select, textarea { font-size: 16px !important; }
   nav > div:first-child { gap: .75rem; }
   nav > div:first-child > div:last-child { width: 100%; justify-content: space-between; }
+  .watchlist-banner-actions { width: 100%; flex-wrap: wrap; }
+  .watchlist-banner-actions input { min-width: 0; flex: 1 1 9rem; }
+  .watchlist-banner-actions button { flex: 1 1 100%; }
+  .holdings-mobile-header { flex-wrap: wrap; gap: .5rem; }
+  .holdings-mobile-header > div:first-child { min-width: 0; max-width: 100%; flex-wrap: wrap; }
+  .holdings-mobile-header > div:last-child { margin-left: auto; }
 }
 @media print {
   .no-print, .modal-backdrop { display: none !important; }

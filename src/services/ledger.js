@@ -84,10 +84,19 @@ export function performanceHistory(snapshots, transactions, holdings, historical
   const initialContributions = Array.isArray(first.startingTransactionIds)
     ? externalContributions(transactions.filter(t => first.startingTransactionIds.includes(t.id)), holdings, historical)
     : first.startingContributionsUSD ?? first.netContributionsUSD;
+  let previous = null;
+  let cumulativeFactor = 1;
   return observations.map(s => {
     const contributions = externalContributions(transactions, holdings, historical, s.date);
     const capitalUSD = initialValue + contributions - initialContributions;
-    return { ...s, capitalUSD, gainUSD: s.valueUSD - capitalUSD };
+    const netFlowUSD = previous ? s.netContributionsUSD - previous.netContributionsUSD : 0;
+    const periodReturn = previous && previous.valueUSD > 0
+      ? (s.valueUSD - netFlowUSD) / previous.valueUSD - 1
+      : 0;
+    if (Number.isFinite(periodReturn) && periodReturn > -1) cumulativeFactor *= 1 + periodReturn;
+    const returnPercent = (cumulativeFactor - 1) * 100;
+    previous = s;
+    return { ...s, capitalUSD, gainUSD: s.valueUSD - capitalUSD, periodReturn, returnPercent };
   });
 }
 

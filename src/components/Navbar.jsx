@@ -1,12 +1,34 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Modal } from './Modal';
 import { TrendingUp, PieChart as PieIcon, ArrowDownUp, Sliders, History, Eye, Download, Upload, Sun, Moon, Trash2, RefreshCw, Settings, Search } from 'lucide-react';
 import { CURRENCY_RATES } from '../data/mockData';
 
 export function Navbar({ activeTab, setActiveTab, currency, setCurrency, theme, toggleTheme, accent, setAccent, exportJSON, exportCSV, exportAllCSV, importJSON, importCSV, accounts = [], selectedAccountId, setSelectedAccountId, addAccount, renameAccount, deleteAccount, onDeleteAllData, refreshMarketData, marketStatus, globalQuery, setGlobalQuery }) {
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [installPrompt, setInstallPrompt] = useState(null);
   const [newAccountName, setNewAccountName] = useState('');
   const isLight = theme === 'light';
+
+  useEffect(() => {
+    const handleBeforeInstallPrompt = event => {
+      event.preventDefault();
+      setInstallPrompt(event);
+    };
+    const handleAppInstalled = () => setInstallPrompt(null);
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    window.addEventListener('appinstalled', handleAppInstalled);
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+      window.removeEventListener('appinstalled', handleAppInstalled);
+    };
+  }, []);
+
+  const installApp = async () => {
+    if (!installPrompt) return;
+    await installPrompt.prompt();
+    const { outcome } = await installPrompt.userChoice;
+    if (outcome === 'accepted' || outcome === 'dismissed') setInstallPrompt(null);
+  };
 
   return (
     <nav className={`no-print ${isLight ? 'bg-white/90 border-slate-200 text-slate-800' : 'bg-slate-900/95 border-slate-800 text-slate-100'} border-b sticky top-0 z-40 px-4 lg:px-8 py-3 transition-colors duration-200`}>
@@ -18,7 +40,7 @@ export function Navbar({ activeTab, setActiveTab, currency, setCurrency, theme, 
             <TrendingUp className="w-5 h-5" />
           </div>
           <span className={`font-bold text-lg tracking-tight ${isLight ? 'text-slate-900' : 'text-white'}`}>
-            Apex<span className="brand-accent">Finance</span> <span className="text-xs text-amber-500 dark:text-amber-300 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/30 ml-1">PRO</span>
+            Apex<span className="brand-accent">Finance</span>
           </span>
         </button>
 
@@ -115,10 +137,12 @@ export function Navbar({ activeTab, setActiveTab, currency, setCurrency, theme, 
             {isLight ? <Moon className="w-4 h-4 text-slate-700" /> : <Sun className="w-4 h-4 text-amber-400" />}
           </button>
 
+          {installPrompt && <button aria-label="Install ApexFinance app" title="Install ApexFinance app" onClick={installApp} className="icon-button"><Download className="w-5 h-5" /></button>}
           <button aria-label="Open settings" onClick={() => setSettingsOpen(true)} className="icon-button"><Settings className="w-5 h-5" /></button>
           {settingsOpen && <Modal title="Settings & data" onClose={() => setSettingsOpen(false)}>
-            <p className="text-sm text-slate-400 mb-5">Your portfolio stays in this browser's local storage. Keep an encrypted or otherwise secure copy of exported backups.</p>
+            <p className="text-sm text-slate-400 mb-5">Your holdings, transactions, watchlist, settings, and snapshots stay in this browser's local storage. Keep an encrypted or otherwise secure copy of exported backups.</p>
             <div className="grid gap-3">
+              {installPrompt && <button type="button" onClick={installApp} className="primary-button w-full"><Download className="w-4 h-4" /> Install ApexFinance app</button>}
               <div className="rounded-xl border border-slate-800 p-3">
                 <p className="text-sm font-semibold mb-1">Holdings lists</p>
                 <p className="text-xs text-slate-500 mb-3">Create separate named lists and switch between them with the selector.</p>
@@ -126,7 +150,7 @@ export function Navbar({ activeTab, setActiveTab, currency, setCurrency, theme, 
                 <div className="flex gap-2"><input aria-label="New holdings list name" className="field" value={newAccountName} onChange={e => setNewAccountName(e.target.value)} placeholder="e.g. Retirement" /><button className="primary-button" onClick={() => { addAccount(newAccountName); setNewAccountName(''); }}>Add list</button></div>
               </div>
               <label className="flex items-center justify-between gap-4 rounded-xl border border-slate-800 p-3 text-sm"><span><strong className="block">Accent color</strong><small className="text-slate-500">Choose your default ROYGBIV highlight color.</small></span><select aria-label="Accent color" value={accent} onChange={event => setAccent(event.target.value)} className="field mt-0 w-auto"><option value="green">Green</option><option value="red">Red</option><option value="orange">Orange</option><option value="yellow">Yellow</option><option value="blue">Blue</option><option value="indigo">Indigo</option><option value="violet">Violet</option></select></label>
-              <button className="secondary-button" onClick={exportJSON}><Download className="w-4 h-4" /> Download JSON backup</button>
+              <button className="secondary-button" onClick={exportJSON}><Download className="w-4 h-4" /> Download complete JSON backup</button>
               <button className="secondary-button" onClick={exportCSV}><Download className="w-4 h-4" /> Export current list CSV</button>
               <button className="secondary-button" onClick={exportAllCSV}><Download className="w-4 h-4" /> Export all lists CSV</button>
               <label className="secondary-button cursor-pointer relative"><Upload className="w-4 h-4" /> Import holdings CSV<input aria-label="Choose holdings CSV" type="file" accept=".csv,text/csv" className="absolute inset-0 opacity-0 cursor-pointer w-full" onChange={event => { importCSV(event); setSettingsOpen(false); }} /></label>
@@ -173,7 +197,7 @@ export function Navbar({ activeTab, setActiveTab, currency, setCurrency, theme, 
           aria-current={activeTab === 'history' ? 'page' : undefined} onClick={() => setActiveTab('history')}
           className={`flex flex-col items-center gap-1 text-[10px] font-medium ${activeTab === 'history' ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400'}`}
         >
-          <History className="w-4 h-4" /> History
+          <History className="w-4 h-4" /> Transactions
         </button>
       </div>
     </nav>

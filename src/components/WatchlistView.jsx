@@ -9,7 +9,7 @@ import { toUSD } from '../hooks/usePortfolio';
 import { EmptyState } from './EmptyState';
 import { TickerLinks } from './TickerLinks';
 
-export function WatchlistView({ watchlist, symbol, currencyCode = 'USD', rate, fxRates, onAddWatchlistItem, onUpdateWatchlistPrice, onRemoveWatchlistItem, onAddHolding, globalFilter = '' }) {
+export function WatchlistView({ watchlist, symbol, currencyCode = 'USD', customCategories = [], rate, fxRates, onAddWatchlistItem, onUpdateWatchlistPrice, onRemoveWatchlistItem, onAddHolding, globalFilter = '' }) {
   const [formError, setFormError] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -109,7 +109,7 @@ export function WatchlistView({ watchlist, symbol, currencyCode = 'USD', rate, f
       dividendYield: 0,
       targetPercent: 10,
       currency: itemCurrency,
-      notes: convertToHoldingItem.notes || 'Converted from Watchlist'
+      notes: convertToHoldingItem.notes || ''
     });
     onRemoveWatchlistItem(convertToHoldingItem.id);
     setConvertToHoldingItem(null);
@@ -127,7 +127,7 @@ export function WatchlistView({ watchlist, symbol, currencyCode = 'USD', rate, f
           <FormError message={formError} />
           <p className="text-xs text-slate-400 mt-1">Monitor stocks, cryptos, and ETFs before adding them to your portfolio.</p>
         </div>
-        <div className="flex items-center gap-2"><input type="search" value={filter} onChange={event => setFilter(event.target.value)} placeholder="Filter watchlist" aria-label="Filter watchlist" className="bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white" /><button
+        <div className="watchlist-banner-actions flex items-center gap-2"><input type="search" value={filter} onChange={event => setFilter(event.target.value)} placeholder="Filter watchlist" aria-label="Filter watchlist" className="bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white" /><button
           onClick={() => setIsModalOpen(true)}
           className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold shadow-lg shadow-indigo-500/20 transition"
         >
@@ -295,10 +295,10 @@ export function WatchlistView({ watchlist, symbol, currencyCode = 'USD', rate, f
                     onChange={e => setFormData({ ...formData, category: e.target.value })}
                     className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white"
                   >
-                    {INITIAL_CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                    {[...new Set([...INITIAL_CATEGORIES, ...customCategories])].map(cat => <option key={cat} value={cat}>{cat}</option>)}
                     <option value="Custom">Custom…</option>
                   </select>
-                  {formData.category === 'Custom' && <input value={customCategory} onChange={e => setCustomCategory(e.target.value)} placeholder="e.g. Utilities" className="w-full mt-2 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white" required />}
+                  {formData.category === 'Custom' && <input value={customCategory} onChange={e => setCustomCategory(e.target.value)} placeholder="Custom sector/category" className="w-full mt-2 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white" required />}
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-slate-400 uppercase mb-1">Asset Currency</label>

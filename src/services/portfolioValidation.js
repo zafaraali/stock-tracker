@@ -49,7 +49,7 @@ export function validateLedger(holdings, transactions) {
   return '';
 }
 
-export const validWatchlist = items => Array.isArray(items) && unique(items) && items.every(item => asset(item) && positive(item.targetBuyPrice));
+export const validWatchlist = items => Array.isArray(items) && unique(items) && items.every(item => asset(item) && (item.targetBuyPrice === undefined || item.targetBuyPrice === 0 || positive(item.targetBuyPrice)));
 export const validSnapshots = items => Array.isArray(items) && items.every(item => item && validDate(item.date) && number(item.valueUSD) && ['netContributionsUSD', 'startingContributionsUSD'].every(key => item[key] === undefined || (typeof item[key] === 'number' && Number.isFinite(item[key]))) && (item.startingValueUSD === undefined || number(item.startingValueUSD))) && new Set(items.map(item => item.date)).size === items.length;
 
 export function validateBackup(data) {

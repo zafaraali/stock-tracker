@@ -3,7 +3,9 @@ import React from 'react';
 const money = (value, symbol) => `${symbol}${Number(value || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 export function PortfolioInsights({ summary, symbol }) {
-  const cashPercent = summary.totalValue > 0 ? (summary.cashValue / summary.totalValue) * 100 : 0;
+  const cashPercent = Number.isFinite(summary.cashAllocation)
+    ? summary.cashAllocation
+    : summary.totalValue > 0 ? (summary.cashValue / summary.totalValue) * 100 : 0;
   const targetGap = Math.abs(100 - Number(summary.totalTargetPercent || 0));
   const winners = [...summary.items].sort((a, b) => b.gainLossPercent - a.gainLossPercent).slice(0, 3);
   const losers = [...summary.items].sort((a, b) => a.gainLossPercent - b.gainLossPercent).slice(0, 3);

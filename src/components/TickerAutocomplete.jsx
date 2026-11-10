@@ -117,7 +117,7 @@ export function TickerAutocomplete({ value, onChange, onSelect, placeholder = 'S
           setActiveIndex(0);
           setIsOpen(true);
         }}
-        onFocus={() => value.trim() && setIsOpen(true)}
+        onFocus={() => setIsOpen(false)}
         onKeyDown={handleKeyDown}
         autoComplete="off"
         role="combobox"
@@ -137,7 +137,7 @@ export function TickerAutocomplete({ value, onChange, onSelect, placeholder = 'S
                 type="button"
                 onMouseDown={event => event.preventDefault()}
                 onClick={() => selectSuggestion(suggestion)}
-                className={`w-full px-3 py-2 text-left transition flex items-center justify-between ${index === activeIndex ? 'bg-indigo-600/20' : 'hover:bg-slate-800'}`}
+                className={`ticker-option w-full px-3 py-2 text-left transition flex items-center justify-between ${index === activeIndex ? 'bg-indigo-600/20' : ''}`}
               >
                 <div className="flex items-center gap-1.5 overflow-hidden">
                   <span className="font-bold text-white shrink-0">{suggestion.symbol}</span>

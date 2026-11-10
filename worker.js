@@ -40,6 +40,18 @@ export default {
       });
     }
 
+    if (incoming.pathname === '/api/market-fundamentals') {
+      const symbol = incoming.searchParams.get('symbol');
+      if (!symbol || !/^[A-Za-z0-9.=^_-]+$/.test(symbol)) return jsonResponse({ error: 'Invalid market symbol.' }, 400);
+      const target = new URL('/v7/finance/quote', YAHOO_ORIGIN);
+      target.searchParams.set('symbols', symbol);
+      const response = await fetch(target, { headers: UPSTREAM_HEADERS });
+      return new Response(response.body, {
+        status: response.status,
+        headers: { 'content-type': response.headers.get('content-type') || 'application/json', 'cache-control': 'no-store' }
+      });
+    }
+
     if (incoming.pathname === '/api/fx-rates') {
       const target = new URL('/v2/rates', FRANKFURTER_ORIGIN);
       target.search = incoming.search;

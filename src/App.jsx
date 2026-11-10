@@ -1,19 +1,18 @@
 import { Onboarding, CashPanel, RecentlyDeleted } from './components/PortfolioTools';
 import { Modal, FormError } from './components/Modal';
 import { ConfirmDialog } from './components/ConfirmDialog';
-import { LoadingSkeleton } from './components/LoadingSkeleton';
 import { Toast } from './components/Toast';
 import { DashboardSetup } from './components/DashboardSetup';
 import { StatusBar } from './components/StatusBar';
-import React, { useState, useEffect, lazy, Suspense } from 'react';
+import React, { useState, useEffect } from 'react';
 import { usePortfolio } from './hooks/usePortfolio';
 import { Navbar } from './components/Navbar';
-const PortfolioCharts = lazy(() => import('./components/PortfolioCharts').then(module => ({ default: module.PortfolioCharts })));
+import { PortfolioCharts } from './components/PortfolioCharts';
 import { HoldingsTable } from './components/HoldingsTable';
-const RebalanceView = lazy(() => import('./components/RebalanceView').then(module => ({ default: module.RebalanceView })));
-const HistoryView = lazy(() => import('./components/HistoryView').then(module => ({ default: module.HistoryView })));
-const WatchlistView = lazy(() => import('./components/WatchlistView').then(module => ({ default: module.WatchlistView })));
-const PortfolioInsights = lazy(() => import('./components/PortfolioInsights').then(module => ({ default: module.PortfolioInsights })));
+import { RebalanceView } from './components/RebalanceView';
+import { HistoryView } from './components/HistoryView';
+import { WatchlistView } from './components/WatchlistView';
+import { PortfolioInsights } from './components/PortfolioInsights';
 import { DollarSign, Wallet, ArrowUpRight, ArrowDownRight, TrendingUp, ChevronDown } from 'lucide-react';
 
 export default function App() {
@@ -40,6 +39,7 @@ export default function App() {
     watchlist,
     transactions,
     snapshots,
+    backtestHistory,
     currency,
     setCurrency,
     theme,
@@ -64,7 +64,7 @@ export default function App() {
     exportJSON,
     exportCSV, exportAllCSV,
     importJSON, importCSV, pendingCsvImport, confirmCsvImport, cancelCsvImport, accounts, selectedAccountId, setSelectedAccountId, addAccount, renameAccount, deleteAccount,
-    refreshMarketData,
+    refreshMarketData, customCategories,
     marketStatus, uiMessage, dismissMessage, storageError, storageBlocked, resumeSaving, pendingImport, confirmImport, cancelImport, fxRates, fxData, fxError, historicalFx, historicalEstimated
   } = usePortfolio();
 
@@ -157,7 +157,7 @@ export default function App() {
 
         {/* Printable Executive Header (Only visible when printing/exporting PDF) */}
         <div className="hidden print:block mb-8 border-b border-slate-300 pb-4">
-          <h1 className="text-2xl font-bold text-slate-900">ApexFinance Pro - Executive Portfolio Report</h1>
+          <h1 className="text-2xl font-bold text-slate-900">ApexFinance - Executive Portfolio Report</h1>
           <p className="text-xs text-slate-600 mt-1">Generated on {new Date().toLocaleDateString()} | Base Currency: {currency}</p>
         </div>
 
@@ -242,16 +242,16 @@ export default function App() {
         </>}
         {/* Tab Switcher Content */}
         <div id="tab-content" className="tab-scroll-target">
-        <Suspense fallback={<LoadingSkeleton />}>
         {activeTab === 'dashboard' && (
           <>
             {holdings.length === 0 && <DashboardSetup onNavigate={changeTab} onExploreDemo={() => startPortfolio('demo')} />}
-            <PortfolioCharts performance={performance} summary={portfolioSummary} snapshots={snapshots} symbol={symbol} currencyCode={currency} rate={rate} theme={theme} />
+            <PortfolioCharts performance={performance} backtestHistory={backtestHistory} summary={portfolioSummary} snapshots={snapshots} symbol={symbol} currencyCode={currency} rate={rate} theme={theme} />
             <PortfolioInsights summary={portfolioSummary} symbol={symbol} />
             <HoldingsTable
               summary={portfolioSummary}
               symbol={symbol}
               currencyCode={currency}
+              customCategories={customCategories}
               theme={theme}
               onAddHolding={addHolding}
               onUpdateHoldingPrice={updateHoldingPrice}
@@ -270,6 +270,7 @@ export default function App() {
             summary={portfolioSummary}
             symbol={symbol}
             currencyCode={currency}
+            customCategories={customCategories}
             theme={theme}
             onAddHolding={addHolding}
             onUpdateHoldingPrice={updateHoldingPrice}
@@ -288,6 +289,7 @@ export default function App() {
             fxRates={fxRates}
             symbol={symbol}
             currencyCode={currency}
+            customCategories={customCategories}
             rate={rate}
             theme={theme}
             onAddWatchlistItem={addWatchlistItem}
@@ -324,14 +326,13 @@ export default function App() {
           />
         )}
 
-        </Suspense>
         </div>
         </>}
       </main>
 
       {/* Footer */}
       <footer className={`no-print border-t ${isLight ? 'border-slate-200 bg-white text-slate-500' : 'border-slate-900 bg-slate-950 text-slate-500'} py-4 text-center text-xs mb-12 sm:mb-0 transition-colors`}>
-        ApexFinance Pro Manual Portfolio Suite - Built with React, Vite & TailwindCSS
+        ApexFinance Manual Portfolio Suite - Built with React, Vite & TailwindCSS
       </footer>
     </div>
   );

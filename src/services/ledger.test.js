@@ -77,6 +77,15 @@ describe('contribution-aware performance', () => {
     const result = performanceHistory([baseline, { date: '2026-01-02', valueUSD: 800, netContributionsUSD: 800 }], [deposit, withdrawal], [], {});
     expect(result.at(-1).gainUSD).toBe(0);
   });
+  it('chains returns without counting deposits as performance', () => {
+    const result = performanceHistory([
+      { ...baseline, valueUSD: 1000, netContributionsUSD: 1000 },
+      { date: '2026-01-02', valueUSD: 2000, netContributionsUSD: 2000 },
+      { date: '2026-01-03', valueUSD: 2100, netContributionsUSD: 2000 }
+    ], [deposit], [], {});
+    expect(result[1].returnPercent).toBeCloseTo(0);
+    expect(result[2].returnPercent).toBeCloseTo(5);
+  });
   it('counts fees as an investment cost and keeps dividends as investment income', () => {
     const dividend = { id: 'div', holdingId: 'h', type: 'DIVIDEND', date: '2026-01-03', total: 10, cashImpact: true };
     const result = performanceHistory([baseline, { date: '2026-01-03', valueUSD: 1005, netContributionsUSD: 1000 }], [deposit, buy, dividend], holdings, {});
