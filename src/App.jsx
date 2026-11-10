@@ -11,6 +11,8 @@ import { PortfolioCharts } from './components/PortfolioCharts';
 import { HoldingsTable } from './components/HoldingsTable';
 import { RebalanceView } from './components/RebalanceView';
 import { HistoryView } from './components/HistoryView';
+import { DividendView } from './components/DividendView';
+import { PerformanceView } from './components/PerformanceView';
 import { WatchlistView } from './components/WatchlistView';
 import { PortfolioInsights } from './components/PortfolioInsights';
 import { DollarSign, Wallet, ArrowUpRight, ArrowDownRight, TrendingUp, ChevronDown } from 'lucide-react';
@@ -34,7 +36,7 @@ export default function App() {
     return () => window.removeEventListener('keydown', handleShortcut);
   }, []);
   const {
-    mode, startPortfolio, trash, restoreDeleted, clearRecentlyDeleted, performance,
+    mode, startPortfolio, trash, restoreDeleted, clearRecentlyDeleted, performance, netContributionsUSD,
     holdings,
     watchlist,
     transactions,
@@ -61,10 +63,10 @@ export default function App() {
     addWatchlistItem,
     updateWatchlistPrice,
     removeWatchlistItem,
-    backupPayload, exportJSON,
+    backupPayload, exportJSON, exportEncryptedJSON,
     restoreJSONBackup,
     exportCSV, exportAllCSV,
-    importJSON, importCSV, pendingCsvImport, confirmCsvImport, cancelCsvImport, accounts, selectedAccountId, setSelectedAccountId, addAccount, renameAccount, deleteAccount,
+    importJSON, importEncryptedJSON, importCSV, pendingCsvImport, confirmCsvImport, cancelCsvImport, accounts, selectedAccountId, setSelectedAccountId, addAccount, renameAccount, deleteAccount,
     refreshMarketData, customCategories,
     marketStatus, uiMessage, dismissMessage, storageError, storageBlocked, resumeSaving, pendingImport, confirmImport, cancelImport, fxRates, fxData, fxError, historicalFx, historicalEstimated
   } = usePortfolio();
@@ -113,11 +115,13 @@ export default function App() {
         accent={accent}
         setAccent={setAccent}
         exportJSON={exportJSON}
+        exportEncryptedJSON={exportEncryptedJSON}
         backupPayload={backupPayload}
         restoreJSONBackup={restoreJSONBackup}
         exportCSV={exportCSV}
         exportAllCSV={exportAllCSV}
         importJSON={importJSON}
+        importEncryptedJSON={importEncryptedJSON}
         importCSV={importCSV}
         accounts={accounts}
         selectedAccountId={selectedAccountId}
@@ -173,7 +177,7 @@ export default function App() {
         </button>
         {summaryOpen && <div className="summary-grid grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-3">
           
-          <div className={`${isLight ? 'bg-white border-slate-200 shadow-md' : 'bg-slate-900 border-slate-800/80 shadow-xl'} kpi-card border p-5 rounded-2xl flex items-center justify-between transition-colors`}>
+          <div className={`${isLight ? 'bg-white border-slate-200 shadow-md' : 'bg-slate-900 border-slate-800/80 shadow-xl'} kpi-card border p-5 rounded-2xl flex items-center justify-between transition-colors order-1`}>
             <div>
               <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Total Value</p>
               <h2 className={`text-2xl font-bold mt-1 ${isLight ? 'text-slate-900' : 'text-white'}`}>
@@ -185,7 +189,7 @@ export default function App() {
             </div>
           </div>
 
-          <div className={`${isLight ? 'bg-white border-slate-200 shadow-md' : 'bg-slate-900 border-slate-800/80 shadow-xl'} border p-5 rounded-2xl flex items-center justify-between transition-colors`}>
+          <div className={`${isLight ? 'bg-white border-slate-200 shadow-md' : 'bg-slate-900 border-slate-800/80 shadow-xl'} border p-5 rounded-2xl flex items-center justify-between transition-colors order-3`}>
             <div>
               <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Realized P/L</p>
               <h2 className={`text-2xl font-bold mt-1 ${portfolioSummary.realizedGainLoss >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
@@ -197,7 +201,7 @@ export default function App() {
             </div>
           </div>
 
-          <div className={`${isLight ? 'bg-white border-slate-200 shadow-md' : 'bg-slate-900 border-slate-800/80 shadow-xl'} border p-5 rounded-2xl flex items-center justify-between transition-colors`}>
+          <div className={`${isLight ? 'bg-white border-slate-200 shadow-md' : 'bg-slate-900 border-slate-800/80 shadow-xl'} border p-5 rounded-2xl flex items-center justify-between transition-colors order-2`}>
             <div>
               <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Invested Cost</p>
               <h2 className={`text-2xl font-bold mt-1 ${isLight ? 'text-slate-900' : 'text-white'}`}>
@@ -209,7 +213,7 @@ export default function App() {
             </div>
           </div>
 
-          <div className={`${isLight ? 'bg-white border-slate-200 shadow-md' : 'bg-slate-900 border-slate-800/80 shadow-xl'} border p-5 rounded-2xl flex items-center justify-between transition-colors`}>
+          <div className={`${isLight ? 'bg-white border-slate-200 shadow-md' : 'bg-slate-900 border-slate-800/80 shadow-xl'} border p-5 rounded-2xl flex items-center justify-between transition-colors order-4`}>
             <div>
               <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Unrealized P/L</p>
               <h2 className={`text-xl font-bold mt-1 flex items-center gap-1 ${isTotalPositive ? 'text-emerald-500 dark:text-emerald-400' : 'text-rose-500 dark:text-rose-400'}`}>
@@ -224,7 +228,7 @@ export default function App() {
             </div>
           </div>
 
-          <div className={`${isLight ? 'bg-white border-slate-200 shadow-md' : 'bg-slate-900 border-slate-800/80 shadow-xl'} border p-5 rounded-2xl flex items-center justify-between transition-colors`}>
+          <div className={`${isLight ? 'bg-white border-slate-200 shadow-md' : 'bg-slate-900 border-slate-800/80 shadow-xl'} border p-5 rounded-2xl flex items-center justify-between transition-colors order-5`}>
             <div>
               <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Est. Annual Dividends</p>
               <h2 className="text-2xl font-bold text-emerald-500 dark:text-emerald-400 mt-1 flex items-center gap-1">
@@ -248,7 +252,7 @@ export default function App() {
         {activeTab === 'dashboard' && (
           <>
             {holdings.length === 0 && <DashboardSetup onNavigate={changeTab} onExploreDemo={() => startPortfolio('demo')} />}
-            <PortfolioCharts performance={performance} backtestHistory={backtestHistory} summary={portfolioSummary} snapshots={snapshots} symbol={symbol} currencyCode={currency} rate={rate} theme={theme} />
+            <PortfolioCharts performance={performance} backtestHistory={backtestHistory} summary={portfolioSummary} snapshots={snapshots} symbol={symbol} currencyCode={currency} rate={rate} theme={theme} showPerformanceChart={false} />
             <PortfolioInsights summary={portfolioSummary} symbol={symbol} />
             <HoldingsTable
               summary={portfolioSummary}
@@ -328,6 +332,11 @@ export default function App() {
             theme={theme}
           />
         )}
+
+        {activeTab === 'dividends' && <DividendView summary={portfolioSummary} transactions={transactions} symbol={symbol} theme={theme} />}
+        {activeTab === 'performance' && <PerformanceView performance={performance} transactions={transactions} netContributionsUSD={netContributionsUSD} summary={portfolioSummary} backtestHistory={backtestHistory} symbol={symbol} rate={rate} theme={theme} />}
+
+
 
         </div>
         </>}

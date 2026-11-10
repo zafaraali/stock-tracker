@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { Modal } from './Modal';
-import { TrendingUp, PieChart as PieIcon, ArrowDownUp, Sliders, History, Eye, Download, Upload, Sun, Moon, Trash2, RefreshCw, Settings, Search } from 'lucide-react';
+import { TrendingUp, PieChart as PieIcon, ArrowDownUp, Sliders, History, Eye, Download, Upload, Sun, Moon, Trash2, RefreshCw, Settings, Search, CalendarDays, Activity } from 'lucide-react';
 import { CURRENCY_RATES } from '../data/mockData';
-import { downloadGoogleDriveBackup, isGoogleDriveConfigured, uploadGoogleDriveBackup } from '../services/googleDrive';
+import { downloadGoogleDriveBackup, downloadLatestGoogleDriveBackup, ENCRYPTED_DRIVE_BACKUP_PREFIX, isGoogleDriveConfigured, uploadGoogleDriveBackup } from '../services/googleDrive';
+import { decryptBackup, encryptBackup } from '../services/encryptedBackup';
 
-export function Navbar({ activeTab, setActiveTab, currency, setCurrency, theme, toggleTheme, accent, setAccent, exportJSON, backupPayload, restoreJSONBackup, exportCSV, exportAllCSV, importJSON, importCSV, accounts = [], selectedAccountId, setSelectedAccountId, addAccount, renameAccount, deleteAccount, onDeleteAllData, refreshMarketData, marketStatus, globalQuery, setGlobalQuery }) {
+export function Navbar({ activeTab, setActiveTab, currency, setCurrency, theme, toggleTheme, accent, setAccent, exportJSON, exportEncryptedJSON, backupPayload, restoreJSONBackup, exportCSV, exportAllCSV, importJSON, importEncryptedJSON, importCSV, accounts = [], selectedAccountId, setSelectedAccountId, addAccount, renameAccount, deleteAccount, onDeleteAllData, refreshMarketData, marketStatus, globalQuery, setGlobalQuery }) {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [installPrompt, setInstallPrompt] = useState(null);
   const [newAccountName, setNewAccountName] = useState('');
@@ -62,6 +63,37 @@ export function Navbar({ activeTab, setActiveTab, currency, setCurrency, theme, 
     }
   };
 
+  const backupEncryptedToDrive = async () => {
+    if (driveBusy) return;
+    const password = window.prompt('Create an encryption password (at least 8 characters). It cannot be recovered if forgotten.');
+    if (!password) return;
+    const confirmation = window.prompt('Confirm the encryption password.');
+    if (confirmation !== password) { setDriveStatus('Passwords did not match.'); return; }
+    setDriveBusy(true);
+    setDriveStatus('Encrypting and backing up…');
+    try {
+      const envelope = await encryptBackup(backupPayload, password);
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      await uploadGoogleDriveBackup(JSON.parse(envelope), `${ENCRYPTED_DRIVE_BACKUP_PREFIX} ${timestamp}.json`);
+      setDriveStatus('Encrypted backup saved to Google Drive.');
+    } catch (error) { setDriveStatus(error.message); }
+    finally { setDriveBusy(false); }
+  };
+
+  const restoreEncryptedFromDrive = async () => {
+    if (driveBusy) return;
+    const password = window.prompt('Enter the encryption password for the Google Drive backup.');
+    if (!password) return;
+    setDriveBusy(true);
+    setDriveStatus('Loading encrypted backup…');
+    try {
+      const envelope = await downloadLatestGoogleDriveBackup(ENCRYPTED_DRIVE_BACKUP_PREFIX);
+      restoreJSONBackup(await decryptBackup(JSON.stringify(envelope), password));
+      setDriveStatus('Encrypted backup loaded for review below.');
+    } catch (error) { setDriveStatus(error.message); }
+    finally { setDriveBusy(false); }
+  };
+
   return (
     <nav className={`no-print ${isLight ? 'bg-white/90 border-slate-200 text-slate-800' : 'bg-slate-900/95 border-slate-800 text-slate-100'} border-b sticky top-0 z-40 px-4 lg:px-8 py-3 transition-colors duration-200`}>
       <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
@@ -110,6 +142,8 @@ export function Navbar({ activeTab, setActiveTab, currency, setCurrency, theme, 
           >
             <Eye className="w-4 h-4" /> Watchlist
           </button>
+          <button aria-current={activeTab === 'dividends' ? 'page' : undefined} onClick={() => setActiveTab('dividends')} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${activeTab === 'dividends' ? 'bg-indigo-600 text-white shadow' : `${isLight ? 'text-slate-600 hover:text-slate-900' : 'text-slate-400 hover:text-slate-200'}`}`}><CalendarDays className="w-4 h-4" /> Dividends</button>
+          <button aria-current={activeTab === 'performance' ? 'page' : undefined} onClick={() => setActiveTab('performance')} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${activeTab === 'performance' ? 'bg-indigo-600 text-white shadow' : `${isLight ? 'text-slate-600 hover:text-slate-900' : 'text-slate-400 hover:text-slate-200'}`}`}><Activity className="w-4 h-4" /> Performance</button>
           <button
             aria-current={activeTab === 'rebalance' ? 'page' : undefined} onClick={() => setActiveTab('rebalance')}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
@@ -178,7 +212,7 @@ export function Navbar({ activeTab, setActiveTab, currency, setCurrency, theme, 
               <div className="rounded-xl border border-slate-800 p-3">
                 <p className="text-sm font-semibold mb-1">Google Drive backup</p>
                 <p className="text-xs text-slate-500 mb-3">{isGoogleDriveConfigured() ? 'Save or restore your complete portfolio backup from Google Drive.' : 'Add VITE_GOOGLE_CLIENT_ID to enable Google Drive backup.'}</p>
-                {isGoogleDriveConfigured() && <div className="flex flex-wrap gap-2"><button type="button" className="primary-button" disabled={driveBusy} onClick={backupToDrive}>Back up to Drive</button><button type="button" className="secondary-button" disabled={driveBusy} onClick={restoreFromDrive}>Restore from Drive</button></div>}
+                {isGoogleDriveConfigured() && <div className="flex flex-wrap gap-2"><button type="button" className="primary-button" disabled={driveBusy} onClick={backupToDrive}>Back up to Drive</button><button type="button" className="secondary-button" disabled={driveBusy} onClick={restoreFromDrive}>Restore from Drive</button><button type="button" className="primary-button" disabled={driveBusy} onClick={backupEncryptedToDrive}>Encrypted backup</button><button type="button" className="secondary-button" disabled={driveBusy} onClick={restoreEncryptedFromDrive}>Restore encrypted</button></div>}
                 {driveStatus && <p className="text-xs text-slate-400 mt-2" role="status">{driveStatus}</p>}
               </div>
               <div className="rounded-xl border border-slate-800 p-3">
@@ -189,11 +223,13 @@ export function Navbar({ activeTab, setActiveTab, currency, setCurrency, theme, 
               </div>
               <label className="flex items-center justify-between gap-4 rounded-xl border border-slate-800 p-3 text-sm"><span><strong className="block">Accent color</strong><small className="text-slate-500">Choose your default ROYGBIV highlight color.</small></span><select aria-label="Accent color" value={accent} onChange={event => setAccent(event.target.value)} className="field mt-0 w-auto"><option value="green">Green</option><option value="red">Red</option><option value="orange">Orange</option><option value="yellow">Yellow</option><option value="blue">Blue</option><option value="indigo">Indigo</option><option value="violet">Violet</option></select></label>
               <button className="secondary-button" onClick={exportJSON}><Download className="w-4 h-4" /> Download complete JSON backup</button>
+              <button className="secondary-button" onClick={exportEncryptedJSON}><Download className="w-4 h-4" /> Download encrypted backup</button>
               <button className="secondary-button" onClick={exportCSV}><Download className="w-4 h-4" /> Export current list CSV</button>
               <button className="secondary-button" onClick={exportAllCSV}><Download className="w-4 h-4" /> Export all lists CSV</button>
               <label className="secondary-button cursor-pointer relative"><Upload className="w-4 h-4" /> Import holdings CSV<input aria-label="Choose holdings CSV" type="file" accept=".csv,text/csv" className="absolute inset-0 opacity-0 cursor-pointer w-full" onChange={event => { importCSV(event); setSettingsOpen(false); }} /></label>
               <label className="secondary-button cursor-pointer relative"><Upload className="w-4 h-4" /> Import all lists CSV<input aria-label="Choose all lists CSV" type="file" accept=".csv,text/csv" className="absolute inset-0 opacity-0 cursor-pointer w-full" onChange={event => { importCSV(event); setSettingsOpen(false); }} /></label>
               <label className="secondary-button cursor-pointer relative"><Upload className="w-4 h-4" /> Restore JSON backup<input aria-label="Choose JSON backup" type="file" accept=".json" className="absolute inset-0 opacity-0 cursor-pointer w-full" onChange={event => { importJSON(event); setSettingsOpen(false); }} /></label>
+              <label className="secondary-button cursor-pointer relative"><Upload className="w-4 h-4" /> Restore encrypted backup<input aria-label="Choose encrypted backup" type="file" accept=".json" className="absolute inset-0 opacity-0 cursor-pointer w-full" onChange={event => { importEncryptedJSON(event); setSettingsOpen(false); }} /></label>
             </div>
             <div className="mt-6 pt-5 border-t border-slate-800">
               <p className="text-sm text-slate-400 mb-3">Permanently clear this browser’s portfolio. Export a backup first.</p>
@@ -237,6 +273,8 @@ export function Navbar({ activeTab, setActiveTab, currency, setCurrency, theme, 
         >
           <History className="w-4 h-4" /> Transactions
         </button>
+        <button aria-current={activeTab === 'dividends' ? 'page' : undefined} onClick={() => setActiveTab('dividends')} className={`flex flex-col items-center gap-1 text-[10px] font-medium ${activeTab === 'dividends' ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400'}`}><CalendarDays className="w-4 h-4" /> Dividends</button>
+        <button aria-current={activeTab === 'performance' ? 'page' : undefined} onClick={() => setActiveTab('performance')} className={`flex flex-col items-center gap-1 text-[10px] font-medium ${activeTab === 'performance' ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400'}`}><Activity className="w-4 h-4" /> Performance</button>
       </div>
     </nav>
   );

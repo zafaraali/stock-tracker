@@ -3,6 +3,8 @@
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
 const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
 const BACKUP_NAME = 'ApexFinance backup.json';
+const ENCRYPTED_BACKUP_NAME = 'ApexFinance encrypted backup.json';
+const ENCRYPTED_BACKUP_PREFIX = 'ApexFinance encrypted backup';
 let gisPromise;
 let accessTokenRequest;
 let accessTokenCache;
@@ -67,17 +69,17 @@ async function driveFetch(url, options = {}, token) {
   return response;
 }
 
-async function findBackup(token) {
-  const query = encodeURIComponent(`name = '${escapeDriveQueryValue(BACKUP_NAME)}' and trashed = false`);
+async function findBackup(token, name = BACKUP_NAME) {
+  const query = encodeURIComponent(`name = '${escapeDriveQueryValue(name)}' and trashed = false`);
   const response = await driveFetch(`https://www.googleapis.com/drive/v3/files?q=${query}&spaces=drive&fields=files(id,name,modifiedTime)&orderBy=modifiedTime desc`, {}, token);
   return (await response.json()).files?.[0] || null;
 }
 
-export async function uploadGoogleDriveBackup(payload) {
+export async function uploadGoogleDriveBackup(payload, name = BACKUP_NAME) {
   const token = await getAccessToken();
-  const existing = await findBackup(token);
+  const existing = await findBackup(token, name);
   const boundary = `apexfinance_${Date.now()}`;
-  const metadata = JSON.stringify({ name: BACKUP_NAME, mimeType: 'application/json' });
+  const metadata = JSON.stringify({ name, mimeType: 'application/json' });
   const body = `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${metadata}\r\n--${boundary}\r\nContent-Type: application/json\r\n\r\n${JSON.stringify(payload)}\r\n--${boundary}--`;
   const endpoint = existing
     ? `https://www.googleapis.com/upload/drive/v3/files/${existing.id}?uploadType=multipart`
@@ -90,10 +92,23 @@ export async function uploadGoogleDriveBackup(payload) {
   return response.json();
 }
 
-export async function downloadGoogleDriveBackup() {
+export async function downloadGoogleDriveBackup(name = BACKUP_NAME) {
   const token = await getAccessToken();
-  const file = await findBackup(token);
+  const file = await findBackup(token, name);
   if (!file) throw new Error('No ApexFinance backup was found in Google Drive.');
   const response = await driveFetch(`https://www.googleapis.com/drive/v3/files/${file.id}?alt=media`, {}, token);
   return response.json();
+}
+
+export const ENCRYPTED_DRIVE_BACKUP_NAME = ENCRYPTED_BACKUP_NAME;
+export const ENCRYPTED_DRIVE_BACKUP_PREFIX = ENCRYPTED_BACKUP_PREFIX;
+
+export async function downloadLatestGoogleDriveBackup(prefix = ENCRYPTED_BACKUP_PREFIX) {
+  const token = await getAccessToken();
+  const query = encodeURIComponent(`name contains '${escapeDriveQueryValue(prefix)}' and trashed = false`);
+  const response = await driveFetch(`https://www.googleapis.com/drive/v3/files?q=${query}&spaces=drive&fields=files(id,name,modifiedTime)&orderBy=modifiedTime desc`, {}, token);
+  const file = (await response.json()).files?.[0];
+  if (!file) throw new Error('No encrypted ApexFinance backup was found in Google Drive.');
+  const backup = await driveFetch(`https://www.googleapis.com/drive/v3/files/${file.id}?alt=media`, {}, token);
+  return backup.json();
 }

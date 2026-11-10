@@ -6,6 +6,7 @@ import { readJSON, writeJSON, browserStorage } from '../services/storage';
 import { fallbackRates, validRates, fetchExchangeRates } from '../services/exchangeRates';
 import { fetchHistoricalMarketData, fetchMarketFundamentals, fetchMarketQuote, isTseSymbol, detectSymbolCurrency, inferSymbolMetadata } from '../services/marketApi';
 import { parsePortfolioCsv } from '../services/csvImport';
+import { decryptBackup, encryptBackup } from '../services/encryptedBackup';
 import { BENCHMARK_SYMBOL } from '../services/performanceComparison';
 
 const today = () => {
@@ -732,6 +733,24 @@ export function usePortfolio() {
     URL.revokeObjectURL(url);
   };
 
+  const exportEncryptedJSON = async () => {
+    const password = window.prompt('Create an encryption password (at least 8 characters). It cannot be recovered if forgotten.');
+    if (!password) return;
+    try {
+      const confirmation = window.prompt('Confirm the encryption password.');
+      if (confirmation !== password) throw new Error('Passwords did not match.');
+      const encrypted = await encryptBackup(backupPayload, password);
+      const blob = new Blob([encrypted], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `apexfinance_encrypted_backup_${fileDate()}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      setUiMessage('Encrypted backup downloaded.');
+    } catch (err) { setUiMessage('Could not create encrypted backup: ' + err.message); }
+  };
+
   const exportCSV = (scope = 'selected') => {
     const headers = ['Holdings List', 'Symbol', 'Name', 'Sector', 'Currency', 'Shares', 'Avg Cost (Native Currency)', 'Current Price (Native Currency)', 'Target %', 'Dividend Yield %', `Annual Dividend (${currency})`, `Total Value (${currency})`, `Gain/Loss (${currency})`, 'Gain/Loss (%)', 'Notes'];
     const selectedAccount = accounts.find(account => account.id === selectedAccountId);
@@ -809,6 +828,23 @@ export function usePortfolio() {
       event.target.value = '';
     };
     reader.onerror = () => { setUiMessage('Could not read the backup file.'); event.target.value = ''; };
+    reader.readAsText(file);
+  };
+
+  const importEncryptedJSON = event => {
+    const file = event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async e => {
+      try {
+        const password = window.prompt('Enter the encryption password for this backup.');
+        if (!password) return;
+        const parsed = await decryptBackup(e.target.result, password);
+        previewJSONBackup(parsed);
+      } catch (err) { setUiMessage('Could not import encrypted backup: ' + err.message); }
+      finally { event.target.value = ''; }
+    };
+    reader.onerror = () => { setUiMessage('Could not read the encrypted backup file.'); event.target.value = ''; };
     reader.readAsText(file);
   };
 
@@ -1023,7 +1059,7 @@ export function usePortfolio() {
   };
 
   return {
-    mode, startPortfolio, trash, restoreDeleted, clearRecentlyDeleted, performance,
+    mode, startPortfolio, trash, restoreDeleted, clearRecentlyDeleted, performance, netContributionsUSD,
     holdings,
     watchlist,
     transactions,
@@ -1052,10 +1088,12 @@ export function usePortfolio() {
     removeWatchlistItem,
     backupPayload,
     exportJSON,
+    exportEncryptedJSON,
     restoreJSONBackup,
     exportCSV,
     exportAllCSV,
     importJSON,
+    importEncryptedJSON,
     importCSV,
     pendingCsvImport, confirmCsvImport, cancelCsvImport,
     accounts, selectedAccountId, setSelectedAccountId, addAccount, renameAccount, deleteAccount, customCategories,

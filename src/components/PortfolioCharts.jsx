@@ -4,7 +4,7 @@ import { BENCHMARK_SYMBOL, buildPerformanceComparison } from '../services/perfor
 
 const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#14b8a6', '#8b5cf6', '#06b6d4', '#f97316', '#3b82f6'];
 
-export function PortfolioCharts({ performance, backtestHistory = [], summary, snapshots, symbol, currencyCode = 'USD', rate, theme }) {
+export function PortfolioCharts({ performance, backtestHistory = [], summary, snapshots, symbol, currencyCode = 'USD', rate, theme, showPerformanceChart = true }) {
   const isLight = theme === 'light';
   const [range, setRange] = useState('5Y');
   const [activeAsset, setActiveAsset] = useState(null);
@@ -55,7 +55,6 @@ export function PortfolioCharts({ performance, backtestHistory = [], summary, sn
   const chartTheme = isLight
     ? { grid: '#e2e8f0', axis: '#64748b', portfolio: '#4f46e5', benchmark: '#d97706', tooltip: '#ffffff', tooltipText: '#0f172a' }
     : { grid: '#334155', axis: '#94a3b8', portfolio: '#a5b4fc', benchmark: '#fbbf24', tooltip: '#0f172a', tooltipText: '#f8fafc' };
-  const showPerformanceChart = true;
   
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">

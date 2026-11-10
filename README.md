@@ -70,3 +70,22 @@ The Worker serves `/api/market-quote/*` and `/api/market-search` by proxying Yah
 
 Google Drive backup is manual and stores one file named `ApexFinance backup.json` in the user's Drive. Local JSON export remains available if Drive is not configured.
 
+#### Detailed Google Cloud setup
+
+1. Open [Google Cloud Console](https://console.cloud.google.com/) and create or select a project.
+2. Go to **APIs & Services → Library**, search for **Google Drive API**, and click **Enable**.
+3. Go to **APIs & Services → OAuth consent screen**, choose **External**, and enter the app name and support email.
+4. Keep the app in **Testing** while developing and add your Google account under **Test users**. Unverified apps can only be used by approved testers.
+5. Go to **APIs & Services → Credentials → Create credentials → OAuth client ID**, choose **Web application**, and copy the generated client ID. Do not put a client secret in the frontend.
+6. Add every app origin under **Authorized JavaScript origins**: `http://localhost:5173`, `http://127.0.0.1:5173`, `http://localhost:5174`, `http://127.0.0.1:5174`, and your production origin such as `https://your-domain.example`.
+7. Copy `.env.example` to `.env` in the project root and set:
+
+   ```env
+   VITE_GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
+   ```
+
+8. Restart Vite after changing `.env` with `npm run dev`.
+9. Open **Settings** in ApexFinance and choose **Back up to Drive** or **Restore from Drive**. Google may open one authorization popup the first time; allow popups for the app origin and approve the requested Drive permission.
+
+For Cloudflare Workers Builds, add `VITE_GOOGLE_CLIENT_ID` as a **Build variable** under **Settings → Builds → Build variables and secrets**. Vite embeds `VITE_*` values during `npm run build`, so a runtime Worker variable alone is not enough. Add the deployed site URL to the OAuth client’s authorized origins and redeploy.
+
