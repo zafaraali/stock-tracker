@@ -8,10 +8,13 @@ it('does not present unrecorded cash as a confirmed zero balance', () => {
   expect(html).toContain('Not recorded');
   expect(html).toContain('Set opening balance');
   expect(html).not.toContain('CAD $0.00');
+  expect(html).toContain('disabled=""');
+  expect(html).toContain('Record an opening balance before withdrawing cash.');
 });
 it('shows zero when the ledger contains cash records with a zero balance', () => {
   const html = renderToStaticMarkup(<CashPanel summary={summary} currencyCode="CAD" hasCashRecords onRecord={() => {}} />);
   expect(html).toContain('CAD $0.00');
   expect(html).toContain('Recorded cash balance is zero.');
   expect(html).not.toContain('Set opening balance');
+  expect(html).not.toContain('disabled=""');
 });

@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Modal } from './Modal';
+import { requestBackupPassword } from './BackupPasswordDialog';
 import { TrendingUp, PieChart as PieIcon, ArrowDownUp, Sliders, History, Eye, Download, Upload, Sun, Moon, Trash2, RefreshCw, Settings, CalendarDays, Activity, Menu, X } from 'lucide-react';
 import { CURRENCY_RATES } from '../data/mockData';
 import { downloadGoogleDriveBackup, downloadLatestGoogleDriveBackup, ENCRYPTED_DRIVE_BACKUP_PREFIX, isGoogleDriveConfigured, uploadGoogleDriveBackup } from '../services/googleDrive';
@@ -113,10 +114,8 @@ export function Navbar({ activeTab, setActiveTab, currency, setCurrency, theme, 
 
   const backupEncryptedToDrive = async () => {
     if (driveBusy) return;
-    const password = window.prompt('Create an encryption password (at least 8 characters). It cannot be recovered if forgotten.');
+    const password = await requestBackupPassword({ confirm: true });
     if (!password) return;
-    const confirmation = window.prompt('Confirm the encryption password.');
-    if (confirmation !== password) { setDriveStatus('Passwords did not match.'); return; }
     setDriveBusy(true);
     setDriveStatus('Encrypting and backing up…');
     try {
@@ -130,7 +129,7 @@ export function Navbar({ activeTab, setActiveTab, currency, setCurrency, theme, 
 
   const restoreEncryptedFromDrive = async () => {
     if (driveBusy) return;
-    const password = window.prompt('Enter the encryption password for the Google Drive backup.');
+    const password = await requestBackupPassword();
     if (!password) return;
     setDriveBusy(true);
     setDriveStatus('Loading encrypted backup…');

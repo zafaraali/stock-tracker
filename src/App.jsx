@@ -202,8 +202,9 @@ export default function App() {
         </Modal>}
         {mode !== 'pending' && <>
         {mode === 'demo' && <div className="form-error mb-5 flex flex-wrap justify-between gap-3 items-center"><span><strong>Demo portfolio</strong> · Sample holdings and prices. Changes stay in this demo.</span><button className="secondary-button" onClick={() => askToConfirm('Clear all saved data?', 'This removes the demo portfolio, transactions, watchlist, snapshots, and saved preferences. Recently deleted can undo this action.', () => { deleteAllData(); changeTab('dashboard'); }, 'Clear all data')}>Clear all data</button></div>}
-        <RecentlyDeleted entries={trash} onRestore={restoreDeleted} onClear={clearRecentlyDeleted} />
-        <StatusBar onRetry={refreshMarketData} marketStatus={marketStatus} fxData={fxData} fxError={fxError} lastSavedAt={lastSavedAt} historicalEstimated={historicalEstimated} />
+        <StatusBar onRetry={refreshMarketData} marketStatus={marketStatus} priceDates={holdings.map(item => item.priceUpdatedAt)} fxData={fxData} fxError={fxError} lastSavedAt={lastSavedAt} historicalEstimated={historicalEstimated}>
+          <RecentlyDeleted entries={trash} onRestore={restoreDeleted} onClear={clearRecentlyDeleted} />
+        </StatusBar>
 
         {/* Printable Executive Header (Only visible when printing/exporting PDF) */}
         <div className="hidden print:block mb-8 border-b border-slate-300 pb-4">
@@ -252,7 +253,7 @@ export default function App() {
               <h2 className={`text-xl font-bold mt-1 flex items-center gap-1 ${isTotalPositive ? 'text-emerald-500 dark:text-emerald-400' : 'text-rose-500 dark:text-rose-400'}`}>
                 <Money amount={formatMoney(portfolioSummary.totalGainLoss, currency, { signed: true })} />
                 <span className={`text-[10px] px-1.5 py-0.5 rounded ${isLight ? 'bg-slate-100 text-slate-700' : 'bg-slate-800 text-slate-300'}`}>
-                  {portfolioSummary.totalGainLossPercent.toFixed(1)}%
+                  {portfolioSummary.totalCost > 0 ? `${portfolioSummary.totalGainLossPercent.toFixed(1)}%` : 'Not available yet'}
                 </span>
               </h2>
             </div>
@@ -266,7 +267,7 @@ export default function App() {
               <MetricLabel label="Est. Annual Dividends" explanation="Estimated yearly income from current holdings and saved dividend yields. The percentage is estimated income divided by total portfolio value, including cash; payments are not guaranteed." />
               <h2 className="text-2xl font-bold text-emerald-500 dark:text-emerald-400 mt-1 flex items-center gap-1">
                 <Money amount={formatMoney(portfolioSummary.annualDividend, currency)} />
-                <span className="text-[10px] text-slate-400 font-normal">({portfolioSummary.portfolioYield.toFixed(2)}%)</span>
+                <span className="text-[10px] text-slate-400 font-normal">{portfolioSummary.totalValue > 0 ? `(${portfolioSummary.portfolioYield.toFixed(2)}%)` : 'Not available yet'}</span>
               </h2>
               <p className="text-[10px] text-slate-400 mt-1">Received: <Money amount={formatMoney(portfolioSummary.dividendsReceived, currency)} /></p>
             </div>
@@ -286,8 +287,10 @@ export default function App() {
         {activeTab === 'dashboard' && (
           <>
             {holdings.length === 0 && <DashboardSetup onNavigate={changeTab} onExploreDemo={() => startPortfolio('demo')} />}
-            <PortfolioCharts performance={performance} backtestHistory={backtestHistory} summary={portfolioSummary} snapshots={snapshots} symbol={symbol} currencyCode={currency} rate={rate} theme={theme} showPerformanceChart={false} />
-            <PortfolioInsights summary={portfolioSummary} currencyCode={currency} />
+            {holdings.length > 0 && <>
+              <PortfolioCharts performance={performance} backtestHistory={backtestHistory} summary={portfolioSummary} snapshots={snapshots} symbol={symbol} currencyCode={currency} rate={rate} theme={theme} showPerformanceChart={false} />
+              <PortfolioInsights summary={portfolioSummary} currencyCode={currency} />
+            </>}
             {holdings.length > 0 && <section className="overview-panel mt-6" aria-labelledby="top-holdings-title">
               <header className="flex items-center justify-between flex-wrap gap-3 mb-4">
                 <div><h2 id="top-holdings-title" className="section-title">Top holdings</h2><p className="supporting-text">Your five largest holdings · {valueCurrencyMode === 'display' ? `Values and gains in ${currency}, including currency effects.` : 'Values and gains in each asset’s currency, excluding currency effects.'}</p></div>

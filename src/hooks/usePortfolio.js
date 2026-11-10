@@ -8,6 +8,7 @@ import { fetchHistoricalMarketData, fetchMarketFundamentals, fetchMarketQuote, i
 import { parsePortfolioCsv } from '../services/csvImport';
 import { decryptBackup, encryptBackup } from '../services/encryptedBackup';
 import { BENCHMARK_SYMBOL } from '../services/performanceComparison';
+import { requestBackupPassword } from '../components/BackupPasswordDialog';
 
 const today = () => {
   const date = new Date();
@@ -279,7 +280,7 @@ export function usePortfolio() {
       ...watchlistRef.current.map(item => item.symbol)
     ].filter(Boolean))];
     if (!symbols.length) {
-      setMarketStatus({ loading: false, error: 'Add a holding or watchlist ticker to refresh live prices.', lastUpdated: null });
+      setMarketStatus({ loading: false, error: '', lastUpdated: null });
       return;
     }
 
@@ -799,11 +800,9 @@ export function usePortfolio() {
   };
 
   const exportEncryptedJSON = async () => {
-    const password = window.prompt('Create an encryption password (at least 8 characters). It cannot be recovered if forgotten.');
+    const password = await requestBackupPassword({ confirm: true });
     if (!password) return;
     try {
-      const confirmation = window.prompt('Confirm the encryption password.');
-      if (confirmation !== password) throw new Error('Passwords did not match.');
       const encrypted = await encryptBackup(backupPayload, password);
       const blob = new Blob([encrypted], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
@@ -902,7 +901,7 @@ export function usePortfolio() {
     const reader = new FileReader();
     reader.onload = async e => {
       try {
-        const password = window.prompt('Enter the encryption password for this backup.');
+        const password = await requestBackupPassword();
         if (!password) return;
         const parsed = await decryptBackup(e.target.result, password);
         previewJSONBackup(parsed);

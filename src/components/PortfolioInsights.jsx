@@ -11,13 +11,15 @@ export function PortfolioInsights({ summary, currencyCode = 'USD' }) {
     ? summary.cashAllocation
     : summary.totalValue > 0 ? (summary.cashValue / summary.totalValue) * 100 : 0;
   const targetGap = Math.abs(100 - Number(summary.totalTargetPercent || 0));
-  const winners = [...summary.items].sort((a, b) => b.gainLossPercent - a.gainLossPercent).slice(0, 3);
-  const losers = [...summary.items].sort((a, b) => a.gainLossPercent - b.gainLossPercent).slice(0, 3);
+  const hasTargets = summary.items.some(item => Number(item.targetPercent) > 0);
+  const pricedItems = summary.items.filter(item => item.totalCost > 0 && Number.isFinite(item.gainLossPercent));
+  const winners = [...pricedItems].sort((a, b) => b.gainLossPercent - a.gainLossPercent).slice(0, 3);
+  const losers = [...pricedItems].sort((a, b) => a.gainLossPercent - b.gainLossPercent).slice(0, 3);
   const alerts = summary.items.flatMap(item => {
     const messages = [];
     const drift = Number(item.actualPercent || 0) - Number(item.targetPercent || 0);
-    if (Math.abs(drift) > 5) messages.push(`${item.symbol} is ${Math.abs(drift).toFixed(1)} percentage points ${drift > 0 ? 'over' : 'under'} its target.`);
-    if (!Number(item.targetPercent || 0)) messages.push(`${item.symbol} has no target allocation.`);
+    if (hasTargets && Math.abs(drift) > 5) messages.push(`${item.symbol} is ${Math.abs(drift).toFixed(1)} percentage points ${drift > 0 ? 'over' : 'under'} its target.`);
+    if (hasTargets && !Number(item.targetPercent || 0)) messages.push(`${item.symbol} has no target allocation.`);
     const updatedAt = item.priceUpdatedAt ? new Date(item.priceUpdatedAt).getTime() : 0;
     if (updatedAt && Date.now() - updatedAt > 24 * 60 * 60 * 1000) messages.push(`${item.symbol} price is more than a day old.`);
     return messages;
@@ -30,12 +32,12 @@ export function PortfolioInsights({ summary, currencyCode = 'USD' }) {
           <h2 id="insights-title" className="text-lg font-bold text-white">Portfolio insights</h2>
           <p className="text-sm text-slate-400 mt-1">Quick checks for concentration, cash, and allocation quality.</p>
         </div>
-        {targetGap < 0.01 ? <span className="text-xs rounded-full px-3 py-1 bg-emerald-500/10 text-emerald-400">Targets total 100%</span> : <span className="text-xs rounded-full px-3 py-1 bg-amber-500/10 text-amber-400">Targets off by {targetGap.toFixed(1)}%</span>}
+        {!hasTargets ? <span className="text-xs text-slate-400">Allocation targets not configured</span> : targetGap < 0.01 ? <span className="text-xs rounded-full px-3 py-1 bg-emerald-500/10 text-emerald-400">Targets total 100%</span> : <span className="text-xs rounded-full px-3 py-1 bg-amber-500/10 text-amber-400">Targets off by {targetGap.toFixed(1)}%</span>}
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
-        <div className="rounded-xl bg-slate-800/60 p-4"><p className="text-xs text-slate-400">Cash allocation</p><p className="text-xl font-semibold mt-1">{cashPercent.toFixed(1)}%</p><p className="text-xs text-slate-500 mt-1">{money(summary.cashValue, currencyCode)} available</p></div>
+        <div className="rounded-xl bg-slate-800/60 p-4"><p className="text-xs text-slate-400">Cash allocation</p><p className="text-xl font-semibold mt-1">{summary.totalValue > 0 ? `${cashPercent.toFixed(1)}%` : 'Not available yet'}</p><p className="text-xs text-slate-500 mt-1">{money(summary.cashValue, currencyCode)} available</p></div>
         <div className="rounded-xl bg-slate-800/60 p-4"><p className="text-xs text-slate-400">Holdings</p><p className="text-xl font-semibold mt-1">{summary.items.length}</p><p className="text-xs text-slate-500 mt-1">Across {summary.categoryBreakdown.length} categories</p></div>
-        <div className="rounded-xl bg-slate-800/60 p-4"><p className="text-xs text-slate-400">Income yield</p><p className="text-xl font-semibold mt-1">{Number(summary.portfolioYield || 0).toFixed(2)}%</p><p className="text-xs text-slate-500 mt-1">{money(summary.annualDividend, currencyCode)} estimated / year</p></div>
+        <div className="rounded-xl bg-slate-800/60 p-4"><p className="text-xs text-slate-400">Income yield</p><p className="text-xl font-semibold mt-1">{summary.totalValue > 0 && Number.isFinite(summary.portfolioYield) ? `${summary.portfolioYield.toFixed(2)}%` : 'Not available yet'}</p><p className="text-xs text-slate-500 mt-1">{money(summary.annualDividend, currencyCode)} estimated / year</p></div>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         <div><h3 className="text-sm font-semibold text-slate-300 mb-2">Top performers</h3>{winners.length ? <ul className="space-y-2">{winners.map(item => <li key={item.id} className="flex justify-between gap-3 text-sm"><span className="truncate">{item.symbol}</span><span className={returnColor(item.gainLossPercent)}>{returnLabel(item.gainLossPercent)}</span></li>)}</ul> : <p className="text-sm text-slate-500">Add holdings to see performance.</p>}</div>
