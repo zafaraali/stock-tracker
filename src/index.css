@@ -738,3 +738,17 @@ nav a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 @media (forced-colors: active) {
   .app-shell select:not([multiple]):not([size]) { appearance: auto; background-image: none; }
 }
+
+.holding-asset-cell { min-width: 14rem; vertical-align: middle; }
+.holding-asset-info { display: grid; gap: .35rem; justify-items: start; }
+.holding-asset-heading, .holding-asset-badges { display: flex; align-items: center; flex-wrap: wrap; gap: .4rem; }
+.holding-asset-badges > span { white-space: nowrap; }
+.holding-asset-name { max-width: 22rem; line-height: 1.45; overflow-wrap: anywhere; }
+.holding-asset-heading .ticker-links { margin-left: .1rem; }
+@media (pointer: fine) {
+  .holding-asset-heading .ticker-links a { width: 28px; height: 28px; font-size: .65rem; }
+  .density-compact .holding-asset-heading .ticker-links a { width: 24px; height: 24px; }
+}
+@media screen {
+  .density-compact .holding-asset-info { gap: .25rem; }
+}

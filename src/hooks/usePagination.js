@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { flushSync } from 'react-dom';
 
-export function usePagination(items, resetKey, pageSize = 20) {
+export function usePagination(items, resetKey, pageSize = 10) {
   const [selection, setSelection] = useState({ key: resetKey, page: 1 });
   const [printing, setPrinting] = useState(false);
   const pages = Math.max(1, Math.ceil(items.length / pageSize));

@@ -30,7 +30,7 @@ export function HoldingsTable({ summary, onBulkUpdate, initialFilter = '', curre
   const [filter, setFilter] = useState(initialFilter);
   const [sortBy, setSortBy] = usePreference('apex-holdings-sort', 'symbol', ['symbol', 'value', 'gain']);
   const [sortDirection, setSortDirection] = usePreference('apex-holdings-direction', 'asc', ['asc', 'desc']);
-  const [pageSize, setPageSize] = usePreference('apex-holdings-page-size', 20, [20, 50, 100]);
+  const [pageSize, setPageSize] = usePreference('apex-holdings-page-size', 10, [10, 20, 50, 100]);
 
   const [notesModalId, setNotesModalId] = useState(null);
   const [notesVal, setNotesVal] = useState('');
@@ -192,6 +192,7 @@ export function HoldingsTable({ summary, onBulkUpdate, initialFilter = '', curre
         </div>
         <div className="view-toolbar-actions">
           <details className="holdings-tools"><summary className="secondary-button cursor-pointer">Import / export</summary><div className="holdings-tools-panel"><button className="secondary-button" onClick={onExportCSV}><FileSpreadsheet className="w-4 h-4" /> Export CSV</button>{onImportCSV && <label className="secondary-button relative cursor-pointer">Import CSV<input type="file" accept=".csv,text/csv" aria-label="Choose CSV to import" className="absolute inset-0 opacity-0 w-full" onChange={onImportCSV} /></label>}</div></details>
+          <div className="no-print"><BulkHoldingEditor items={visibleItems} allItems={summary.items} onApply={onBulkUpdate} /></div>
           <button
             onClick={() => { resetNewHoldingForm(); setIsModalOpen(true); }}
             className="primary-button"
@@ -201,7 +202,6 @@ export function HoldingsTable({ summary, onBulkUpdate, initialFilter = '', curre
         </div>
       </div>
 
-      <div className="holdings-bulk-toolbar no-print"><BulkHoldingEditor items={visibleItems} allItems={summary.items} onApply={onBulkUpdate} /></div>
       <FilterPanel resetLabel="Reset filters & sort" resultCount={visibleItems.length} totalCount={summary.items.length} label="holdings" activeCount={Number(Boolean(filter)) + Number(sortBy !== 'symbol' || sortDirection !== 'asc')} onReset={() => { setFilter(''); setSortBy('symbol'); setSortDirection('asc'); }}>
         <div className="flex items-center gap-2">
           <input
@@ -256,9 +256,12 @@ export function HoldingsTable({ summary, onBulkUpdate, initialFilter = '', curre
 
                 return (
                   <tr key={item.id} data-holding-id={item.id} tabIndex={-1} className="hover:bg-slate-800/40 transition">
-                    <td data-label="Asset / Sector" className="py-3.5 px-4">
-                      <div className="flex items-center gap-2">
+                    <td data-label="Asset / Sector" className="holding-asset-cell py-3.5 px-4">
+                      <div className="holding-asset-info">
+                      <div className="holding-asset-heading">
                         <span className="font-bold text-white text-base">{item.symbol}</span><TickerLinks symbol={item.symbol} />
+                      </div>
+                      <div className="holding-asset-badges">
                         <span className="text-[10px] bg-indigo-500/10 text-indigo-300 border border-indigo-500/30 px-2 py-0.5 rounded-full">{item.category || 'Other'}</span>
                         {(item.currency === 'CAD' || isTseSymbol(item.symbol)) && (
                           <span className="inline-flex items-center whitespace-nowrap text-[10px] bg-red-500/10 text-red-400 border border-red-500/30 px-2 py-0.5 rounded-full font-bold">
@@ -266,13 +269,14 @@ export function HoldingsTable({ summary, onBulkUpdate, initialFilter = '', curre
                           </span>
                         )}
                       </div>
-                      <div className="text-xs text-slate-400 truncate max-w-[160px]">{item.name}</div>
+                      <div className="holding-asset-name text-xs text-slate-400">{item.name}</div>
                       <PriceStatus item={item} onEdit={() => openEditHolding(item, true)} />
                       {item.notes && (
                         <div className="text-[11px] text-slate-500 italic mt-0.5 truncate max-w-[180px]" title={item.notes}>
                           "{item.notes}"
                         </div>
                       )}
+                      </div>
                     </td>
                     <td data-label="Shares" className="py-3.5 px-4 font-medium">{formatQuantity(item.shares)}</td>
                     <td data-label="Buy / Current Price" className="py-3.5 px-4">
