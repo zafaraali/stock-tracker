@@ -1,3 +1,6 @@
+import { ChartImageButton } from './ChartImageButton';
+import { saveAllocationImage } from '../services/chartImage';
+import { PrivacyContext } from './OverviewControls';
 import { DashboardCard } from './DashboardCard';
 import { Money } from './Money';
 import { useReducedMotion } from '../hooks/useReducedMotion';
@@ -5,12 +8,13 @@ import { byValueThenName } from '../services/chartOrdering';
 import { formatQuantity, formatPercent } from '../services/formatNumber';
 import { chartColor } from '../services/chartColors';
 import { formatMoney } from '../services/formatMoney';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useContext, useEffect, useRef, useState } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, AreaChart, Area, XAxis, YAxis, CartesianGrid, Legend } from 'recharts';
 import { BENCHMARK_SYMBOL, buildPerformanceComparison } from '../services/performanceComparison';
 
 
-export function PortfolioCharts({ performance, backtestHistory = [], summary, snapshots, symbol, currencyCode = 'USD', rate, theme, showPerformanceChart = true }) {
+export function PortfolioCharts({ performance, backtestHistory = [], summary, snapshots, symbol, currencyCode = 'USD', rate, theme, compact = false, showPerformanceChart = true }) {
+  const privateMode = useContext(PrivacyContext);
   const reducedMotion = useReducedMotion();
   const isLight = theme === 'light';
   const [range, setRange] = useState('5Y');
@@ -82,8 +86,8 @@ export function PortfolioCharts({ performance, backtestHistory = [], summary, sn
   const cardBg = isLight ? 'bg-white border-slate-200 shadow-md' : 'bg-slate-900 border-slate-800/80 shadow-xl';
   const headingColor = isLight ? 'text-slate-700' : 'text-slate-400';
   const chartTheme = isLight
-    ? { grid: '#e2e8f0', axis: '#64748b', portfolio: '#4f46e5', benchmark: '#d97706', tooltip: '#ffffff', tooltipText: '#0f172a' }
-    : { grid: '#334155', axis: '#94a3b8', portfolio: '#a5b4fc', benchmark: '#fbbf24', tooltip: '#0f172a', tooltipText: '#f8fafc' };
+    ? { grid: '#e2e8f0', axis: '#64748b', portfolio: 'var(--accent-text, var(--accent))', benchmark: '#d97706', tooltip: '#ffffff', tooltipText: '#0f172a' }
+    : { grid: '#334155', axis: '#94a3b8', portfolio: 'var(--accent-text, var(--accent))', benchmark: '#fbbf24', tooltip: '#0f172a', tooltipText: '#f8fafc' };
   
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
@@ -104,8 +108,8 @@ export function PortfolioCharts({ performance, backtestHistory = [], summary, sn
               <AreaChart data={growthHistory}>
               <defs>
                 <linearGradient id="colorVal" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#6366f1" stopOpacity={0.4}/>
-                  <stop offset="95%" stopColor="#6366f1" stopOpacity={0}/>
+                  <stop offset="5%" stopColor="var(--accent)" stopOpacity={0.4}/>
+                  <stop offset="95%" stopColor="var(--accent)" stopOpacity={0}/>
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke={chartTheme.grid} />
@@ -131,8 +135,8 @@ export function PortfolioCharts({ performance, backtestHistory = [], summary, sn
       )}
 
       {/* Asset Allocation Pie Chart */}
-      <DashboardCard as="div" cardId="asset-allocation" label="Asset Allocation"><div ref={assetCard} className={`${cardBg} chart-card border p-5 rounded-2xl lg:col-span-1 transition-colors`}>
-        <h3 className={`text-xs font-semibold ${headingColor} mb-4 tracking-wider uppercase`}>Asset Allocation</h3>
+      <DashboardCard as="div" cardId="asset-allocation" label="Asset Allocation"><div ref={assetCard} onMouseLeave={() => setHoverAsset(null)} className={`${cardBg} chart-card border p-5 rounded-2xl lg:col-span-1 transition-colors`}>
+        <div className="chart-save-header mb-4"><h3 className={`text-xs font-semibold ${headingColor} tracking-wider uppercase`}>Asset Allocation</h3><ChartImageButton label="Asset Allocation" disabled={!assetPieData.length} onSave={() => saveAllocationImage({ title: 'Asset Allocation', data: assetPieData, currencyCode, theme, privateMode, sector: false })} /></div>
         {assetPieData.length > 0 && <p className="chart-summary">{assetPieData[0].name === 'Cash' ? 'Largest allocation' : 'Largest holding'}: <strong>{assetPieData[0].name}</strong> · {formatPercent(assetPieData[0].value / assetTotal * 100)} of portfolio</p>}
         <div className="chart-selection-slot no-print" aria-live="polite">{selectedAsset && <button className="secondary-button" onClick={() => { setSelectedAsset(null); setHoverAsset(null); }}>Pinned: {selectedAsset} · Clear</button>}</div>
         {assetPieData.length === 0 ? (
@@ -150,7 +154,7 @@ export function PortfolioCharts({ performance, backtestHistory = [], summary, sn
                     data={assetPieData}
                     cx="50%"
                     cy="50%"
-                    innerRadius="56%"
+                    innerRadius={compact ? '72%' : '56%'}
                     outerRadius="85%"
                     paddingAngle={3}
                     dataKey="value"
@@ -169,7 +173,7 @@ export function PortfolioCharts({ performance, backtestHistory = [], summary, sn
               {assetPieData.map((item, index) => {
                 const percentage = assetTotal > 0 ? (item.value / assetTotal) * 100 : 0;
                 return (
-                  <button type="button" key={`allocation-${item.name}`} className={`chart-legend-row w-full text-left flex items-center justify-between gap-3 text-sm ${index >= 5 && !showAllAssets ? 'legend-extra' : ''} ${activeAsset === index ? 'is-active' : ''}`} aria-pressed={selectedAsset === item.name} onFocus={() => setHoverAsset(index)} onBlur={() => setHoverAsset(null)} onClick={() => setSelectedAsset(value => value === item.name ? null : item.name)} onKeyDown={event => { if (event.key === 'Escape') { setSelectedAsset(null); setHoverAsset(null); } }} onMouseEnter={() => setHoverAsset(index)} onMouseLeave={() => setHoverAsset(null)}>
+                  <button type="button" key={`allocation-${item.name}`} className={`chart-legend-row w-full text-left flex items-center justify-between gap-3 text-sm ${index >= 5 && !showAllAssets ? 'legend-extra' : ''} ${activeAsset === index ? 'is-active' : ''}`} aria-pressed={selectedAsset === item.name} onFocus={() => setHoverAsset(index)} onBlur={() => setHoverAsset(null)} onClick={() => setSelectedAsset(value => value === item.name ? null : item.name)} onKeyDown={event => { if (event.key === 'Escape') { setSelectedAsset(null); setHoverAsset(null); } }} onMouseEnter={() => setHoverAsset(index)}>
                     <span className="flex min-w-0 items-center gap-2 text-slate-300">
                       <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: chartColor(item.name) }} aria-hidden="true" />
                       <span className="truncate">{item.name}</span>
@@ -185,8 +189,8 @@ export function PortfolioCharts({ performance, backtestHistory = [], summary, sn
       </div></DashboardCard>
 
       {/* Sector / Category Breakdown Pie Chart */}
-      <DashboardCard as="div" cardId="sector-breakdown" label="Sector Breakdown"><div ref={sectorCard} className={`${cardBg} chart-card border p-5 rounded-2xl lg:col-span-1 transition-colors`}>
-        <h3 className={`text-xs font-semibold ${headingColor} mb-4 tracking-wider uppercase`}>Sector Breakdown</h3>
+      <DashboardCard as="div" cardId="sector-breakdown" label="Sector Breakdown"><div ref={sectorCard} onMouseLeave={() => setHoverSector(null)} className={`${cardBg} chart-card border p-5 rounded-2xl lg:col-span-1 transition-colors`}>
+        <div className="chart-save-header mb-4"><h3 className={`text-xs font-semibold ${headingColor} tracking-wider uppercase`}>Sector Breakdown</h3><ChartImageButton label="Sector Breakdown" disabled={!sectorPieData.length} onSave={() => saveAllocationImage({ title: 'Sector Breakdown', data: sectorPieData, currencyCode, theme, privateMode, sector: true })} /></div>
         {sectorPieData.length > 0 && sectorTotal > 0 && <p className="chart-summary">{sectorPieData[0].name === 'Cash' ? 'Largest allocation' : 'Largest sector'}: <strong>{sectorPieData[0].name}</strong> · {formatPercent(sectorPieData[0].value / sectorTotal * 100)} {summary.cashValue > 0 ? 'of portfolio' : 'of holdings'}</p>}
         <div className="chart-selection-slot no-print" aria-live="polite">{selectedSector && <button className="secondary-button" onClick={() => { setSelectedSector(null); setHoverSector(null); }}>Pinned: {selectedSector} · Clear</button>}</div>
         {sectorPieData.length === 0 ? (
@@ -204,7 +208,7 @@ export function PortfolioCharts({ performance, backtestHistory = [], summary, sn
                   data={sectorPieData}
                   cx="50%"
                   cy="50%"
-                  innerRadius="56%"
+                  innerRadius={compact ? '72%' : '56%'}
                   outerRadius="85%"
                   paddingAngle={3}
                   dataKey="value"
@@ -218,11 +222,11 @@ export function PortfolioCharts({ performance, backtestHistory = [], summary, sn
             </ResponsiveContainer>
             <div className="chart-donut-center" aria-hidden="true"><span>Total value</span><strong><Money amount={formatMoney(sectorTotal, currencyCode, { compact: true })} /></strong></div>
           </div>
-            <div className="chart-detail-slot">{activeSectorItem && <div className="chart-hover-card"><strong>{activeSectorItem.name}</strong><span><Money amount={formatMoney(activeSectorItem.value, currencyCode)} /> · {((activeSectorItem.value / sectorTotal) * 100).toFixed(1)}%</span></div>}</div>
-          <div className="chart-legend mt-2 space-y-2" aria-label="Sector allocation percentages">
+          <div className="chart-detail-slot">{activeSectorItem && <div className="chart-hover-card"><strong>{activeSectorItem.name}</strong><span><Money amount={formatMoney(activeSectorItem.value, currencyCode)} /> · {((activeSectorItem.value / sectorTotal) * 100).toFixed(1)}%</span></div>}</div>
+            <div className="chart-legend mt-2 space-y-2" aria-label="Sector allocation percentages">
             {sectorPieData.map((item, index) => {
               const percentage = sectorTotal > 0 ? (item.value / sectorTotal) * 100 : 0;
-              return <button type="button" key={`sector-allocation-${item.name}`} className={`chart-legend-row w-full text-left flex items-center justify-between gap-3 text-sm ${index >= 5 && !showAllSectors ? 'legend-extra' : ''} ${activeSector === index ? 'is-active' : ''}`} aria-pressed={selectedSector === item.name} onFocus={() => setHoverSector(index)} onBlur={() => setHoverSector(null)} onClick={() => setSelectedSector(value => value === item.name ? null : item.name)} onKeyDown={event => { if (event.key === 'Escape') { setSelectedSector(null); setHoverSector(null); } }} onMouseEnter={() => setHoverSector(index)} onMouseLeave={() => setHoverSector(null)}>
+              return <button type="button" key={`sector-allocation-${item.name}`} className={`chart-legend-row w-full text-left flex items-center justify-between gap-3 text-sm ${index >= 5 && !showAllSectors ? 'legend-extra' : ''} ${activeSector === index ? 'is-active' : ''}`} aria-pressed={selectedSector === item.name} onFocus={() => setHoverSector(index)} onBlur={() => setHoverSector(null)} onClick={() => setSelectedSector(value => value === item.name ? null : item.name)} onKeyDown={event => { if (event.key === 'Escape') { setSelectedSector(null); setHoverSector(null); } }} onMouseEnter={() => setHoverSector(index)}>
                 <span className="flex min-w-0 items-center gap-2 text-slate-300"><span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: chartColor(item.name, 'sector') }} aria-hidden="true" /><span className="truncate">{item.name}</span></span>
                 <span className="chart-legend-value font-semibold text-slate-100"><Money amount={formatMoney(item.value, currencyCode)} /> · {formatPercent(percentage)}</span>
               </button>;

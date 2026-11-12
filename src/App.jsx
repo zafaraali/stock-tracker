@@ -1,5 +1,4 @@
 import { DashboardCard, DashboardCardsProvider } from './components/DashboardCard';
-import { DailyDismissible } from './components/DailyDismissible';
 import { Money } from './components/Money';
 import { formatPercent } from './services/formatNumber';
 import { CsvMapping } from './components/CsvMapping';
@@ -22,7 +21,7 @@ import { Toast } from './components/Toast';
 import { DashboardSetup } from './components/DashboardSetup';
 import { StatusBar } from './components/StatusBar';
 import React, { lazy, Suspense, useState, useEffect } from 'react';
-import { usePortfolio } from './hooks/usePortfolio';
+import { ACCENT_THEMES, usePortfolio } from './hooks/usePortfolio';
 import { Navbar } from './components/Navbar';
 import { PortfolioCharts } from './components/PortfolioCharts';
 import { HoldingsTable } from './components/HoldingsTable';
@@ -107,6 +106,12 @@ export default function App() {
     marketStatus, uiMessage, dismissMessage, storageError, storageBlocked, lastSavedAt, resumeSaving, pendingImport, confirmImport, cancelImport, fxRates, fxData, fxError, historicalFx, historicalEstimated
   } = usePortfolio();
 
+  useEffect(() => {
+    const color = ACCENT_THEMES[accent]?.color || ACCENT_THEMES.green.color;
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="8" fill="${color}"/><path d="M8 20L13 15L17 19L24 12M19 12H24V17" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>`;
+    const icon = document.querySelector('link[rel="icon"]');
+    if (icon) icon.href = `data:image/svg+xml,${encodeURIComponent(svg)}`;
+  }, [accent]);
   const isLight = theme === 'light';
   const isTotalPositive = portfolioSummary.totalGainLoss >= 0;
   useEffect(() => {
@@ -225,9 +230,9 @@ export default function App() {
         <Suspense fallback={<LoadingSkeleton />}>
         {activeTab === 'dashboard' && <>
           <div className="overview-tools no-print">
-            <DailyDismissible id="customize-overview" label="Customize overview"><OverviewControls layout={overviewLayout} onChange={setOverviewLayout} /></DailyDismissible>
-            <DailyDismissible id="data-quality" label="Data quality"><DataQuality holdings={holdings} onReview={symbol => { setReviewSymbol(symbol); changeTab('holdings'); }} /></DailyDismissible>
-            <DailyDismissible id="what-changed" label="What changed"><WhatChanged snapshots={snapshots} transactions={transactions} holdings={holdings} summary={portfolioSummary} rate={rate} currency={currency} historicalFx={historicalFx} netContributionsUSD={netContributionsUSD} scope={selectedAccountId} allowLegacy={accounts.length === 1} enabled={selectedAccountId === '__combined__' || accounts.length === 1} /></DailyDismissible>
+            <OverviewControls layout={overviewLayout} onChange={setOverviewLayout} />
+            <DataQuality holdings={holdings} onReview={symbol => { setReviewSymbol(symbol); changeTab('holdings'); }} />
+            <WhatChanged snapshots={snapshots} transactions={transactions} holdings={holdings} summary={portfolioSummary} rate={rate} currency={currency} historicalFx={historicalFx} netContributionsUSD={netContributionsUSD} scope={selectedAccountId} allowLegacy={accounts.length === 1} enabled={selectedAccountId === '__combined__' || accounts.length === 1} />
           </div>
           {holdings.length === 0 && <DashboardSetup onNavigate={changeTab} onExploreDemo={() => startPortfolio('demo')} />}
           {overviewLayout.order.filter(key => !overviewLayout.hidden.includes(key)).map(key => <React.Fragment key={key}>{({
@@ -295,7 +300,7 @@ export default function App() {
         </div>
         </section>),
             cash: (<CashPanel summary={portfolioSummary} currencyCode={currency} hasCashRecords={transactions.some(entry => ['DEPOSIT', 'WITHDRAW'].includes(entry.type) || entry.cashImpact === true)} onRecord={type => { setTransactionIntent({ type, currency, id: Date.now() }); changeTab('history'); }} />),
-            charts: holdings.length > 0 ? (<PortfolioCharts performance={performance} backtestHistory={backtestHistory} summary={portfolioSummary} snapshots={snapshots} symbol={symbol} currencyCode={currency} rate={rate} theme={theme} showPerformanceChart={false} />) : null,
+            charts: holdings.length > 0 ? (<PortfolioCharts performance={performance} backtestHistory={backtestHistory} summary={portfolioSummary} snapshots={snapshots} symbol={symbol} currencyCode={currency} rate={rate} theme={theme} compact={viewDensity === 'compact'} showPerformanceChart={false} />) : null,
             insights: holdings.length > 0 ? (<PortfolioInsights summary={portfolioSummary} currencyCode={currency} />) : null,
             holdings: holdings.length > 0 ? (<DashboardCard cardId="top-holdings" label="Top holdings" className="overview-panel mt-6" aria-labelledby="top-holdings-title">
               <header className="flex items-center justify-between flex-wrap gap-3 mb-4">

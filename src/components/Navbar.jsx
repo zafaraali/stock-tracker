@@ -9,7 +9,18 @@ import { CURRENCY_RATES } from '../data/mockData';
 import { downloadGoogleDriveBackup, downloadLatestGoogleDriveBackup, ENCRYPTED_DRIVE_BACKUP_PREFIX, isGoogleDriveConfigured, uploadGoogleDriveBackup } from '../services/googleDrive';
 import { decryptBackup, encryptBackup } from '../services/encryptedBackup';
 
+const OPTIONAL_TABS = [['history', 'Transactions'], ['watchlist', 'Watchlist'], ['dividends', 'Dividends'], ['performance', 'Performance'], ['rebalance', 'Rebalance']];
+
 export function Navbar({ viewDensity = 'default', setViewDensity, privateMode, onTogglePrivacy, activeTab, setActiveTab, currency, setCurrency, theme, toggleTheme, accent, setAccent, exportJSON, exportEncryptedJSON, backupPayload, restoreJSONBackup, exportCSV, exportAllCSV, importJSON, importEncryptedJSON, importCSV, accounts = [], selectedAccountId, setSelectedAccountId, addAccount, renameAccount, deleteAccount, onDeleteAllData, refreshMarketData, marketStatus }) {
+  const [hiddenTabs, setHiddenTabs] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('apex-hidden-tabs'));
+      return Array.isArray(saved) ? saved.filter(tab => OPTIONAL_TABS.some(([key]) => key === tab)) : [];
+    } catch { return []; }
+  });
+  useEffect(() => {
+    try { localStorage.setItem('apex-hidden-tabs', JSON.stringify(hiddenTabs)); } catch { /* Preference works in memory. */ }
+  }, [hiddenTabs]);
   const reminder = useBackupReminder();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsSection, setSettingsSection] = useState('appearance');
@@ -196,7 +207,7 @@ export function Navbar({ viewDensity = 'default', setViewDensity, privateMode, o
 
   return (
     <nav className={`no-print ${isLight ? 'bg-white/90 border-slate-200 text-slate-800' : 'bg-slate-900/95 border-slate-800 text-slate-100'} border-b sticky top-0 z-40 px-4 lg:px-8 py-3 transition-colors duration-200`}>
-      <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
+      <div className="navbar-top-row max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
         
         {/* Brand */}
         <button aria-label="Go to dashboard" className="flex items-center gap-2 cursor-pointer" aria-current={activeTab === 'dashboard' ? 'page' : undefined} onClick={() => setActiveTab('dashboard')}>
@@ -209,7 +220,6 @@ export function Navbar({ viewDensity = 'default', setViewDensity, privateMode, o
         </button>
 
         <button type="button" className={`navbar-privacy icon-button ${privateMode ? 'privacy-active' : ''}`} aria-label={privateMode ? 'Show balances' : 'Hide balances'} title={privateMode ? 'Privacy on · Show balances' : 'Hide balances'} aria-pressed={privateMode} onClick={onTogglePrivacy}>{privateMode ? <EyeOff aria-hidden="true" className="w-5 h-5" /> : <Eye aria-hidden="true" className="w-5 h-5" />}</button>
-        <span className="navbar-current lg:hidden">{({ dashboard: 'Dashboard', holdings: 'Holdings', history: 'Transactions', watchlist: 'Watchlist', dividends: 'Dividends', performance: 'Performance', rebalance: 'Rebalance' })[activeTab]}</span>
         <button
           type="button"
           aria-label={mobileMenuOpen ? 'Close navigation menu' : 'Open navigation menu'}
@@ -239,32 +249,32 @@ export function Navbar({ viewDensity = 'default', setViewDensity, privateMode, o
           >
             <ArrowDownUp className="w-4 h-4" /> Holdings
           </a>
-          <a href="#/history"
+          {!hiddenTabs.includes('history') && (<a href="#/history"
             aria-current={activeTab === 'history' ? 'page' : undefined} onClick={event => handleSectionLink(event, 'history')}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
               activeTab === 'history' ? 'bg-indigo-600 text-white shadow' : `${isLight ? 'text-slate-600 hover:text-slate-900' : 'text-slate-400 hover:text-slate-200'}`
             }`}
           >
             <History className="w-4 h-4" /> Transactions
-          </a>
-          <a href="#/watchlist"
+          </a>)}
+          {!hiddenTabs.includes('watchlist') && (<a href="#/watchlist"
             aria-current={activeTab === 'watchlist' ? 'page' : undefined} onClick={event => handleSectionLink(event, 'watchlist')}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
               activeTab === 'watchlist' ? 'bg-indigo-600 text-white shadow' : `${isLight ? 'text-slate-600 hover:text-slate-900' : 'text-slate-400 hover:text-slate-200'}`
             }`}
           >
             <Eye className="w-4 h-4" /> Watchlist
-          </a>
-          <a href="#/dividends" aria-current={activeTab === 'dividends' ? 'page' : undefined} onClick={event => handleSectionLink(event, 'dividends')} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${activeTab === 'dividends' ? 'bg-indigo-600 text-white shadow' : `${isLight ? 'text-slate-600 hover:text-slate-900' : 'text-slate-400 hover:text-slate-200'}`}`}><CalendarDays className="w-4 h-4" /> Dividends</a>
-          <a href="#/performance" aria-current={activeTab === 'performance' ? 'page' : undefined} onClick={event => handleSectionLink(event, 'performance')} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${activeTab === 'performance' ? 'bg-indigo-600 text-white shadow' : `${isLight ? 'text-slate-600 hover:text-slate-900' : 'text-slate-400 hover:text-slate-200'}`}`}><Activity className="w-4 h-4" /> Performance</a>
-          <a href="#/rebalance"
+          </a>)}
+          {!hiddenTabs.includes('dividends') && (<a href="#/dividends" aria-current={activeTab === 'dividends' ? 'page' : undefined} onClick={event => handleSectionLink(event, 'dividends')} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${activeTab === 'dividends' ? 'bg-indigo-600 text-white shadow' : `${isLight ? 'text-slate-600 hover:text-slate-900' : 'text-slate-400 hover:text-slate-200'}`}`}><CalendarDays className="w-4 h-4" /> Dividends</a>)}
+          {!hiddenTabs.includes('performance') && (<a href="#/performance" aria-current={activeTab === 'performance' ? 'page' : undefined} onClick={event => handleSectionLink(event, 'performance')} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${activeTab === 'performance' ? 'bg-indigo-600 text-white shadow' : `${isLight ? 'text-slate-600 hover:text-slate-900' : 'text-slate-400 hover:text-slate-200'}`}`}><Activity className="w-4 h-4" /> Performance</a>)}
+          {!hiddenTabs.includes('rebalance') && (<a href="#/rebalance"
             aria-current={activeTab === 'rebalance' ? 'page' : undefined} onClick={event => handleSectionLink(event, 'rebalance')}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
               activeTab === 'rebalance' ? 'bg-indigo-600 text-white shadow' : `${isLight ? 'text-slate-600 hover:text-slate-900' : 'text-slate-400 hover:text-slate-200'}`
             }`}
           >
             <Sliders className="w-4 h-4" /> Rebalance
-          </a>
+          </a>)}
         </div>
 
         {/* Actions & Currency & Theme Toggle */}
@@ -289,6 +299,14 @@ export function Navbar({ viewDensity = 'default', setViewDensity, privateMode, o
               <h3 id="settings-appearance-title" className="section-title">Appearance</h3>
               <label className="flex items-center justify-between gap-4 rounded-xl border border-slate-800 p-3 text-sm"><span><strong className="block">Accent color</strong><small className="text-slate-500">Choose the highlight color used throughout the app.</small></span><select aria-label="Accent color" value={accent} onChange={event => setAccent(event.target.value)} className="field mt-0 w-auto"><option value="green">Green (default)</option><option value="red">Red</option><option value="orange">Orange</option><option value="yellow">Yellow</option><option value="blue">Blue</option><option value="indigo">Indigo</option><option value="violet">Violet</option></select></label>
               <label className="settings-theme-control"><span><strong className="block">View density</strong><small className="text-slate-500">Compact reduces vertical spacing so more fits on screen.</small></span><select aria-label="View density" value={viewDensity} onChange={event => setViewDensity(event.target.value)} className="field mt-0 w-auto"><option value="default">Default</option><option value="compact">Compact</option></select></label>
+              <fieldset className="settings-tab-options"><legend className="font-semibold">Navigation tabs</legend><p className="supporting-text">Choose which tabs appear in the top bar and mobile menu.</p>
+                {['Dashboard', 'Holdings'].map(label => <label key={label} className="settings-tab-option"><span>{label}<small>Always shown</small></span><input type="checkbox" checked disabled aria-label={`Show ${label} tab`} /></label>)}
+                {OPTIONAL_TABS.map(([key, label]) => <label key={key} className="settings-tab-option"><span>{label}</span><input type="checkbox" aria-label={`Show ${label} tab`} checked={!hiddenTabs.includes(key)} onChange={event => {
+                  const visible = event.target.checked;
+                  setHiddenTabs(previous => visible ? previous.filter(tab => tab !== key) : [...previous, key]);
+                  if (!visible && activeTab === key) setActiveTab('dashboard');
+                }} /></label>)}
+              </fieldset>
               <div className="settings-theme-control"><div><strong>Theme</strong><p className="supporting-text">Current theme: {isLight ? 'Light' : 'Dark'}</p></div><button type="button" className="secondary-button" onClick={toggleTheme}>Switch to {isLight ? 'dark' : 'light'} mode</button></div>
             </section>
             <section id="settings-lists-panel" aria-labelledby="settings-lists-title" className="settings-category-panel" hidden={settingsSection !== 'lists'}>
@@ -368,7 +386,7 @@ export function Navbar({ viewDensity = 'default', setViewDensity, privateMode, o
               ["dividends", "Dividends", CalendarDays],
               ["performance", "Performance", Activity],
               ["rebalance", "Rebalance", Sliders],
-            ].map(([tab, label, Icon]) => (
+            ].filter(([tab]) => !hiddenTabs.includes(tab)).map(([tab, label, Icon]) => (
               <a
                 href={`#/${tab}`}
                 key={tab}
