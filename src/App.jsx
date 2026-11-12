@@ -6,9 +6,7 @@ import { formatPercent } from './services/formatNumber';
 import { CsvMapping } from './components/CsvMapping';
 import { CsvImportReview } from './components/CsvImportReview';
 import { RestoreReview } from './components/RestoreComparison';
-import { PrivacyContext, OverviewControls, useOverviewLayout } from './components/OverviewControls';
-import { DataQuality } from './components/DataQuality';
-import { WhatChanged } from './components/WhatChanged';
+import { PrivacyContext, useOverviewLayout } from './components/OverviewControls';
 import { usePreference } from './hooks/usePreference';
 import { holdingDisplay } from './services/holdingDisplay';
 import { CurrencyMode } from './components/CurrencyMode';
@@ -39,7 +37,6 @@ const WatchlistView = lazy(() => import('./components/WatchlistView').then(modul
 export default function App() {
   const [privateMode, setPrivateMode] = usePreference('apex-private-mode', false, [true, false]);
   const [overviewLayout, setOverviewLayout] = useOverviewLayout();
-  const [reviewSymbol, setReviewSymbol] = useState('');
   const [transactionIntent, setTransactionIntent] = useState(null);
   const consumeTransactionIntent = React.useCallback(() => setTransactionIntent(null), []);
   const [viewDensity, setViewDensity] = usePreference('apex-view-density', 'default', ['default', 'compact']);
@@ -193,6 +190,8 @@ export default function App() {
         setViewDensity={setViewDensity}
         accent={accent}
         setAccent={setAccent}
+        overviewLayout={overviewLayout}
+        setOverviewLayout={setOverviewLayout}
         exportJSON={exportJSON}
         exportEncryptedJSON={exportEncryptedJSON}
         backupPayload={backupPayload}
@@ -240,11 +239,6 @@ export default function App() {
         <div id="tab-content" className="tab-scroll-target">
         <Suspense fallback={<LoadingSkeleton />}>
         {activeTab === 'dashboard' && <>
-          <div className="overview-tools no-print">
-            <OverviewControls layout={overviewLayout} onChange={setOverviewLayout} />
-            <DataQuality holdings={holdings} onReview={symbol => { setReviewSymbol(symbol); changeTab('holdings'); }} />
-            <WhatChanged snapshots={snapshots} transactions={transactions} holdings={holdings} summary={portfolioSummary} rate={rate} currency={currency} historicalFx={historicalFx} netContributionsUSD={netContributionsUSD} scope={selectedAccountId} allowLegacy={accounts.length === 1} enabled={selectedAccountId === '__combined__' || accounts.length === 1} />
-          </div>
           {holdings.length === 0 && <DashboardSetup onNavigate={changeTab} onExploreDemo={() => startPortfolio('demo')} />}
           {overviewLayout.order.filter(key => !overviewLayout.hidden.includes(key)).map(key => <React.Fragment key={key}>{({
             summary: (<section id="portfolio-summary" className="summary-section tab-scroll-target mb-6" aria-labelledby="summary-title">
@@ -331,8 +325,6 @@ export default function App() {
         {activeTab === 'holdings' && (
           <HoldingsTable
             onBulkUpdate={updateHoldingsBulk}
-            key={`${selectedAccountId}-${reviewSymbol}`}
-            initialFilter={reviewSymbol}
             valueCurrencyMode={valueCurrencyMode}
             setValueCurrencyMode={setValueCurrencyMode}
             summary={portfolioSummary}
@@ -406,6 +398,7 @@ export default function App() {
             ['Yahoo Finance', 'https://finance.yahoo.com/'],
             ['Google Finance', 'https://www.google.com/finance/'],
             ['TradingView Heatmap', 'https://www.tradingview.com/heatmap/stock/'],
+            ['Companies Market Cap', 'https://companiesmarketcap.com/cad/'],
             ['Finviz', 'https://finviz.com/'],
             ['Investopedia', 'https://www.investopedia.com/'],
           ].map(([label, href]) => <a key={href} href={href} target="_blank" rel="noopener noreferrer">{label}</a>)}

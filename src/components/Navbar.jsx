@@ -9,10 +9,11 @@ import { TrendingUp, PieChart as PieIcon, ArrowDownUp, Sliders, History, Eye, Ey
 import { CURRENCY_RATES } from '../data/mockData';
 import { downloadGoogleDriveBackup, downloadLatestGoogleDriveBackup, ENCRYPTED_DRIVE_BACKUP_PREFIX, isGoogleDriveConfigured, uploadGoogleDriveBackup } from '../services/googleDrive';
 import { decryptBackup, encryptBackup } from '../services/encryptedBackup';
+import { OverviewControls } from './OverviewControls';
 
 const OPTIONAL_TABS = [['history', 'Transactions'], ['watchlist', 'Watchlist'], ['dividends', 'Dividends'], ['performance', 'Performance'], ['rebalance', 'Rebalance']];
 
-export function Navbar({ viewDensity = 'default', setViewDensity, privateMode, onTogglePrivacy, activeTab, setActiveTab, currency, setCurrency, theme, toggleTheme, accent, setAccent, exportJSON, exportEncryptedJSON, backupPayload, restoreJSONBackup, exportCSV, exportAllCSV, importJSON, importEncryptedJSON, importCSV, accounts = [], selectedAccountId, setSelectedAccountId, addAccount, renameAccount, deleteAccount, onDeleteAllData, refreshMarketData, marketStatus }) {
+export function Navbar({ viewDensity = 'default', setViewDensity, privateMode, onTogglePrivacy, activeTab, setActiveTab, currency, setCurrency, theme, toggleTheme, accent, setAccent, overviewLayout, setOverviewLayout, exportJSON, exportEncryptedJSON, backupPayload, restoreJSONBackup, exportCSV, exportAllCSV, importJSON, importEncryptedJSON, importCSV, accounts = [], selectedAccountId, setSelectedAccountId, addAccount, renameAccount, deleteAccount, onDeleteAllData, refreshMarketData, marketStatus }) {
   const [hiddenTabs, setHiddenTabs] = useState(() => {
     try {
       const saved = JSON.parse(localStorage.getItem('apex-hidden-tabs'));
@@ -317,6 +318,7 @@ export function Navbar({ viewDensity = 'default', setViewDensity, privateMode, o
                 }} /></label>)}
               </fieldset>
               <div className="settings-theme-control"><div><strong>Theme</strong><p className="supporting-text">Current theme: {isLight ? 'Light' : 'Dark'}</p></div><button type="button" className="secondary-button" onClick={toggleTheme}>Switch to {isLight ? 'dark' : 'light'} mode</button></div>
+              <div className="settings-theme-control settings-overview-control"><div><strong>Portfolio overview</strong><p className="supporting-text">Choose which overview sections are shown and how they are ordered.</p></div><OverviewControls layout={overviewLayout} onChange={setOverviewLayout} /></div>
             </section>
             <section id="settings-lists-panel" aria-labelledby="settings-lists-title" className="settings-category-panel" hidden={settingsSection !== 'lists'}>
               <h3 id="settings-lists-title" className="section-title">Holdings lists</h3>
