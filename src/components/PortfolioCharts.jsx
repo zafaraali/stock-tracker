@@ -162,8 +162,8 @@ export function PortfolioCharts({ performance, backtestHistory = [], summary, sn
                 </PieChart>
               </ResponsiveContainer>
               <div className="chart-donut-center" aria-hidden="true"><span>Total value</span><strong><Money amount={formatMoney(assetTotal, currencyCode, { compact: true })} /></strong></div>
-              {activeAssetItem && <div className="chart-hover-card"><strong>{activeAssetItem.name}</strong><span><Money amount={formatMoney(activeAssetItem.value, currencyCode)} /> · {((activeAssetItem.value / assetTotal) * 100).toFixed(1)}%</span></div>}
             </div>
+            <div className="chart-detail-slot">{activeAssetItem && <div className="chart-hover-card"><strong>{activeAssetItem.name}</strong><span><Money amount={formatMoney(activeAssetItem.value, currencyCode)} /> · {((activeAssetItem.value / assetTotal) * 100).toFixed(1)}%</span></div>}</div>
             <div className="chart-legend mt-2 space-y-2" aria-label="Asset allocation percentages">
               {assetPieData.map((item, index) => {
                 const percentage = assetTotal > 0 ? (item.value / assetTotal) * 100 : 0;
@@ -216,8 +216,8 @@ export function PortfolioCharts({ performance, backtestHistory = [], summary, sn
               </PieChart>
             </ResponsiveContainer>
             <div className="chart-donut-center" aria-hidden="true"><span>Total value</span><strong><Money amount={formatMoney(sectorTotal, currencyCode, { compact: true })} /></strong></div>
-            {activeSectorItem && <div className="chart-hover-card"><strong>{activeSectorItem.name}</strong><span><Money amount={formatMoney(activeSectorItem.value, currencyCode)} /> · {((activeSectorItem.value / sectorTotal) * 100).toFixed(1)}%</span></div>}
           </div>
+            <div className="chart-detail-slot">{activeSectorItem && <div className="chart-hover-card"><strong>{activeSectorItem.name}</strong><span><Money amount={formatMoney(activeSectorItem.value, currencyCode)} /> · {((activeSectorItem.value / sectorTotal) * 100).toFixed(1)}%</span></div>}</div>
           <div className="chart-legend mt-2 space-y-2" aria-label="Sector allocation percentages">
             {sectorPieData.map((item, index) => {
               const percentage = sectorTotal > 0 ? (item.value / sectorTotal) * 100 : 0;
