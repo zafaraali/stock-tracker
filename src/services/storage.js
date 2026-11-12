@@ -22,6 +22,7 @@ export function writeJSON(storage, key, value) {
 // Access the browser storage getter inside the guarded operations as well.
 export const browserStorage = {
   getItem: key => localStorage.getItem(key),
-  setItem: (key, value) => localStorage.setItem(key, value)
+  setItem: (key, value) => localStorage.setItem(key, value),
+  removeItem: key => localStorage.removeItem(key)
 };
 

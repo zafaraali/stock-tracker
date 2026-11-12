@@ -1,3 +1,4 @@
+import { PREFERENCES_RESTORED } from '../services/backupPreferences';
 import { useEffect, useState } from 'react';
 import { usePreference } from '../hooks/usePreference';
 import { BACKUP_EVENT, backupIsDue } from '../services/backupReminder';
@@ -8,8 +9,8 @@ export function useBackupReminder() {
   const [last, setLast] = useState(read);
   useEffect(() => {
     const update = () => setLast(read());
-    window.addEventListener(BACKUP_EVENT, update); window.addEventListener('storage', update);
-    return () => { window.removeEventListener(BACKUP_EVENT, update); window.removeEventListener('storage', update); };
+    window.addEventListener(BACKUP_EVENT, update); window.addEventListener('storage', update); window.addEventListener(PREFERENCES_RESTORED, update);
+    return () => { window.removeEventListener(BACKUP_EVENT, update); window.removeEventListener('storage', update); window.removeEventListener(PREFERENCES_RESTORED, update); };
   }, []);
   return { days, setDays, last, due: backupIsDue(days, last) };
 }

@@ -1,3 +1,4 @@
+import { withBackupPreferences, restoreBackupPreferences } from '../services/backupPreferences';
 import { CASH_TYPES, positionLedger, calculateCash, externalContributions, performanceHistory, mergeDeleted } from '../services/ledger';
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { INITIAL_HOLDINGS, INITIAL_WATCHLIST, INITIAL_TRANSACTIONS, CURRENCY_RATES, INITIAL_CATEGORIES } from '../data/mockData';
@@ -819,9 +820,9 @@ export function usePortfolio() {
     setWatchlist(prev => prev.filter(w => w.id !== id));
   };
 
-  const backupPayload = useMemo(() => ({ schemaVersion: 4, mode, fxData, historicalFx, accounts, selectedAccountId, holdings: allHoldings, watchlist: watchlistData, transactions: allTransactions, snapshots, currency, theme, accent, exportedAt: new Date().toISOString() }), [mode, fxData, historicalFx, accounts, selectedAccountId, allHoldings, watchlistData, allTransactions, snapshots, currency, theme, accent]);
+  const backupPayload = useMemo(() => ({ schemaVersion: 5, mode, fxData, historicalFx, trash, accounts, selectedAccountId, holdings: allHoldings, watchlist: watchlistData, transactions: allTransactions, snapshots, currency, theme, accent, exportedAt: new Date().toISOString() }), [mode, fxData, historicalFx, accounts, selectedAccountId, allHoldings, watchlistData, allTransactions, snapshots, currency, theme, accent, trash]);
   const exportJSON = () => {
-    const payload = backupPayload;
+    const payload = withBackupPreferences(backupPayload);
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -837,7 +838,7 @@ export function usePortfolio() {
     const password = await requestBackupPassword({ confirm: true });
     if (!password) return;
     try {
-      const encrypted = await withBackupProgress('Encrypting backup…', () => encryptBackup(backupPayload, password));
+      const encrypted = await withBackupProgress('Encrypting backup…', () => encryptBackup(withBackupPreferences(backupPayload), password));
       const blob = new Blob([encrypted], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -1088,6 +1089,7 @@ export function usePortfolio() {
     const nextSelectedAccountId = pendingImport.selectedAccountId || importedAccounts[0].id;
     const nextWatchlist = assignDefaultAccount(pendingImport.watchlist, importedAccounts[0].id);
     const nextSnapshots = pendingImport.snapshots;
+    const nextTrash = pendingImport.trash || [];
     const nextCurrency = pendingImport.currency || currency;
     const nextTheme = pendingImport.theme || theme;
     const nextAccent = Object.hasOwn(ACCENT_THEMES, pendingImport.accent) ? pendingImport.accent : accent;
@@ -1105,8 +1107,10 @@ export function usePortfolio() {
       theme: nextTheme,
       accent: nextAccent,
       mode: nextMode,
-      trash: []
+      trash: nextTrash
     });
+    const preferencesError = restoreBackupPreferences(pendingImport.preferences);
+    const fxError = pendingImport.fxData ? writeJSON(browserStorage, 'st_pro_fx', pendingImport.fxData) : '';
     setAccounts(importedAccounts);
     setSelectedAccountId(nextSelectedAccountId);
     setPortfolioData({ holdings: nextHoldings, transactions: normalizedTransactions });
@@ -1115,12 +1119,12 @@ export function usePortfolio() {
     if (pendingImport.currency) setCurrency(nextCurrency);
     if (pendingImport.theme) setTheme(nextTheme);
     if (Object.hasOwn(ACCENT_THEMES, pendingImport.accent)) setAccent(nextAccent);
-    if (validRates(pendingImport.fxData)) setFxData(pendingImport.fxData);
+    if (pendingImport.fxData) setFxData(pendingImport.fxData);
     setHistoricalFx(nextHistoricalFx);
     setMode(nextMode);
-    setTrash([]);
+    setTrash(nextTrash);
     setStorageBlocked(false);
-    if (persistenceError) setStorageError(persistenceError);
+    if (persistenceError || preferencesError || fxError) setStorageError(persistenceError || preferencesError || fxError);
     else { setLastSavedAt(new Date().toISOString()); setUiMessage('Backup restored and saved to this browser.'); }
     setPendingImport(null);
   };

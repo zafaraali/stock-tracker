@@ -1,3 +1,5 @@
+import { BackToTop } from './components/BackToTop';
+import { PREFERENCES_RESTORED } from './services/backupPreferences';
 import { DashboardCard, DashboardCardsProvider } from './components/DashboardCard';
 import { Money } from './components/Money';
 import { formatPercent } from './services/formatNumber';
@@ -65,6 +67,14 @@ export default function App() {
     return () => { window.removeEventListener('popstate', navigateHistory); window.removeEventListener('hashchange', navigateHistory); };
     // Initialize the URL once; user navigation pushes its own history entries.
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  useEffect(() => {
+    const restore = event => {
+      const section = event.detail['apex-active-section'];
+      if (SECTIONS.includes(section)) { setActiveTab(section); window.history.replaceState(null, '', `#/${section}`); }
+    };
+    window.addEventListener(PREFERENCES_RESTORED, restore);
+    return () => window.removeEventListener(PREFERENCES_RESTORED, restore);
   }, []);
   const [confirmAction, setConfirmAction] = useState(null);
   const [summaryOpen, setSummaryOpen] = useState(true);
@@ -386,6 +396,7 @@ export default function App() {
         </>}
       </main>
 
+      <BackToTop />
       {/* Footer */}
       <footer className={`no-print border-t ${isLight ? 'border-slate-200 bg-white text-slate-500' : 'border-slate-900 bg-slate-950 text-slate-500'} py-4 text-center text-xs mb-12 sm:mb-0 transition-colors`}>
         ApexFinance &middot; {new Date().getFullYear()} &middot; Zafar Ali

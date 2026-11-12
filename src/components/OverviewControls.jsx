@@ -1,3 +1,4 @@
+import { PREFERENCES_RESTORED } from '../services/backupPreferences';
 import { useState, useEffect, createContext } from 'react';
 import { GripVertical } from 'lucide-react';
 
@@ -13,6 +14,11 @@ export function useOverviewLayout() {
     return { order: DEFAULT_OVERVIEW, hidden: [] };
   });
   useEffect(() => { try { localStorage.setItem('apex-overview-layout', JSON.stringify(layout)); } catch { /* In-memory preference. */ } }, [layout]);
+  useEffect(() => {
+    const restore = event => { if (event.detail['apex-overview-layout']) setLayout(event.detail['apex-overview-layout']); };
+    window.addEventListener(PREFERENCES_RESTORED, restore);
+    return () => window.removeEventListener(PREFERENCES_RESTORED, restore);
+  }, []);
   return [layout, setLayout];
 }
 

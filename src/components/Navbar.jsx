@@ -1,3 +1,4 @@
+import { withBackupPreferences, PREFERENCES_RESTORED } from '../services/backupPreferences';
 import React, { useEffect, useRef, useState } from 'react';
 import { Modal } from './Modal';
 import { requestBackupPassword } from './BackupPasswordDialog';
@@ -30,6 +31,14 @@ export function Navbar({ viewDensity = 'default', setViewDensity, privateMode, o
   const [driveBusy, setDriveBusy] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [desktopControlsOpen, setDesktopControlsOpen] = useState(() => { try { return localStorage.getItem('apex-desktop-controls') === 'true'; } catch { return false; } });
+  useEffect(() => {
+    const restore = event => {
+      if (Object.hasOwn(event.detail, 'apex-hidden-tabs')) setHiddenTabs(event.detail['apex-hidden-tabs']);
+      if (Object.hasOwn(event.detail, 'apex-desktop-controls')) setDesktopControlsOpen(event.detail['apex-desktop-controls']);
+    };
+    window.addEventListener(PREFERENCES_RESTORED, restore);
+    return () => window.removeEventListener(PREFERENCES_RESTORED, restore);
+  }, []);
   const drawerRef = useRef(null);
   const isLight = theme === 'light';
 
@@ -103,7 +112,7 @@ export function Navbar({ viewDensity = 'default', setViewDensity, privateMode, o
     setDriveBusy(true);
     setDriveStatus('Backing up…');
     try {
-      await withBackupProgress('Uploading backup…', () => uploadGoogleDriveBackup(backupPayload));
+      await withBackupProgress('Uploading backup…', () => uploadGoogleDriveBackup(withBackupPreferences(backupPayload)));
       setDriveStatus('Backup saved to Google Drive.');
       recordBackup('drive');
     } catch (error) {
@@ -135,7 +144,7 @@ export function Navbar({ viewDensity = 'default', setViewDensity, privateMode, o
     setDriveBusy(true);
     setDriveStatus('Encrypting and backing up…');
     try {
-      const envelope = await withBackupProgress('Encrypting backup…', () => encryptBackup(backupPayload, password));
+      const envelope = await withBackupProgress('Encrypting backup…', () => encryptBackup(withBackupPreferences(backupPayload), password));
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
       await withBackupProgress('Uploading encrypted backup…', () => uploadGoogleDriveBackup(JSON.parse(envelope), `${ENCRYPTED_DRIVE_BACKUP_PREFIX} ${timestamp}.json`));
       setDriveStatus('Encrypted backup saved to Google Drive.');

@@ -1,3 +1,4 @@
+import { validBackupPreferences } from './backupPreferences';
 import { CURRENCY_RATES } from '../data/mockData';
 import { validRates } from './exchangeRates';
 import { compareEntries, CASH_TYPES, cashChange, entryCurrency, grossValue } from './ledger';
@@ -54,6 +55,7 @@ export const validWatchlist = items => Array.isArray(items) && unique(items) && 
 export const validSnapshots = items => Array.isArray(items) && items.every(item => item && validDate(item.date) && number(item.valueUSD) && ['netContributionsUSD', 'startingContributionsUSD'].every(key => item[key] === undefined || (typeof item[key] === 'number' && Number.isFinite(item[key]))) && (item.startingValueUSD === undefined || number(item.startingValueUSD))) && new Set(items.map(item => item.date)).size === items.length;
 
 export function validateBackup(data) {
+  if (data?.preferences !== undefined && !validBackupPreferences(data.preferences)) return 'Invalid backup preferences.';
   if (!data || !Array.isArray(data.holdings) || !Array.isArray(data.transactions) || !validWatchlist(data.watchlist) || !validSnapshots(data.snapshots)) return 'Invalid backup collections, watchlist prices, or snapshots.';
   if (!unique(data.holdings) || !unique(data.transactions)) return 'Backup contains missing or duplicate IDs.';
   if (!data.holdings.every(item => asset(item) && number(item.shares) && number(item.avgCost) &&
