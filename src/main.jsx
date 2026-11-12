@@ -5,8 +5,11 @@ import App from './App.jsx'
 import AppErrorBoundary from './components/AppErrorBoundary.jsx'
 import './index.css'
 
+window.history.scrollRestoration = 'manual';
+
 function LaunchReady({ children }) {
-  React.useEffect(() => {
+  React.useLayoutEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
     let second;
     let delay;
     const first = window.requestAnimationFrame(() => {

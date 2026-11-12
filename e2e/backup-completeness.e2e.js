@@ -76,4 +76,9 @@ test('back to top appears after scrolling and returns to the top', async ({ page
   await button.click();
   await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
   await expect(button).toHaveCount(0);
+  await page.evaluate(() => window.scrollTo(0, 700));
+  await expect(button).toBeVisible();
+  await page.reload();
+  await expect(page.locator('#launch-screen')).toHaveCount(0);
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
 });
