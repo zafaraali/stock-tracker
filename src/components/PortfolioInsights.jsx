@@ -1,3 +1,4 @@
+import { DashboardCard } from './DashboardCard';
 import React from 'react';
 import { Money } from './Money';
 import { formatQuantity, formatPercent } from '../services/formatNumber';
@@ -28,7 +29,7 @@ export function PortfolioInsights({ summary, currencyCode = 'USD' }) {
   });
 
   return (
-    <section className="bg-slate-900 border border-slate-800/80 rounded-2xl p-5 mb-6" aria-labelledby="insights-title">
+    <DashboardCard cardId="insights" label="Portfolio insights" className="bg-slate-900 border border-slate-800/80 rounded-2xl p-5 mb-6" aria-labelledby="insights-title">
       <div className="flex flex-wrap items-start justify-between gap-3 mb-5">
         <div>
           <h2 id="insights-title" className="text-lg font-bold text-white">Portfolio insights</h2>
@@ -57,6 +58,6 @@ export function PortfolioInsights({ summary, currencyCode = 'USD' }) {
         {alerts.length > 5 && <p className="text-xs text-slate-500 mt-2">Showing the first 5 alerts.</p>}
         </div>
       </details>
-    </section>
+    </DashboardCard>
   );
 }

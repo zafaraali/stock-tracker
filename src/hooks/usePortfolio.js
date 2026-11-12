@@ -207,7 +207,7 @@ export function usePortfolio() {
   const [historyError, setHistoryError] = useState('');
   const refreshHistoricalData = useCallback(() => setHistoryRevision(value => value + 1), []);
   const [currency, setCurrency] = useState(recovery.data.currency || 'CAD');
-  const [theme, setTheme] = useState(recovery.data.theme || 'light');
+  const [theme, setTheme] = useState(['light', 'dark'].includes(recovery.data.theme) ? recovery.data.theme : 'dark');
   const [accent, setAccent] = useState(() => Object.hasOwn(ACCENT_THEMES, recovery.data.accent) ? recovery.data.accent : 'green');
   const [fxData, setFxData] = useState(() => readJSON(browserStorage, 'st_pro_fx', { date: null, rates: fallbackRates }, validRates));
   const [historicalFx, setHistoricalFx] = useState(() => readJSON(browserStorage, 'st_pro_fx_history', {}, value => value && typeof value === 'object' && Object.values(value).every(validRates)));
@@ -775,8 +775,8 @@ export function usePortfolio() {
     setWatchlist([]);
     setSnapshots([]);
     setCurrency('CAD');
-    setTheme('light');
-    setAccent('indigo');
+    setTheme('dark');
+    setAccent('green');
     setMode('personal');
   };
 

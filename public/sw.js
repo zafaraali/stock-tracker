@@ -1,6 +1,6 @@
 /* global self, caches, Response */
-const CACHE_NAME = 'apexfinance-shell-v2';
-const APP_SHELL = ['/', '/index.html', '/manifest.webmanifest', '/favicon.svg', '/icon-192.svg', '/icon-512.svg'];
+const CACHE_NAME = 'apexfinance-shell-v3';
+const APP_SHELL = ['/', '/index.html', '/manifest.webmanifest', '/favicon.svg', '/icon-192.svg', '/icon-512.svg', '/icon-192-v3.png', '/icon-512-v3.png'];
 
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(APP_SHELL)));

@@ -1,3 +1,4 @@
+import { DashboardCard } from './DashboardCard';
 import { Money } from './Money';
 import { useReducedMotion } from '../hooks/useReducedMotion';
 import { byValueThenName } from '../services/chartOrdering';
@@ -130,7 +131,7 @@ export function PortfolioCharts({ performance, backtestHistory = [], summary, sn
       )}
 
       {/* Asset Allocation Pie Chart */}
-      <div ref={assetCard} className={`${cardBg} chart-card border p-5 rounded-2xl lg:col-span-1 transition-colors`}>
+      <DashboardCard as="div" cardId="asset-allocation" label="Asset Allocation"><div ref={assetCard} className={`${cardBg} chart-card border p-5 rounded-2xl lg:col-span-1 transition-colors`}>
         <h3 className={`text-xs font-semibold ${headingColor} mb-4 tracking-wider uppercase`}>Asset Allocation</h3>
         {assetPieData.length > 0 && <p className="chart-summary">{assetPieData[0].name === 'Cash' ? 'Largest allocation' : 'Largest holding'}: <strong>{assetPieData[0].name}</strong> · {formatPercent(assetPieData[0].value / assetTotal * 100)} of portfolio</p>}
         <div className="chart-selection-slot no-print" aria-live="polite">{selectedAsset && <button className="secondary-button" onClick={() => { setSelectedAsset(null); setHoverAsset(null); }}>Pinned: {selectedAsset} · Clear</button>}</div>
@@ -181,10 +182,10 @@ export function PortfolioCharts({ performance, backtestHistory = [], summary, sn
             </div>
           </div>
         )}
-      </div>
+      </div></DashboardCard>
 
       {/* Sector / Category Breakdown Pie Chart */}
-      <div ref={sectorCard} className={`${cardBg} chart-card border p-5 rounded-2xl lg:col-span-1 transition-colors`}>
+      <DashboardCard as="div" cardId="sector-breakdown" label="Sector Breakdown"><div ref={sectorCard} className={`${cardBg} chart-card border p-5 rounded-2xl lg:col-span-1 transition-colors`}>
         <h3 className={`text-xs font-semibold ${headingColor} mb-4 tracking-wider uppercase`}>Sector Breakdown</h3>
         {sectorPieData.length > 0 && sectorTotal > 0 && <p className="chart-summary">{sectorPieData[0].name === 'Cash' ? 'Largest allocation' : 'Largest sector'}: <strong>{sectorPieData[0].name}</strong> · {formatPercent(sectorPieData[0].value / sectorTotal * 100)} {summary.cashValue > 0 ? 'of portfolio' : 'of holdings'}</p>}
         <div className="chart-selection-slot no-print" aria-live="polite">{selectedSector && <button className="secondary-button" onClick={() => { setSelectedSector(null); setHoverSector(null); }}>Pinned: {selectedSector} · Clear</button>}</div>
@@ -230,7 +231,7 @@ export function PortfolioCharts({ performance, backtestHistory = [], summary, sn
           </div>
           </>
         )}
-      </div>
+      </div></DashboardCard>
 
     </div>
   );

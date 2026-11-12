@@ -1,3 +1,5 @@
+import { DashboardCard, DashboardCardsProvider } from './components/DashboardCard';
+import { DailyDismissible } from './components/DailyDismissible';
 import { Money } from './components/Money';
 import { formatPercent } from './services/formatNumber';
 import { CsvMapping } from './components/CsvMapping';
@@ -39,6 +41,7 @@ export default function App() {
   const [reviewSymbol, setReviewSymbol] = useState('');
   const [transactionIntent, setTransactionIntent] = useState(null);
   const consumeTransactionIntent = React.useCallback(() => setTransactionIntent(null), []);
+  const [viewDensity, setViewDensity] = usePreference('apex-view-density', 'default', ['default', 'compact']);
   const [valueCurrencyMode, setValueCurrencyMode] = usePreference('apex-value-currency', 'display', ['display', 'native']);
   const focusHeadingRef = React.useRef(false);
   const [activeTab, setActiveTab] = useState(() => {
@@ -157,7 +160,7 @@ export default function App() {
     : [];
 
   return (
-    <PrivacyContext.Provider value={privateMode}><div className={`app-shell accent-${accent} ${privateMode ? 'privacy-mode' : ''} min-h-screen ${isLight ? 'theme-light bg-slate-50 text-slate-900' : 'bg-slate-950 text-slate-100'} flex flex-col font-sans transition-colors duration-200`}>
+    <PrivacyContext.Provider value={privateMode}><DashboardCardsProvider><div className={`app-shell density-${viewDensity} accent-${accent} ${privateMode ? 'privacy-mode' : ''} min-h-screen ${isLight ? 'theme-light bg-slate-50 text-slate-900' : 'bg-slate-950 text-slate-100'} flex flex-col font-sans transition-colors duration-200`}>
       <a className="skip-link" href="#main-content">Skip to main content</a>
       
       {/* Navigation */}
@@ -170,6 +173,8 @@ export default function App() {
         setCurrency={setCurrency}
         theme={theme}
         toggleTheme={toggleTheme}
+        viewDensity={viewDensity}
+        setViewDensity={setViewDensity}
         accent={accent}
         setAccent={setAccent}
         exportJSON={exportJSON}
@@ -220,9 +225,9 @@ export default function App() {
         <Suspense fallback={<LoadingSkeleton />}>
         {activeTab === 'dashboard' && <>
           <div className="overview-tools no-print">
-            <OverviewControls layout={overviewLayout} onChange={setOverviewLayout} />
-            <DataQuality holdings={holdings} onReview={symbol => { setReviewSymbol(symbol); changeTab('holdings'); }} />
-            <WhatChanged snapshots={snapshots} transactions={transactions} holdings={holdings} summary={portfolioSummary} rate={rate} currency={currency} historicalFx={historicalFx} netContributionsUSD={netContributionsUSD} scope={selectedAccountId} allowLegacy={accounts.length === 1} enabled={selectedAccountId === '__combined__' || accounts.length === 1} />
+            <DailyDismissible id="customize-overview" label="Customize overview"><OverviewControls layout={overviewLayout} onChange={setOverviewLayout} /></DailyDismissible>
+            <DailyDismissible id="data-quality" label="Data quality"><DataQuality holdings={holdings} onReview={symbol => { setReviewSymbol(symbol); changeTab('holdings'); }} /></DailyDismissible>
+            <DailyDismissible id="what-changed" label="What changed"><WhatChanged snapshots={snapshots} transactions={transactions} holdings={holdings} summary={portfolioSummary} rate={rate} currency={currency} historicalFx={historicalFx} netContributionsUSD={netContributionsUSD} scope={selectedAccountId} allowLegacy={accounts.length === 1} enabled={selectedAccountId === '__combined__' || accounts.length === 1} /></DailyDismissible>
           </div>
           {holdings.length === 0 && <DashboardSetup onNavigate={changeTab} onExploreDemo={() => startPortfolio('demo')} />}
           {overviewLayout.order.filter(key => !overviewLayout.hidden.includes(key)).map(key => <React.Fragment key={key}>{({
@@ -292,7 +297,7 @@ export default function App() {
             cash: (<CashPanel summary={portfolioSummary} currencyCode={currency} hasCashRecords={transactions.some(entry => ['DEPOSIT', 'WITHDRAW'].includes(entry.type) || entry.cashImpact === true)} onRecord={type => { setTransactionIntent({ type, currency, id: Date.now() }); changeTab('history'); }} />),
             charts: holdings.length > 0 ? (<PortfolioCharts performance={performance} backtestHistory={backtestHistory} summary={portfolioSummary} snapshots={snapshots} symbol={symbol} currencyCode={currency} rate={rate} theme={theme} showPerformanceChart={false} />) : null,
             insights: holdings.length > 0 ? (<PortfolioInsights summary={portfolioSummary} currencyCode={currency} />) : null,
-            holdings: holdings.length > 0 ? (<section className="overview-panel mt-6" aria-labelledby="top-holdings-title">
+            holdings: holdings.length > 0 ? (<DashboardCard cardId="top-holdings" label="Top holdings" className="overview-panel mt-6" aria-labelledby="top-holdings-title">
               <header className="flex items-center justify-between flex-wrap gap-3 mb-4">
                 <div><h2 id="top-holdings-title" className="section-title">Top holdings</h2><p className="supporting-text">Your five largest holdings · {valueCurrencyMode === 'display' ? `Values and gains in ${currency}, including currency effects.` : 'Values and gains in each asset’s currency, excluding currency effects.'}</p></div>
                 <div className="top-holdings-actions"><CurrencyMode mode={valueCurrencyMode} onChange={setValueCurrencyMode} currencyCode={currency} /><button className="secondary-button" onClick={() => changeTab('holdings')}>View all holdings</button></div>
@@ -303,7 +308,7 @@ export default function App() {
                   <div className="text-right shrink-0"><strong><Money amount={formatMoney(display.value, display.currency)} /></strong><p className={display.gain === 0 ? 'text-slate-400 text-sm' : display.gain > 0 ? 'text-emerald-500 text-sm' : 'text-rose-500 text-sm'}><Money amount={formatMoney(display.gain, display.currency, { signed: true })} /> <span className="text-xs">({formatPercent(display.percent)})</span></p></div>
                 </li>; })}
               </ul>
-            </section>) : null
+            </DashboardCard>) : null
           })[key]}</React.Fragment>)}
         </>}
 
@@ -378,8 +383,8 @@ export default function App() {
 
       {/* Footer */}
       <footer className={`no-print border-t ${isLight ? 'border-slate-200 bg-white text-slate-500' : 'border-slate-900 bg-slate-950 text-slate-500'} py-4 text-center text-xs mb-12 sm:mb-0 transition-colors`}>
-        ApexFinance · {new Date().getFullYear()}
+        ApexFinance &middot; {new Date().getFullYear()} &middot; Zafar Ali
       </footer>
-    </div></PrivacyContext.Provider>
+    </div></DashboardCardsProvider></PrivacyContext.Provider>
   );
 }
