@@ -77,6 +77,8 @@ main, #tab-content, #tab-content > .space-y-6 { min-width: 0; }
 @media (max-width: 639px) {
   .view-toolbar-actions { width: 100%; }
   .view-toolbar-actions .primary-button { margin-left: auto; }
+  .transaction-toolbar-actions { display: grid; grid-template-columns: auto auto; justify-content: space-between; }
+  .transaction-toolbar-actions > :first-child { grid-column: 1 / -1; justify-self: start; }
   .view-toolbar :is(button, summary), .modal-form-actions button { white-space: normal; overflow-wrap: anywhere; }
   .holdings-mobile-header > div { flex-wrap: wrap; min-width: 0; }
   .account-context strong, .settings-category-panel .flex-1 { overflow-wrap: anywhere; }

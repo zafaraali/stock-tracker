@@ -7,7 +7,7 @@ import { Pagination } from './Pagination';
 import { usePagination } from '../hooks/usePagination';
 import { formatMoney } from '../services/formatMoney';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { CalendarDays, Pencil, Trash2 } from 'lucide-react';
+import { CalendarDays, Pencil, Plus, Trash2 } from 'lucide-react';
 import { Modal, FormError } from './Modal';
 import { CURRENCY_RATES } from '../data/mockData';
 import { CASH_TYPES, entryCurrency, entryRate, grossValue, cashChange, calculateCash } from '../services/ledger';
@@ -72,7 +72,7 @@ export function HistoryView({ transactions, holdings, draftScope = 'main', curre
     {draft.draft && !open && <div className="rounded-xl border border-slate-800 p-3 flex flex-wrap items-center gap-3 no-print"><span>Unsaved transaction draft retained in this browser tab.</span><button className="secondary-button" onClick={() => { setForm({ ...emptyForm(), ...draft.draft }); setOpen(true); setError(''); }}>Resume draft</button><button className="secondary-button" onClick={draft.clear}>Discard draft</button></div>}
     <header className="view-toolbar bg-slate-900 border border-slate-800 p-6 rounded-2xl flex flex-wrap gap-4 justify-between">
       <div><h2 className="text-xl font-bold">Transactions & cash</h2><p className="text-sm text-slate-400 mt-2">Deposits, withdrawals, trades, dividends, and stock splits. Fees are included in cost basis and gains.</p></div>
-      <div className="view-toolbar-actions"><button className="secondary-button" onClick={() => add('DEPOSIT')}>Deposit</button><button className="secondary-button" onClick={() => add('WITHDRAW')}>Withdraw</button><button className="primary-button" onClick={() => add('BUY')}>Add transaction</button></div>
+      <div className="view-toolbar-actions transaction-toolbar-actions"><button className="secondary-button" onClick={() => add('DEPOSIT')}>Deposit</button><button className="secondary-button" onClick={() => add('WITHDRAW')}>Withdraw</button><button className="primary-button" onClick={() => add('BUY')}><Plus className="w-4 h-4 shrink-0" />Add transaction</button></div>
     </header>
     <FilterPanel resultCount={ordered.length} totalCount={transactions.length} label="transactions" activeCount={[search, typeFilter !== 'ALL', fromDate, toDate].filter(Boolean).length} onReset={() => { setSearch(''); setTypeFilter('ALL'); setFromDate(''); setToDate(''); }}>
     <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-wrap gap-3 items-end">
