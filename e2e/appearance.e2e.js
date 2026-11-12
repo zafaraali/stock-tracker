@@ -35,6 +35,11 @@ test('green is first and default, and compact view persists and reduces page hei
 test('launch screen fades after startup and footer credits Zafar Ali', async ({ page }) => {
   await expect(page.locator('#launch-screen')).toHaveCount(0);
   await expect(page.locator('footer')).toContainText('Zafar Ali');
+  await expect(page.getByRole('navigation', { name: 'Finance resources', exact: true }).getByRole('link')).toHaveCount(5);
+  await page.getByRole('button', { name: 'Hide controls', exact: true }).click();
+  await expect(page.locator('#desktop-portfolio-controls')).toBeHidden();
+  await page.reload();
+  await expect(page.locator('#desktop-portfolio-controls')).toBeVisible();
 });
 
 test('dashboard closes individual cards until reload and protects portfolio summary', async ({ page }) => {

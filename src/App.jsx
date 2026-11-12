@@ -118,6 +118,7 @@ export default function App() {
 
   useEffect(() => {
     const color = ACCENT_THEMES[accent]?.color || ACCENT_THEMES.green.color;
+    document.documentElement.style.setProperty('--selection-bg', color);
     const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="8" fill="${color}"/><path d="M8 20L13 15L17 19L24 12M19 12H24V17" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>`;
     const icon = document.querySelector('link[rel="icon"]');
     if (icon) icon.href = `data:image/svg+xml,${encodeURIComponent(svg)}`;
@@ -400,6 +401,15 @@ export default function App() {
       {/* Footer */}
       <footer className={`no-print border-t ${isLight ? 'border-slate-200 bg-white text-slate-500' : 'border-slate-900 bg-slate-950 text-slate-500'} py-4 text-center text-xs mb-12 sm:mb-0 transition-colors`}>
         ApexFinance &middot; {new Date().getFullYear()} &middot; Zafar Ali
+        <nav className="footer-links" aria-label="Finance resources">
+          {[
+            ['Yahoo Finance', 'https://finance.yahoo.com/'],
+            ['Google Finance', 'https://www.google.com/finance/'],
+            ['TradingView Heatmap', 'https://www.tradingview.com/heatmap/stock/'],
+            ['Finviz', 'https://finviz.com/'],
+            ['Investopedia', 'https://www.investopedia.com/'],
+          ].map(([label, href]) => <a key={href} href={href} target="_blank" rel="noopener noreferrer">{label}</a>)}
+        </nav>
       </footer>
     </div></DashboardCardsProvider></PrivacyContext.Provider>
   );

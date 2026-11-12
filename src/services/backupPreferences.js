@@ -16,7 +16,7 @@ const specifications = {
   'apex-backup-reminder-days': [0, oneOf([0, 7, 30, 90])],
   'apex-last-transaction-holding': ['', value => typeof value === 'string'],
   'apex-last-transaction-currency': ['CAD', oneOf(Object.keys(CURRENCY_RATES))],
-  'apex-desktop-controls': [false, value => typeof value === 'boolean'],
+  'apex-desktop-controls': [true, value => typeof value === 'boolean'],
   'apex-active-section': ['dashboard', oneOf(tabs)],
   'apex-hidden-tabs': [[], value => Array.isArray(value) && value.every(key => tabs.slice(2).includes(key))],
   'apex-overview-layout': [{ order: sections, hidden: [] }, value => value && Array.isArray(value.order) && value.order.length === sections.length && new Set(value.order).size === sections.length && value.order.every(key => sections.includes(key)) && Array.isArray(value.hidden) && value.hidden.every(key => sections.includes(key))],

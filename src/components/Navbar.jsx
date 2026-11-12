@@ -30,7 +30,7 @@ export function Navbar({ viewDensity = 'default', setViewDensity, privateMode, o
   const [driveStatus, setDriveStatus] = useState('');
   const [driveBusy, setDriveBusy] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [desktopControlsOpen, setDesktopControlsOpen] = useState(() => { try { return localStorage.getItem('apex-desktop-controls') === 'true'; } catch { return false; } });
+  const [desktopControlsOpen, setDesktopControlsOpen] = useState(true);
   useEffect(() => {
     const restore = event => {
       if (Object.hasOwn(event.detail, 'apex-hidden-tabs')) setHiddenTabs(event.detail['apex-hidden-tabs']);

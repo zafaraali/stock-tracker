@@ -87,7 +87,7 @@ test('compact donut centre labels fit inside the hole on desktop and phone', asy
 });
 
 test('accent changes update favicon, controls and performance chart in light and dark mode', async ({ page }) => {
-  await page.getByRole('button', { name: 'Portfolio controls', exact: true }).click();
+  if (!await page.getByRole('button', { name: /^Open settings/ }).isVisible()) await page.getByRole('button', { name: 'Portfolio controls', exact: true }).click();
   await page.getByRole('button', { name: /^Open settings/ }).click();
   for (const [accent, color] of [['red', '#8f3f4b'], ['blue', '#345f83']]) {
     await page.getByRole('combobox', { name: 'Accent color', exact: true }).selectOption(accent);
@@ -95,6 +95,7 @@ test('accent changes update favicon, controls and performance chart in light and
     expect(decodeURIComponent(favicon)).toContain(`fill="${color}"`);
     const expected = await page.locator('.brand-logo').evaluate(element => window.getComputedStyle(element).backgroundColor);
     expect(await page.locator('.skip-link').evaluate(element => window.getComputedStyle(element).backgroundColor)).toBe(expected);
+    for (const selector of ['body', '.app-shell', '.field']) expect(await page.locator(selector).first().evaluate(element => window.getComputedStyle(element, '::selection').backgroundColor)).toBe(expected);
     expect(await page.getByRole('checkbox', { name: 'Show Watchlist tab' }).evaluate(element => window.getComputedStyle(element).accentColor)).toBe(expected);
     if (accent === 'red') await page.getByRole('dialog').getByRole('button', { name: 'Switch to light mode', exact: true }).click();
   }
