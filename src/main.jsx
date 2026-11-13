@@ -10,21 +10,15 @@ window.history.scrollRestoration = 'manual';
 function LaunchReady({ children }) {
   React.useLayoutEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
-    let second;
-    let delay;
-    const first = window.requestAnimationFrame(() => {
-      second = window.requestAnimationFrame(() => {
-        delay = window.setTimeout(() => {
+    const delay = window.setTimeout(() => {
         const splash = document.getElementById('launch-screen');
         if (!splash) return;
         splash.classList.add('is-ready');
         splash.setAttribute('aria-hidden', 'true');
         splash.addEventListener('transitionend', () => splash.remove(), { once: true });
         if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) splash.remove();
-        }, 1000);
-      });
-    });
-    return () => { window.cancelAnimationFrame(first); window.cancelAnimationFrame(second); window.clearTimeout(delay); };
+    }, 200);
+    return () => window.clearTimeout(delay);
   }, []);
   return children;
 }

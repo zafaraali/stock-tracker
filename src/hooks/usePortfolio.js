@@ -21,6 +21,15 @@ const today = () => {
 const fileDate = () => today();
 
 const DEFAULT_ACCOUNT = { id: 'account-main', name: 'Main', type: '', currency: 'USD' };
+
+function scheduleIdle(callback, timeout = 1500) {
+  if (typeof window.requestIdleCallback === 'function') {
+    const id = window.requestIdleCallback(callback, { timeout });
+    return () => window.cancelIdleCallback?.(id);
+  }
+  const id = window.setTimeout(callback, 200);
+  return () => window.clearTimeout(id);
+}
 export const COMBINED_ACCOUNT_ID = '__combined__';
 export const ACCENT_THEMES = {
   green: { label: 'Green', color: '#2f6f52' },
@@ -177,7 +186,7 @@ export function loadSavedPortfolio(storage) {
     return { data: legacy, errors };
 }
 
-export function usePortfolio() {
+export function usePortfolio({ shouldLoadHistoricalData = false } = {}) {
   const [uiMessage, setUiMessage] = useState('');
   const [lastSavedAt, setLastSavedAt] = useState(null);
   const [recovery] = useState(() => loadSavedPortfolio(browserStorage));
@@ -229,25 +238,40 @@ export function usePortfolio() {
   const fxRates = fxData.rates;
 
   useEffect(() => {
+    if (!shouldLoadHistoricalData) {
+      setHistoryLoading(false);
+      return undefined;
+    }
     const controller = new AbortController();
-    setHistoryLoading(true);
-    setHistoryError('');
-    Promise.allSettled(backtestSymbols.map(async symbol => ({ symbol: symbol.toUpperCase(), points: await fetchHistoricalMarketData(symbol, controller.signal) })))
-      .then(results => {
-        if (!controller.signal.aborted) {
-          const successful = results.filter(result => result.status === 'fulfilled').map(result => result.value);
-          setHistoryError(results.some(result => result.status === 'rejected') ? 'Some comparison data could not refresh. Previous data is retained where available.' : '');
-          setBacktestHistory(previous => backtestSymbols.flatMap(symbol => {
-            const series = successful.find(item => item.symbol === symbol) || previous.find(item => item.symbol === symbol);
-            return series ? [series] : [];
-          }));
-          setHistoryLoading(false);
-        }
-      });
-    return () => controller.abort();
-  }, [backtestSymbols, historyRevision]);
+    let frameId;
+    const load = () => {
+      if (controller.signal.aborted) return;
+      setHistoryLoading(true);
+      setHistoryError('');
+      Promise.allSettled(backtestSymbols.map(async symbol => ({ symbol: symbol.toUpperCase(), points: await fetchHistoricalMarketData(symbol, controller.signal) })))
+        .then(results => {
+          if (!controller.signal.aborted) {
+            const successful = results.filter(result => result.status === 'fulfilled').map(result => result.value);
+            setHistoryError(results.some(result => result.status === 'rejected') ? 'Some comparison data could not refresh. Previous data is retained where available.' : '');
+            setBacktestHistory(previous => backtestSymbols.flatMap(symbol => {
+              const series = successful.find(item => item.symbol === symbol) || previous.find(item => item.symbol === symbol);
+              return series ? [series] : [];
+            }));
+            setHistoryLoading(false);
+          }
+        });
+    };
+    if (typeof window.requestAnimationFrame === 'function') frameId = window.requestAnimationFrame(load);
+    else frameId = window.setTimeout(load, 0);
+    return () => {
+      controller.abort();
+      if (typeof window.cancelAnimationFrame === 'function') window.cancelAnimationFrame(frameId);
+      else window.clearTimeout(frameId);
+    };
+  }, [backtestSymbols, historyRevision, shouldLoadHistoricalData]);
 
   const [marketStatus, setMarketStatus] = useState({ loading: false, error: '', lastUpdated: null });
+  const refreshInFlightRef = useRef(false);
   const holdingsRef = useRef(holdings);
   const watchlistRef = useRef(watchlistData);
   holdingsRef.current = holdings;
@@ -267,14 +291,16 @@ export function usePortfolio() {
   }, [allHoldings, allTransactions, accounts, selectedAccountId, watchlistData, snapshots, currency, theme, accent, storageBlocked, mode, trash]);
 
   useEffect(() => {
+    const today = new Date().toISOString().slice(0, 10);
+    if (fxData.date === today) return undefined;
     const controller = new AbortController();
-    fetchExchangeRates('latest', controller.signal).then(data => {
+    const cancelScheduled = scheduleIdle(() => fetchExchangeRates('latest', controller.signal).then(data => {
       setFxData(data);
       const error = writeJSON(browserStorage, 'st_pro_fx', data);
       if (error) setStorageError(error);
-    }).catch(() => { if (!controller.signal.aborted) setFxError('Current exchange rates unavailable; using cached or estimated rates.'); });
-    return () => controller.abort();
-  }, []);
+    }).catch(() => { if (!controller.signal.aborted) setFxError('Current exchange rates unavailable; using cached or estimated rates.'); }));
+    return () => { cancelScheduled(); controller.abort(); };
+  }, [fxData.date]);
 
   useEffect(() => {
     const dates = [...new Set(transactions.filter(t => (t.currency || holdings.find(h => h.id === t.holdingId)?.currency || detectSymbolCurrency(t.symbol)) !== 'USD' && !t.fxRate).map(t => t.date))];
@@ -296,16 +322,19 @@ export function usePortfolio() {
   }, [historicalFx]);
 
   const refreshMarketData = useCallback(async () => {
-    if (modeRef.current === 'pending') return;
-    if (window.navigator.onLine === false) { setMarketStatus(previous => ({ ...previous, loading: false, error: 'Offline. Saved prices are retained; refresh when connected.' })); return; }
+    if (refreshInFlightRef.current) return;
+    refreshInFlightRef.current = true;
+    try {
+      if (modeRef.current === 'pending') return;
+      if (window.navigator.onLine === false) { setMarketStatus(previous => ({ ...previous, loading: false, error: 'Offline. Saved prices are retained; refresh when connected.' })); return; }
     const symbols = [...new Set([
       ...holdingsRef.current.map(item => item.symbol),
       ...watchlistRef.current.map(item => item.symbol)
     ].filter(Boolean))];
-    if (!symbols.length) {
-      setMarketStatus({ loading: false, error: '', lastUpdated: null });
-      return;
-    }
+      if (!symbols.length) {
+        setMarketStatus({ loading: false, error: '', lastUpdated: null });
+        return;
+      }
 
     setMarketStatus(previous => ({ ...previous, loading: true, error: '' }));
     const results = await Promise.allSettled(symbols.map(symbol => fetchMarketQuote(symbol)));
@@ -348,17 +377,20 @@ export function usePortfolio() {
       }));
     }
 
-    setMarketStatus(previous => ({
-      loading: false,
-      error: failedCount && !quotes.size ? 'Live prices unavailable. Showing saved prices.' : failedCount ? `${failedCount} quote${failedCount === 1 ? '' : 's'} unavailable.` : '',
-      lastUpdated: quotes.size ? new Date().toISOString() : previous.lastUpdated
-    }));
+      setMarketStatus(previous => ({
+        loading: false,
+        error: failedCount && !quotes.size ? 'Live prices unavailable. Showing saved prices.' : failedCount ? `${failedCount} quote${failedCount === 1 ? '' : 's'} unavailable.` : '',
+        lastUpdated: quotes.size ? new Date().toISOString() : previous.lastUpdated
+      }));
+    } finally {
+      refreshInFlightRef.current = false;
+    }
   }, []);
 
   useEffect(() => {
-    refreshMarketData();
+    const cancelScheduled = scheduleIdle(refreshMarketData, 2000);
     const interval = window.setInterval(refreshMarketData, 5 * 60 * 1000);
-    return () => window.clearInterval(interval);
+    return () => { cancelScheduled(); window.clearInterval(interval); };
   }, [refreshMarketData, mode]);
 
   const toggleTheme = () => setTheme(prev => prev === 'dark' ? 'light' : prev === 'light' ? 'system' : 'dark');
@@ -491,7 +523,7 @@ export function usePortfolio() {
     };
   }, [allHoldings, holdings, rate, transactions, fxRates, historicalFx, selectedAccountId]);
 
-  const netContributionsUSD = externalContributions(transactions, holdings, historicalFx);
+  const netContributionsUSD = useMemo(() => externalContributions(transactions, holdings, historicalFx), [transactions, holdings, historicalFx]);
   const performance = useMemo(() => performanceHistory(snapshots, transactions, holdings, historicalFx), [snapshots, transactions, holdings, historicalFx]);
 
   const currentSnapshotTracked = snapshots.some(s => s.date === today() && Number.isFinite(s.netContributionsUSD));
@@ -1218,6 +1250,6 @@ export function usePortfolio() {
     refreshMarketData,
     marketStatus, uiMessage, dismissMessage, storageError, storageBlocked, lastSavedAt, resumeSaving: () => { if (window.confirm('Replace unreadable browser data with the recovered portfolio shown here? Export a backup first.')) setStorageBlocked(false); },
     pendingImport, confirmImport, cancelImport: () => setPendingImport(null), fxRates, fxData, fxError, historicalFx,
-    historicalEstimated: transactions.some(t => !t.fxRate && (t.currency || holdings.find(h => h.id === t.holdingId)?.currency || detectSymbolCurrency(t.symbol)) !== 'USD' && !historicalFx[t.date])
+    historicalEstimated: useMemo(() => transactions.some(t => !t.fxRate && (t.currency || holdings.find(h => h.id === t.holdingId)?.currency || detectSymbolCurrency(t.symbol)) !== 'USD' && !historicalFx[t.date]), [transactions, holdings, historicalFx])
   };
 }

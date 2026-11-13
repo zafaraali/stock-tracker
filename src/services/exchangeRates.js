@@ -3,8 +3,13 @@ import { CURRENCY_RATES } from '../data/mockData';
 export const fallbackRates = Object.fromEntries(Object.entries(CURRENCY_RATES).map(([code, value]) => [code, value.rate]));
 export const validRates = data => data && /^\d{4}-\d{2}-\d{2}$/.test(data.date) && Object.keys(fallbackRates).every(code => Number.isFinite(data.rates?.[code]) && data.rates[code] > 0) && data.rates.USD === 1;
 const FX_API_URL = import.meta.env.VITE_FX_API_URL || '/api/fx-rates';
+const ratesCache = new Map();
 
 export async function fetchExchangeRates(date = 'latest', signal) {
+  const cacheKey = date;
+  const cached = ratesCache.get(cacheKey);
+  const ttl = date === 'latest' ? 15 * 60 * 1000 : 24 * 60 * 60 * 1000;
+  if (cached && Date.now() - cached.savedAt < ttl) return cached.value;
   // Include the preceding week so weekends and holidays use the last published rate.
   const start = date === 'latest' ? null : new Date(`${date}T00:00:00Z`);
   if (start) start.setUTCDate(start.getUTCDate() - 7);
@@ -17,5 +22,6 @@ export async function fetchExchangeRates(date = 'latest', signal) {
   const result = { date: ordered.at(-1)?.date, fetchedAt: new Date().toISOString(), rates: { USD: 1 } };
   for (const row of ordered) result.rates[row.quote] = row.rate;
   if (!validRates(result)) throw new Error('Invalid exchange rates');
+  ratesCache.set(cacheKey, { value: result, savedAt: Date.now() });
   return result;
 }
