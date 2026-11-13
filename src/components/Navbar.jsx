@@ -13,7 +13,7 @@ import { OverviewControls } from './OverviewControls';
 
 const OPTIONAL_TABS = [['history', 'Transactions'], ['watchlist', 'Watchlist'], ['dividends', 'Dividends'], ['performance', 'Performance'], ['rebalance', 'Rebalance']];
 
-export function Navbar({ viewDensity = 'default', setViewDensity, privateMode, onTogglePrivacy, activeTab, setActiveTab, currency, setCurrency, theme, toggleTheme, accent, setAccent, overviewLayout, setOverviewLayout, exportJSON, exportEncryptedJSON, backupPayload, restoreJSONBackup, exportCSV, exportAllCSV, importJSON, importEncryptedJSON, importCSV, accounts = [], selectedAccountId, setSelectedAccountId, addAccount, renameAccount, deleteAccount, onDeleteAllData, refreshMarketData, marketStatus }) {
+export function Navbar({ viewDensity = 'default', setViewDensity, privateMode, onTogglePrivacy, activeTab, setActiveTab, currency, setCurrency, theme, themePreference = 'dark', setThemePreference, toggleTheme, accent, setAccent, overviewLayout, setOverviewLayout, exportJSON, exportEncryptedJSON, backupPayload, restoreJSONBackup, exportCSV, exportAllCSV, importJSON, importEncryptedJSON, importCSV, accounts = [], selectedAccountId, setSelectedAccountId, addAccount, renameAccount, deleteAccount, onDeleteAllData, refreshMarketData, marketStatus }) {
   const [hiddenTabs, setHiddenTabs] = useState(() => {
     try {
       const saved = JSON.parse(localStorage.getItem('apex-hidden-tabs'));
@@ -317,7 +317,7 @@ export function Navbar({ viewDensity = 'default', setViewDensity, privateMode, o
                   if (!visible && activeTab === key) setActiveTab('dashboard');
                 }} /></label>)}
               </fieldset>
-              <div className="settings-theme-control"><div><strong>Theme</strong><p className="supporting-text">Current theme: {isLight ? 'Light' : 'Dark'}</p></div><button type="button" className="secondary-button" onClick={toggleTheme}>Switch to {isLight ? 'dark' : 'light'} mode</button></div>
+              <label className="settings-theme-control"><span><strong className="block">Theme</strong><small className="supporting-text">Current appearance: {themePreference === 'system' ? `Match device (${isLight ? 'Light' : 'Dark'})` : isLight ? 'Light' : 'Dark'}</small></span><select aria-label="Theme" value={themePreference} onChange={event => setThemePreference?.(event.target.value)} className="field mt-0 w-auto"><option value="system">Match device</option><option value="light">Light</option><option value="dark">Dark</option></select></label>
               <div className="settings-theme-control settings-overview-control"><div><strong>Portfolio overview</strong><p className="supporting-text">Choose which overview sections are shown and how they are ordered.</p></div><OverviewControls layout={overviewLayout} onChange={setOverviewLayout} /></div>
             </section>
             <section id="settings-lists-panel" aria-labelledby="settings-lists-title" className="settings-category-panel" hidden={settingsSection !== 'lists'}>

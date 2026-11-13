@@ -64,7 +64,7 @@ export function validateBackup(data) {
   if (data.currency !== undefined && !Object.hasOwn(CURRENCY_RATES, data.currency)) return 'Unsupported display currency.';
   if (data.accounts !== undefined && !validAccounts(data.accounts)) return 'Backup contains invalid accounts.';
   if (data.selectedAccountId !== undefined && data.accounts !== undefined && data.selectedAccountId !== '__combined__' && !data.accounts.some(account => account.id === data.selectedAccountId)) return 'Backup selects a missing account.';
-  if (data.theme !== undefined && !['light', 'dark'].includes(data.theme)) return 'Invalid theme.';
+  if (data.theme !== undefined && !['light', 'dark', 'system'].includes(data.theme)) return 'Invalid theme.';
   if (data.fxData !== undefined && !(data.fxData?.date === null && Object.keys(CURRENCY_RATES).every(code => positive(data.fxData.rates?.[code]))) && !validRates(data.fxData)) return 'Invalid exchange rate data.';
   if (data.historicalFx !== undefined && (!data.historicalFx || typeof data.historicalFx !== 'object' || Array.isArray(data.historicalFx) || !Object.entries(data.historicalFx).every(([date, rates]) => validDate(date) && validRates(rates)))) return 'Invalid historical exchange rate data.';
   if (data.transactions.some(item => item.total !== undefined && (!number(item.total) || (['BUY', 'SELL'].includes(item.type) && Math.abs(item.total - item.shares * item.price) > Math.max(0.01, item.total * 1e-10))))) return 'A transaction total does not match its quantity and price.';

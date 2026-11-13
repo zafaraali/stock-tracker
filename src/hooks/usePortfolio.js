@@ -169,7 +169,7 @@ export function loadSavedPortfolio(storage) {
       const code = storage.getItem('st_pro_currency');
       const theme = storage.getItem('st_pro_theme');
       if (Object.hasOwn(CURRENCY_RATES, code)) legacy.currency = code;
-      if (['dark', 'light'].includes(theme)) legacy.theme = theme;
+      if (['dark', 'light', 'system'].includes(theme)) legacy.theme = theme;
     } catch { failed('Browser storage is unavailable.'); }
     legacy.accounts = [DEFAULT_ACCOUNT];
     legacy.holdings = assignDefaultAccount(legacy.holdings);
@@ -208,7 +208,17 @@ export function usePortfolio() {
   const [historyError, setHistoryError] = useState('');
   const refreshHistoricalData = useCallback(() => setHistoryRevision(value => value + 1), []);
   const [currency, setCurrency] = useState(recovery.data.currency || 'CAD');
-  const [theme, setTheme] = useState(['light', 'dark'].includes(recovery.data.theme) ? recovery.data.theme : 'dark');
+  const [theme, setTheme] = useState(['light', 'dark', 'system'].includes(recovery.data.theme) ? recovery.data.theme : 'dark');
+  const [systemTheme, setSystemTheme] = useState(() => typeof window !== 'undefined' && window.matchMedia?.('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return undefined;
+    const media = window.matchMedia('(prefers-color-scheme: light)');
+    const update = event => setSystemTheme(event.matches ? 'light' : 'dark');
+    setSystemTheme(media.matches ? 'light' : 'dark');
+    media.addEventListener?.('change', update);
+    return () => media.removeEventListener?.('change', update);
+  }, []);
+  const effectiveTheme = theme === 'system' ? systemTheme : theme;
   const [accent, setAccent] = useState(() => Object.hasOwn(ACCENT_THEMES, recovery.data.accent) ? recovery.data.accent : 'green');
   const [fxData, setFxData] = useState(() => readJSON(browserStorage, 'st_pro_fx', { date: null, rates: fallbackRates }, validRates));
   const [historicalFx, setHistoricalFx] = useState(() => readJSON(browserStorage, 'st_pro_fx_history', {}, value => value && typeof value === 'object' && Object.values(value).every(validRates)));
@@ -351,9 +361,7 @@ export function usePortfolio() {
     return () => window.clearInterval(interval);
   }, [refreshMarketData, mode]);
 
-  const toggleTheme = () => {
-    setTheme(prev => prev === 'dark' ? 'light' : 'dark');
-  };
+  const toggleTheme = () => setTheme(prev => prev === 'dark' ? 'light' : prev === 'light' ? 'system' : 'dark');
   const dismissMessage = useCallback(() => setUiMessage(''), []);
 
   const rate = fxRates[currency] || 1.0;
@@ -541,7 +549,7 @@ export function usePortfolio() {
       if (entry.snapshots) setSnapshots(restoredSnapshots);
       else if (entry.holdings.length || entry.transactions.length) resetPerformance();
       if (entry.currency && Object.hasOwn(CURRENCY_RATES, entry.currency)) setCurrency(entry.currency);
-      if (entry.theme && ['light', 'dark'].includes(entry.theme)) setTheme(entry.theme);
+      if (entry.theme && ['light', 'dark', 'system'].includes(entry.theme)) setTheme(entry.theme);
       if (entry.accent && Object.hasOwn(ACCENT_THEMES, entry.accent)) setAccent(entry.accent);
       if (entry.mode && ['personal', 'demo'].includes(entry.mode)) setMode(entry.mode);
       setTrash(previous => previous.filter(item => item.id !== id));
@@ -1174,6 +1182,8 @@ export function usePortfolio() {
     currency,
     setCurrency,
     theme,
+    effectiveTheme,
+    setThemePreference: setTheme,
     toggleTheme,
     accent,
     setAccent,

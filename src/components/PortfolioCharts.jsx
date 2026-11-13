@@ -96,11 +96,11 @@ export function PortfolioCharts({ performance, backtestHistory = [], summary, sn
       <>
       {/* Performance Comparison Chart */}
       <div className={`${cardBg} chart-card border p-5 rounded-2xl lg:col-span-2 transition-colors`}>
-        <div className="flex flex-wrap items-center justify-between gap-3 mb-4"><h3 className={`text-xs font-semibold ${headingColor} tracking-wider uppercase`}>Estimated Performance vs VOO</h3><div className="chart-range flex gap-1" role="group" aria-label="Chart time range">{['YTD', '1M', '3M', '6M', '1Y', '3Y', '5Y'].map(option => <button key={option} className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold ${range === option ? 'bg-indigo-600 text-white' : isLight ? 'bg-slate-100 text-slate-600' : 'bg-slate-800 text-slate-400'}`} onClick={() => setRange(option)}>{option}</button>)}</div></div>
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-4"><h3 className={`text-xs font-semibold ${headingColor} tracking-wider uppercase`}>Estimated Performance vs VOO</h3><div className="chart-range flex gap-1" role="group" aria-label="Chart time range">{['YTD', '1M', '3M', '6M', '1Y', '3Y', '5Y'].map(option => <button type="button" key={option} aria-pressed={range === option} className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold ${range === option ? 'bg-indigo-600 text-white' : isLight ? 'bg-slate-100 text-slate-600' : 'bg-slate-800 text-slate-400'}`} onClick={() => setRange(option)}>{option}</button>)}</div></div>
         <p className="text-sm text-slate-400 mb-4">Backtested return for your current holdings versus VOO, the Vanguard S&amp;P 500 ETF. Maximum history is five years.</p>
         <div className="h-64 w-full">
           {comparisonHistory.length === 0 ? (
-            <div className="h-full flex items-center justify-center text-slate-500 text-sm text-center">
+            <div className="chart-empty-state h-full flex items-center justify-center text-slate-500 text-sm text-center" role="status">
               VOO performance data is not available yet.
             </div>
           ) : (
@@ -140,7 +140,7 @@ export function PortfolioCharts({ performance, backtestHistory = [], summary, sn
         {assetPieData.length > 0 && <p className="chart-summary">{assetPieData[0].name === 'Cash' ? 'Largest allocation' : 'Largest holding'}: <strong>{assetPieData[0].name}</strong> · {formatPercent(assetPieData[0].value / assetTotal * 100)} of portfolio</p>}
         <div className="chart-selection-slot no-print" aria-live="polite">{selectedAsset && <button className="secondary-button" onClick={() => { setSelectedAsset(null); setHoverAsset(null); }}>Pinned: {selectedAsset} · Clear</button>}</div>
         {assetPieData.length === 0 ? (
-          <div className="h-64 flex items-center justify-center text-slate-500 text-sm">Add a holding to see how your portfolio is allocated.</div>
+          <div className="chart-empty-state h-64 flex items-center justify-center text-slate-500 text-sm text-center px-6" role="status">Add a holding to see how your portfolio is allocated.</div>
         ) : (
           <div className="space-y-2">
             <div className="chart-donut-wrap h-80 w-full flex items-center">

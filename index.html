@@ -18,12 +18,20 @@
       .launch-name{font-size:23px;font-weight:700;letter-spacing:-.5px}.launch-name span{color:#84c9a5}
       .launch-caption{margin:0;color:#94a3b8;font-size:12px;letter-spacing:.08em}
       .launch-track{width:120px;height:3px;border-radius:5px;background:#1e293b;overflow:hidden}.launch-track:after{content:'';display:block;width:45%;height:100%;border-radius:5px;background:#84c9a5;animation:launch-travel 1.2s ease-in-out infinite}
+      .loading-light .launch-screen{background:#f8fafc;color:#0f172a}.loading-light .launch-caption{color:#64748b}.loading-light .launch-track{background:#e2e8f0}
       @keyframes launch-draw{0%{stroke-dashoffset:110}55%,100%{stroke-dashoffset:0}}
       @keyframes launch-breathe{50%{box-shadow:0 0 75px #2f6f5270;transform:translateY(-3px)}}
       @keyframes launch-orbit{50%{transform:scale(1.08);opacity:.4}}
       @keyframes launch-travel{from{transform:translateX(-110%)}to{transform:translateX(330%)}}
       @media(prefers-reduced-motion:reduce){.launch-screen{transition:none}.launch-mark,.launch-mark:before,.launch-mark path,.launch-track:after{animation:none}.launch-mark path{stroke-dashoffset:0}}
     </style>
+    <script>
+      try {
+        const saved = JSON.parse(localStorage.getItem('st_pro_data_v2'));
+        const deviceLight = window.matchMedia?.('(prefers-color-scheme: light)').matches;
+        if (saved?.theme === 'light' || (saved?.theme === 'system' && deviceLight)) document.documentElement.classList.add('loading-light');
+      } catch {}
+    </script>
     <title>ApexFinance</title>
   </head>
   <body class="bg-slate-950 text-slate-100 antialiased">

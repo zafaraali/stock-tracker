@@ -89,6 +89,8 @@ export default function App() {
     currency,
     setCurrency,
     theme,
+    effectiveTheme,
+    setThemePreference,
     toggleTheme,
     accent,
     setAccent,
@@ -123,7 +125,12 @@ export default function App() {
     const icon = document.querySelector('link[rel="icon"]');
     if (icon) icon.href = `data:image/svg+xml,${encodeURIComponent(svg)}`;
   }, [accent]);
-  const isLight = theme === 'light';
+  const isLight = effectiveTheme === 'light';
+  useEffect(() => {
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.content = isLight ? '#f8fafc' : '#0f172a';
+    document.documentElement.style.colorScheme = isLight ? 'light' : 'dark';
+  }, [isLight]);
   const isTotalPositive = portfolioSummary.totalGainLoss >= 0;
   useEffect(() => {
     if (!uiMessage) return undefined;
@@ -187,7 +194,9 @@ export default function App() {
         setActiveTab={changeTab}
         currency={currency}
         setCurrency={setCurrency}
-        theme={theme}
+        theme={effectiveTheme}
+        themePreference={theme}
+        setThemePreference={setThemePreference}
         toggleTheme={toggleTheme}
         viewDensity={viewDensity}
         setViewDensity={setViewDensity}
@@ -309,7 +318,7 @@ export default function App() {
         </div>
         </section>),
             cash: (<CashPanel summary={portfolioSummary} currencyCode={currency} hasCashRecords={transactions.some(entry => ['DEPOSIT', 'WITHDRAW'].includes(entry.type) || entry.cashImpact === true)} onRecord={type => { setTransactionIntent({ type, currency, id: Date.now() }); changeTab('history'); }} onViewTransactions={() => changeTab('history')} />),
-            charts: holdings.length > 0 ? (<PortfolioCharts performance={performance} backtestHistory={backtestHistory} summary={portfolioSummary} snapshots={snapshots} symbol={symbol} currencyCode={currency} rate={rate} theme={theme} compact={viewDensity === 'compact'} showPerformanceChart={false} />) : null,
+            charts: holdings.length > 0 ? (<PortfolioCharts performance={performance} backtestHistory={backtestHistory} summary={portfolioSummary} snapshots={snapshots} symbol={symbol} currencyCode={currency} rate={rate} theme={effectiveTheme} compact={viewDensity === 'compact'} showPerformanceChart={false} />) : null,
             insights: holdings.length > 0 ? (<PortfolioInsights summary={portfolioSummary} currencyCode={currency} />) : null,
             holdings: holdings.length > 0 ? (<DashboardCard cardId="top-holdings" label="Top holdings" className="overview-panel mt-6" aria-labelledby="top-holdings-title">
               <header className="flex items-center justify-between flex-wrap gap-3 mb-4">
@@ -335,7 +344,7 @@ export default function App() {
             reviewSymbol={reviewSymbol}
             currencyCode={currency}
             customCategories={customCategories}
-            theme={theme}
+            theme={effectiveTheme}
             onAddHolding={addHolding}
             onUpdateHoldingPrice={updateHoldingPrice}
             onUpdateHolding={updateHolding}
@@ -354,7 +363,7 @@ export default function App() {
             currencyCode={currency}
             customCategories={customCategories}
             rate={rate}
-            theme={theme}
+            theme={effectiveTheme}
             onAddWatchlistItem={addWatchlistItem}
             onUpdateWatchlistPrice={updateWatchlistPrice}
             onRemoveWatchlistItem={id => askToConfirm('Remove from watchlist?', 'This idea will move to Recently deleted and can be restored later.', () => removeWatchlistItem(id))}
@@ -387,8 +396,8 @@ export default function App() {
           />
         )}
 
-        {activeTab === 'dividends' && <DividendView onManageHoldings={() => changeTab('holdings')} onRecordDividend={() => { setTransactionIntent({ type: 'DIVIDEND', id: Date.now() }); changeTab('history'); }} summary={portfolioSummary} transactions={transactions} currencyCode={currency} theme={theme} />}
-        {activeTab === 'performance' && <PerformanceView performance={performance} transactions={transactions} netContributionsUSD={netContributionsUSD} summary={portfolioSummary} backtestHistory={backtestHistory} currencyCode={currency} rate={rate} theme={theme} historyLoading={historyLoading} historyError={historyError} onRetryHistory={refreshHistoricalData} onManageHoldings={() => changeTab('holdings')} onRecordDeposit={() => { setTransactionIntent({ type: 'DEPOSIT', id: Date.now() }); changeTab('history'); }} />}
+        {activeTab === 'dividends' && <DividendView onManageHoldings={() => changeTab('holdings')} onRecordDividend={() => { setTransactionIntent({ type: 'DIVIDEND', id: Date.now() }); changeTab('history'); }} summary={portfolioSummary} transactions={transactions} currencyCode={currency} theme={effectiveTheme} />}
+        {activeTab === 'performance' && <PerformanceView performance={performance} transactions={transactions} netContributionsUSD={netContributionsUSD} summary={portfolioSummary} backtestHistory={backtestHistory} currencyCode={currency} rate={rate} theme={effectiveTheme} historyLoading={historyLoading} historyError={historyError} onRetryHistory={refreshHistoricalData} onManageHoldings={() => changeTab('holdings')} onRecordDeposit={() => { setTransactionIntent({ type: 'DEPOSIT', id: Date.now() }); changeTab('history'); }} />}
         </Suspense>
         </div>
         </>}
