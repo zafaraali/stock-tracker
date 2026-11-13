@@ -201,6 +201,11 @@ input, select, textarea { max-width: 100%; }
 main h1 { font-size: clamp(1.5rem, 3vw, 2rem); font-weight: 700; letter-spacing: -.03em; }
 .supporting-text { color: var(--muted); font-size: .8125rem; line-height: 1.5; margin-top: .2rem; }
 .top-holdings { font-variant-numeric: tabular-nums; }
+.top-holdings li:first-child { border-top: 0; padding-top: .25rem; }
+.top-holdings li > div:first-child { min-width: 0; }
+.top-holding-symbol { display: flex; align-items: center; flex-wrap: wrap; gap: .4rem; min-width: 0; }
+.top-holding-symbol strong { line-height: 1.35; }
+.top-holdings li > div:first-child > .supporting-text { margin-top: .4rem; padding-left: .1rem; }
 .top-holdings li { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: .85rem 0; border-top: 1px solid var(--border); font-size: .875rem; }
 .navbar-current { color: var(--muted); font-size: .8125rem; margin-left: auto; }
 .desktop-controls-toggle { display: none; }
@@ -240,6 +245,15 @@ table { font-variant-numeric: tabular-nums; }
 .financial-table td[data-label="Buy / Current Price"] > .flex { justify-content: flex-end; }
 .financial-table td[data-label="Symbol"] > .flex { justify-content: flex-start; }
 .financial-table th[data-label="Symbol"], .financial-table th[data-label="Type"], .financial-table th[data-label="Notes / Thesis"] { text-align: left; }
+.holdings-desktop-table .financial-table { table-layout: fixed; }
+.holdings-desktop-table .financial-table th:nth-child(1), .holdings-desktop-table .financial-table td:nth-child(1) { width: 24%; }
+.holdings-desktop-table .financial-table th:nth-child(2), .holdings-desktop-table .financial-table td:nth-child(2) { width: 8%; }
+.holdings-desktop-table .financial-table th:nth-child(3), .holdings-desktop-table .financial-table td:nth-child(3) { width: 15%; }
+.holdings-desktop-table .financial-table th:nth-child(4), .holdings-desktop-table .financial-table td:nth-child(4) { width: 16%; }
+.holdings-desktop-table .financial-table th:nth-child(5), .holdings-desktop-table .financial-table td:nth-child(5) { width: 12%; }
+.holdings-desktop-table .financial-table th:nth-child(6), .holdings-desktop-table .financial-table td:nth-child(6) { width: 15%; }
+.holdings-desktop-table .financial-table th:nth-child(7), .holdings-desktop-table .financial-table td:nth-child(7) { width: 10%; }
+.holdings-desktop-table .financial-table td { overflow-wrap: anywhere; }
 .theme-light .bg-slate-800, .theme-light .bg-slate-800\/40 { background-color: var(--surface-raised); }
 .theme-light .bg-slate-800\/60 { background-color: var(--surface-raised); }
 .theme-light .text-slate-500, .theme-light .text-slate-400 { color: var(--muted); }
@@ -439,6 +453,8 @@ input[type=checkbox] { width: 20px; height: 20px; min-height: 20px; flex-shrink:
 @media (max-width: 639px) {
   .filter-panel-content > .flex, .watchlist-filter-controls { width: 100%; }
   .filter-panel input[type="search"] { flex: 1 1 100%; min-width: 0; max-width: 100%; }
+  .filter-panel-content > .flex { display: grid; grid-template-columns: minmax(0, 1fr); }
+  .filter-panel-content > .flex > :is(input, select, button) { width: 100%; min-width: 0; }
   .watchlist-banner-actions { width: auto; }
 }
 .currency-mode { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; font-size: .8125rem; color: var(--muted); }

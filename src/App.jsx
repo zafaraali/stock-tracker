@@ -318,7 +318,7 @@ export default function App() {
               </header>
               <ul className="top-holdings">
                 {[...portfolioSummary.items].sort((a, b) => b.totalValue - a.totalValue || a.symbol.localeCompare(b.symbol) || a.id.localeCompare(b.id)).slice(0, 5).map(item => { const display = holdingDisplay(item, valueCurrencyMode, currency); return <li key={item.id}>
-                  <div className="min-w-0"><strong>{item.symbol}</strong><TickerLinks symbol={item.symbol} currency={item.isCash ? item.currency : undefined} /><p className="supporting-text truncate">{item.name}</p></div>
+                  <div className="min-w-0"><div className="top-holding-symbol"><strong>{item.symbol}</strong><TickerLinks symbol={item.symbol} currency={item.isCash ? item.currency : undefined} /></div><p className="supporting-text truncate">{item.name}</p></div>
                   <div className="text-right shrink-0"><strong><Money amount={formatMoney(display.value, display.currency)} /></strong><p className={display.gain === 0 ? 'text-slate-400 text-sm' : display.gain > 0 ? 'text-emerald-500 text-sm' : 'text-rose-500 text-sm'}><Money amount={formatMoney(display.gain, display.currency, { signed: true })} /> <span className="text-xs">({formatPercent(display.percent)})</span></p></div>
                 </li>; })}
               </ul>
