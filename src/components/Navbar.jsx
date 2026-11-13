@@ -5,7 +5,7 @@ import { requestBackupPassword } from './BackupPasswordDialog';
 import { withBackupProgress } from '../services/backupProgress';
 import { BackupReminder, useBackupReminder } from './BackupReminder';
 import { recordBackup } from '../services/backupReminder';
-import { TrendingUp, PieChart as PieIcon, ArrowDownUp, Sliders, History, Eye, EyeOff, Download, Upload, Sun, Moon, Trash2, RefreshCw, Settings, CalendarDays, Activity, Menu, X } from 'lucide-react';
+import { TrendingUp, PieChart as PieIcon, ArrowDownUp, Sliders, History, Eye, EyeOff, Download, Upload, Sun, Moon, Monitor, Trash2, RefreshCw, Settings, CalendarDays, Activity, Menu, X } from 'lucide-react';
 import { CURRENCY_RATES } from '../data/mockData';
 import { downloadGoogleDriveBackup, downloadLatestGoogleDriveBackup, ENCRYPTED_DRIVE_BACKUP_PREFIX, isGoogleDriveConfigured, uploadGoogleDriveBackup } from '../services/googleDrive';
 import { decryptBackup, encryptBackup } from '../services/encryptedBackup';
@@ -13,7 +13,7 @@ import { OverviewControls } from './OverviewControls';
 
 const OPTIONAL_TABS = [['history', 'Transactions'], ['watchlist', 'Watchlist'], ['dividends', 'Dividends'], ['performance', 'Performance'], ['rebalance', 'Rebalance']];
 
-export function Navbar({ viewDensity = 'default', setViewDensity, privateMode, onTogglePrivacy, activeTab, setActiveTab, currency, setCurrency, theme, toggleTheme, accent, setAccent, overviewLayout, setOverviewLayout, exportJSON, exportEncryptedJSON, backupPayload, restoreJSONBackup, exportCSV, exportAllCSV, importJSON, importEncryptedJSON, importCSV, accounts = [], selectedAccountId, setSelectedAccountId, addAccount, renameAccount, deleteAccount, onDeleteAllData, refreshMarketData, marketStatus }) {
+export function Navbar({ viewDensity = 'default', setViewDensity, reducedMotionPreference = 'system', setReducedMotionPreference, privateMode, onTogglePrivacy, activeTab, setActiveTab, currency, setCurrency, theme, themePreference = 'dark', setThemePreference, toggleTheme, accent, setAccent, overviewLayout, setOverviewLayout, exportJSON, exportEncryptedJSON, backupPayload, restoreJSONBackup, exportCSV, exportAllCSV, importJSON, importEncryptedJSON, importCSV, accounts = [], selectedAccountId, setSelectedAccountId, addAccount, renameAccount, deleteAccount, onDeleteAllData, refreshMarketData, marketStatus }) {
   const [hiddenTabs, setHiddenTabs] = useState(() => {
     try {
       const saved = JSON.parse(localStorage.getItem('apex-hidden-tabs'));
@@ -32,6 +32,8 @@ export function Navbar({ viewDensity = 'default', setViewDensity, privateMode, o
   const [driveBusy, setDriveBusy] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [desktopControlsOpen, setDesktopControlsOpen] = useState(true);
+  const [themePulse, setThemePulse] = useState(false);
+  const [refreshPulse, setRefreshPulse] = useState(false);
   useEffect(() => {
     const restore = event => {
       if (Object.hasOwn(event.detail, 'apex-hidden-tabs')) setHiddenTabs(event.detail['apex-hidden-tabs']);
@@ -106,6 +108,18 @@ export function Navbar({ viewDensity = 'default', setViewDensity, privateMode, o
     await installPrompt.prompt();
     const { outcome } = await installPrompt.userChoice;
     if (outcome === 'accepted' || outcome === 'dismissed') setInstallPrompt(null);
+  };
+
+  const handleThemeToggle = () => {
+    setThemePulse(true);
+    toggleTheme();
+    window.setTimeout(() => setThemePulse(false), 420);
+  };
+
+  const handleRefresh = () => {
+    setRefreshPulse(true);
+    refreshMarketData();
+    window.setTimeout(() => setRefreshPulse(false), 520);
   };
 
   const backupToDrive = async () => {
@@ -194,21 +208,21 @@ export function Navbar({ viewDensity = 'default', setViewDensity, privateMode, o
 
           {/* Theme Toggle Button */}
           <button
-            onClick={refreshMarketData}
+            onClick={handleRefresh}
             disabled={marketStatus?.loading}
             title="Refresh live market prices"
             aria-label="Refresh live market prices"
-            className={`p-2 rounded-xl text-xs font-medium transition border ${isLight ? 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-300' : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700'} disabled:opacity-50`}
+            className={`refresh-market-button p-2 rounded-xl text-xs font-medium transition border ${refreshPulse ? 'refresh-pulse' : ''} ${isLight ? 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-300' : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700'} disabled:opacity-50`}
           >
             <RefreshCw className={`w-4 h-4 ${marketStatus?.loading ? 'animate-spin' : ''}`} />
           </button>
           <button
-            aria-label={`Switch to ${isLight ? 'dark' : 'light'} mode`}
-            onClick={toggleTheme}
-            title={`Switch to ${isLight ? 'Dark' : 'Light'} Mode`}
-            className={`p-2 rounded-xl text-xs font-medium transition border ${isLight ? 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-300' : 'bg-slate-800 hover:bg-slate-700 text-amber-400 border-slate-700'}`}
+            aria-label={`Switch to ${themePreference === 'system' ? 'dark' : isLight ? 'dark' : 'Match device'} mode`}
+            onClick={handleThemeToggle}
+            title={`Switch to ${themePreference === 'system' ? 'Dark' : isLight ? 'Dark' : 'Match device'} Mode`}
+            className={`theme-toggle-button p-2 rounded-xl text-xs font-medium transition border ${themePulse ? 'theme-toggle-pulse' : ''} ${isLight ? 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-300' : 'bg-slate-800 hover:bg-slate-700 text-amber-400 border-slate-700'}`}
           >
-            {isLight ? <Moon className="w-4 h-4 text-slate-700" /> : <Sun className="w-4 h-4 text-amber-400" />}
+            <span className="theme-toggle-icon inline-flex">{themePreference === 'system' ? <Monitor className="w-5 h-5 text-indigo-400" /> : isLight ? <Sun className="w-5 h-5 text-amber-400" /> : <Moon className="w-5 h-5 text-slate-300" />}</span>
           </button>
 
           {installPrompt && <button aria-label="Install ApexFinance app" title="Install ApexFinance app" onClick={installApp} className="icon-button"><Download className="w-5 h-5" /></button>}
@@ -309,6 +323,7 @@ export function Navbar({ viewDensity = 'default', setViewDensity, privateMode, o
               <h3 id="settings-appearance-title" className="section-title">Appearance</h3>
               <label className="flex items-center justify-between gap-4 rounded-xl border border-slate-800 p-3 text-sm"><span><strong className="block">Accent color</strong><small className="text-slate-500">Choose the highlight color used throughout the app.</small></span><select aria-label="Accent color" value={accent} onChange={event => setAccent(event.target.value)} className="field mt-0 w-auto"><option value="green">Green (default)</option><option value="red">Red</option><option value="orange">Orange</option><option value="yellow">Yellow</option><option value="blue">Blue</option><option value="indigo">Indigo</option><option value="violet">Violet</option></select></label>
               <label className="settings-theme-control"><span><strong className="block">View density</strong><small className="text-slate-500">Compact reduces vertical spacing so more fits on screen.</small></span><select aria-label="View density" value={viewDensity} onChange={event => setViewDensity(event.target.value)} className="field mt-0 w-auto"><option value="default">Default</option><option value="compact">Compact</option></select></label>
+              <label className="settings-theme-control"><span><strong className="block">Motion</strong><small className="supporting-text">Control interface animations. System accessibility preferences are always respected.</small></span><select aria-label="Motion" value={reducedMotionPreference === 'system' ? 'off' : reducedMotionPreference} onChange={event => setReducedMotionPreference?.(event.target.value)} className="field mt-0 w-auto"><option value="off">Animations on</option><option value="on">Reduce motion</option></select></label>
               <fieldset className="settings-tab-options"><legend className="font-semibold">Navigation tabs</legend><p className="supporting-text">Choose which tabs appear in the top bar and mobile menu.</p>
                 {['Dashboard', 'Holdings'].map(label => <label key={label} className="settings-tab-option"><span>{label}<small>Always shown</small></span><input type="checkbox" checked disabled aria-label={`Show ${label} tab`} /></label>)}
                 {OPTIONAL_TABS.map(([key, label]) => <label key={key} className="settings-tab-option"><span>{label}</span><input type="checkbox" aria-label={`Show ${label} tab`} checked={!hiddenTabs.includes(key)} onChange={event => {
@@ -317,7 +332,7 @@ export function Navbar({ viewDensity = 'default', setViewDensity, privateMode, o
                   if (!visible && activeTab === key) setActiveTab('dashboard');
                 }} /></label>)}
               </fieldset>
-              <div className="settings-theme-control"><div><strong>Theme</strong><p className="supporting-text">Current theme: {isLight ? 'Light' : 'Dark'}</p></div><button type="button" className="secondary-button" onClick={toggleTheme}>Switch to {isLight ? 'dark' : 'light'} mode</button></div>
+              <label className="settings-theme-control"><span><strong className="block">Theme</strong><small className="supporting-text">Current appearance: {themePreference === 'system' ? `Match device (${isLight ? 'Light' : 'Dark'})` : isLight ? 'Light' : 'Dark'}</small></span><select aria-label="Theme" value={themePreference} onChange={event => setThemePreference?.(event.target.value)} className="field mt-0 w-auto"><option value="system">Match device</option><option value="light">Light</option><option value="dark">Dark</option></select></label>
               <div className="settings-theme-control settings-overview-control"><div><strong>Portfolio overview</strong><p className="supporting-text">Choose which overview sections are shown and how they are ordered.</p></div><OverviewControls layout={overviewLayout} onChange={setOverviewLayout} /></div>
             </section>
             <section id="settings-lists-panel" aria-labelledby="settings-lists-title" className="settings-category-panel" hidden={settingsSection !== 'lists'}>

@@ -19,7 +19,7 @@ import { fetchMarketFundamentals, isTseSymbol, searchMarketSymbols, inferSymbolM
 import { EmptyState } from './EmptyState';
 import { TickerLinks } from './TickerLinks';
 
-export function HoldingsTable({ summary, onBulkUpdate, initialFilter = '', currencyCode = 'USD', customCategories = [], valueCurrencyMode = 'display', setValueCurrencyMode, onAddHolding, onUpdateHolding, onUpdateHoldingPrice, onUpdateHoldingNotes, onRemoveHolding, onExportCSV, onImportCSV }) {
+export function HoldingsTable({ summary, onBulkUpdate, initialFilter = '', reviewSymbol = '', currencyCode = 'USD', customCategories = [], valueCurrencyMode = 'display', setValueCurrencyMode, onAddHolding, onUpdateHolding, onUpdateHoldingPrice, onUpdateHoldingNotes, onRemoveHolding, onExportCSV, onImportCSV }) {
   const [formError, setFormError] = useState('');
   const restoreRow = useRef(null);
   const focusPrice = useRef(false);
@@ -162,6 +162,12 @@ export function HoldingsTable({ summary, onBulkUpdate, initialFilter = '', curre
     setFormError('');
     setIsModalOpen(true);
   };
+
+  useEffect(() => {
+    if (!reviewSymbol) return;
+    const item = summary.items.find(candidate => candidate.symbol?.toUpperCase() === reviewSymbol.toUpperCase());
+    if (item) openEditHolding(item);
+  }, [reviewSymbol, summary.items]);
 
   const handleSaveInlinePrice = (id) => {
     const price = Number(editPriceVal);
