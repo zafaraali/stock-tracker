@@ -55,22 +55,6 @@ export function Navbar({ viewDensity = 'default', setViewDensity, reducedMotionP
   const isLight = theme === 'light';
 
   useEffect(() => {
-    if (!preloadPerformance) return undefined;
-    const preload = event => {
-      if (!event.target.closest?.('a[href="#/performance"]')) return;
-      preloadPerformance();
-      document.removeEventListener('pointerover', preload);
-      document.removeEventListener('focusin', preload);
-    };
-    document.addEventListener('pointerover', preload);
-    document.addEventListener('focusin', preload);
-    return () => {
-      document.removeEventListener('pointerover', preload);
-      document.removeEventListener('focusin', preload);
-    };
-  }, [preloadPerformance]);
-
-  useEffect(() => {
     const closeShortcuts = event => {
       if (shortcutsRef.current?.open && !shortcutsRef.current.contains(event.target)) shortcutsRef.current.open = false;
     };
