@@ -898,6 +898,7 @@ export function usePortfolio() {
     const suffix = scope === 'all' || selectedAccountId === COMBINED_ACCOUNT_ID ? 'all_lists' : (selectedAccount?.name || 'holdings_list').replace(/[^a-z0-9]+/gi, '_').toLowerCase();
     a.download = `apexfinance_holdings_${suffix}_${fileDate()}.csv`;
     a.click();
+    setUiMessage(`CSV export started with ${rows.length} row${rows.length === 1 ? '' : 's'}.`);
   };
   const exportAllCSV = () => exportCSV('all');
 

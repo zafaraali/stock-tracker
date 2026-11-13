@@ -139,6 +139,7 @@ export function WatchlistView({ watchlist, symbol, currencyCode = 'USD', customC
       </div>
 
       <FilterPanel resultCount={visibleItems.length} totalCount={watchlist.length} label="ideas" activeCount={Number(Boolean(filter))} onReset={() => setFilter('')}><div className="watchlist-filter-controls"><input type="search" value={filter} onChange={event => setFilter(event.target.value)} placeholder="Filter watchlist" aria-label="Filter watchlist" className="bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white" /></div></FilterPanel>
+      <div className="view-mobile-summary" aria-label="Watchlist summary"><div><span>Ideas</span><strong>{watchlist.length}</strong></div><div><span>Visible</span><strong>{visibleItems.length}</strong></div><div><span>Near target</span><strong>{visibleItems.filter(item => item.targetBuyPrice > 0 && item.currentPrice <= item.targetBuyPrice).length}</strong></div></div>
 
       {/* Watchlist Table */}
       <div className="bg-slate-900 border border-slate-800/80 rounded-2xl overflow-hidden shadow-xl">

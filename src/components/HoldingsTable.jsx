@@ -28,6 +28,7 @@ export function HoldingsTable({ summary, onBulkUpdate, initialFilter = '', revie
   const [editingId, setEditingId] = useState(null);
   const [editPriceVal, setEditPriceVal] = useState('');
   const [filter, setFilter] = useState(initialFilter);
+  const [staleOnly, setStaleOnly] = useState(false);
   const [sortBy, setSortBy] = usePreference('apex-holdings-sort', 'symbol', ['symbol', 'value', 'gain']);
   const [sortDirection, setSortDirection] = usePreference('apex-holdings-direction', 'asc', ['asc', 'desc']);
   const [pageSize, setPageSize] = usePreference('apex-holdings-page-size', 10, [10, 20, 50, 100]);
@@ -50,9 +51,10 @@ export function HoldingsTable({ summary, onBulkUpdate, initialFilter = '', revie
     , assetType: 'Stock', exchange: ''
   });
   const activeFilter = filter;
+  const staleCount = summary.items.filter(item => !item.priceUpdatedAt || Date.now() - Date.parse(item.priceUpdatedAt) >= 24 * 60 * 60 * 1000).length;
   const visibleItems = [...summary.items]
-    .filter(item => item.symbol.toLowerCase().includes(activeFilter.toLowerCase()) ||
-      (item.name || '').toLowerCase().includes(activeFilter.toLowerCase()))
+    .filter(item => (item.symbol.toLowerCase().includes(activeFilter.toLowerCase()) ||
+      (item.name || '').toLowerCase().includes(activeFilter.toLowerCase())) && (!staleOnly || !item.priceUpdatedAt || Date.now() - Date.parse(item.priceUpdatedAt) >= 24 * 60 * 60 * 1000))
     .sort((a, b) => {
       const comparison = sortBy === 'value' ? a.totalValue - b.totalValue : sortBy === 'gain' ? a.gainLoss - b.gainLoss : a.symbol.localeCompare(b.symbol);
       return (sortDirection === 'asc' ? 1 : -1) * (comparison || a.symbol.localeCompare(b.symbol));
@@ -127,12 +129,32 @@ export function HoldingsTable({ summary, onBulkUpdate, initialFilter = '', revie
     const dividendYield = Number(formData.dividendYield || 0);
     const targetPercent = Number(formData.targetPercent || 0);
     const payload = { ...formData, category, dividendYield: Number(dividendYield.toFixed(2)), avgCost: editingHoldingId && !hasAvgCost ? '' : formData.avgCost };
-    if (!formData.symbol.trim() || !Number.isFinite(shares) || shares <= 0 ||
-      hasInvalidAvgCost ||
-      (hasCurrentPrice && (!Number.isFinite(currentPrice) || currentPrice <= 0)) ||
-      !Number.isFinite(dividendYield) || dividendYield < 0 || dividendYield > 100 ||
-      !Number.isFinite(targetPercent) || targetPercent < 0 || targetPercent > 100 || !category) {
-      setFormError('Enter a ticker and positive shares. Prices are optional and can be filled from live market data.');
+    if (!formData.symbol.trim()) {
+      setFormError('Enter a ticker symbol to continue.');
+      return;
+    }
+    if (!Number.isFinite(shares) || shares <= 0) {
+      setFormError('Shares or quantity must be greater than zero.');
+      return;
+    }
+    if (hasInvalidAvgCost) {
+      setFormError('Average cost must be zero or greater.');
+      return;
+    }
+    if (hasCurrentPrice && (!Number.isFinite(currentPrice) || currentPrice <= 0)) {
+      setFormError('Current price must be greater than zero.');
+      return;
+    }
+    if (!Number.isFinite(dividendYield) || dividendYield < 0 || dividendYield > 100) {
+      setFormError('Dividend yield must be between 0% and 100%.');
+      return;
+    }
+    if (!Number.isFinite(targetPercent) || targetPercent < 0 || targetPercent > 100) {
+      setFormError('Target allocation must be between 0% and 100%.');
+      return;
+    }
+    if (!category) {
+      setFormError('Choose a category or enter a custom category.');
       return;
     }
     const saved = editingHoldingId
@@ -194,7 +216,7 @@ export function HoldingsTable({ summary, onBulkUpdate, initialFilter = '', revie
         <div>
           <h2 className="sr-only">Manage holdings</h2>
           <FormError message={formError} />
-          <p className="text-xs text-slate-400">Manage holdings, allocation targets, and prices</p>
+          <p className="text-xs text-slate-400">Manage holdings, allocation targets, and prices <span className="toolbar-summary">· {summary.items.length} holding{summary.items.length === 1 ? '' : 's'} · <Money amount={formatMoney(summary.totalValue || 0, currencyCode)} /></span></p>
         </div>
         <div className="view-toolbar-actions">
           <details className="holdings-tools"><summary className="secondary-button cursor-pointer">Import / export</summary><div className="holdings-tools-panel"><button className="secondary-button" onClick={onExportCSV}><FileSpreadsheet className="w-4 h-4" /> Export CSV</button>{onImportCSV && <label className="secondary-button relative cursor-pointer">Import CSV<input type="file" accept=".csv,text/csv" aria-label="Choose CSV to import" className="absolute inset-0 opacity-0 w-full" onChange={onImportCSV} /></label>}</div></details>
@@ -208,7 +230,7 @@ export function HoldingsTable({ summary, onBulkUpdate, initialFilter = '', revie
         </div>
       </div>
 
-      <FilterPanel resetLabel="Reset filters & sort" resultCount={visibleItems.length} totalCount={summary.items.length} label="holdings" activeCount={Number(Boolean(filter)) + Number(sortBy !== 'symbol' || sortDirection !== 'asc')} onReset={() => { setFilter(''); setSortBy('symbol'); setSortDirection('asc'); }}>
+      <FilterPanel resetLabel="Reset filters & sort" resultCount={visibleItems.length} totalCount={summary.items.length} label="holdings" activeCount={Number(Boolean(filter)) + Number(staleOnly) + Number(sortBy !== 'symbol' || sortDirection !== 'asc')} onReset={() => { setFilter(''); setStaleOnly(false); setSortBy('symbol'); setSortDirection('asc'); }}>
         <div className="flex items-center gap-2">
           <input
             type="search"
@@ -231,7 +253,9 @@ export function HoldingsTable({ summary, onBulkUpdate, initialFilter = '', revie
           <button className="secondary-button" aria-label="Toggle sort direction" onClick={() => setSortDirection(direction => direction === 'asc' ? 'desc' : 'asc')}>{sortDirection === 'asc' ? '↑ Ascending' : '↓ Descending'}</button>
         </div>
       <div className="holdings-display-controls"><CurrencyMode mode={valueCurrencyMode} onChange={setValueCurrencyMode} currencyCode={currencyCode} /><p className="supporting-text">One currency per holding. Manual price edits use the asset’s native currency.</p></div>
+      <div className="holdings-filter-chips"><button type="button" className={`filter-chip secondary-button ${staleOnly ? 'is-active' : ''}`} aria-pressed={staleOnly} onClick={() => setStaleOnly(value => !value)}>Stale prices{staleCount > 0 ? ` (${staleCount})` : ''}</button></div>
       </FilterPanel>
+      <div className="holdings-mobile-summary" aria-label="Holdings summary"><div><span>Portfolio value</span><strong><Money amount={formatMoney(summary.totalValue || 0, currencyCode)} /></strong></div><div><span>Cash</span><strong><Money amount={formatMoney(summary.cashValue || 0, currencyCode)} /></strong></div><div><span>Holdings</span><strong>{summary.items.length}</strong></div></div>
       {/* Desktop Table */}
       <div className="holdings-desktop-table overflow-x-auto hidden sm:block">
         <table className="financial-table w-full text-left text-sm text-slate-300">
@@ -250,7 +274,7 @@ export function HoldingsTable({ summary, onBulkUpdate, initialFilter = '', revie
             {visibleItems.length === 0 ? (
               <tr>
                 <td colSpan={7}>
-                  <EmptyState compact title={activeFilter ? 'No matching holdings' : 'Your portfolio is empty'} description={activeFilter ? 'Try a different search term.' : 'Add a holding or import a broker CSV to get started.'} actionLabel={!activeFilter ? 'Add holding' : undefined} onAction={!activeFilter ? () => { resetNewHoldingForm(); setIsModalOpen(true); } : undefined} />
+                  <EmptyState compact title={activeFilter || staleOnly ? 'No holdings match these filters' : 'Your portfolio is empty'} description={activeFilter || staleOnly ? `${activeFilter ? `Nothing matches “${activeFilter}”. ` : ''}${staleOnly ? 'No stale prices were found. ' : ''}Clear the filters to see more holdings.` : 'Add a holding or import a broker CSV to get started.'} actionLabel={activeFilter || staleOnly ? 'Clear filters' : 'Add holding'} onAction={activeFilter || staleOnly ? () => { setFilter(''); setStaleOnly(false); } : () => { resetNewHoldingForm(); setIsModalOpen(true); }} />
                   {!activeFilter && onImportCSV && <div className="flex justify-center -mt-4 pb-5"><label className="secondary-button mx-auto cursor-pointer">Import CSV<input aria-label="Import holdings CSV" type="file" accept=".csv,text/csv" className="absolute w-px h-px opacity-0" onChange={onImportCSV} /></label></div>}
                 </td>
               </tr>
@@ -360,7 +384,7 @@ export function HoldingsTable({ summary, onBulkUpdate, initialFilter = '', revie
       <div className="holdings-mobile-cards sm:hidden divide-y divide-slate-800">
         {visibleItems.length === 0 ? (
           <>
-            <EmptyState compact title={activeFilter ? 'No matching holdings' : 'Your portfolio is empty'} description={activeFilter ? 'Try a different search term.' : 'Add a holding or import a broker CSV to get started.'} actionLabel={!activeFilter ? 'Add holding' : undefined} onAction={!activeFilter ? () => { resetNewHoldingForm(); setIsModalOpen(true); } : undefined} />
+            <EmptyState compact title={activeFilter || staleOnly ? 'No holdings match these filters' : 'Your portfolio is empty'} description={activeFilter || staleOnly ? `${activeFilter ? `Nothing matches “${activeFilter}”. ` : ''}${staleOnly ? 'No stale prices were found. ' : ''}Clear the filters to see more holdings.` : 'Add a holding or import a broker CSV to get started.'} actionLabel={activeFilter || staleOnly ? 'Clear filters' : 'Add holding'} onAction={activeFilter || staleOnly ? () => { setFilter(''); setStaleOnly(false); } : () => { resetNewHoldingForm(); setIsModalOpen(true); }} />
             {!activeFilter && onImportCSV && <div className="flex justify-center -mt-4 pb-5"><label className="secondary-button mx-auto relative cursor-pointer">Import CSV<input aria-label="Import holdings CSV" type="file" accept=".csv,text/csv" className="absolute w-px h-px opacity-0" onChange={onImportCSV} /></label></div>}
           </>
         ) : (
@@ -427,7 +451,7 @@ export function HoldingsTable({ summary, onBulkUpdate, initialFilter = '', revie
                   </div>
                 </div>
 
-<div className="supporting-text">Target: {formatPercent(item.targetPercent || 0)} · Dividend yield: {formatPercent(item.dividendYield || 0)}</div>                  <div className="flex items-center gap-1">
+<div className="supporting-text">Target: {formatPercent(item.targetPercent || 0)} · Dividend yield: {formatPercent(item.dividendYield || 0)}</div>                  <div className="holding-mobile-actions flex items-center gap-1">
                     <button onClick={() => openEditHolding(item)} aria-label={`Edit ${item.symbol}`} className="p-2 text-indigo-400"><Edit2 className="w-4 h-4" /></button>
                     <button onClick={() => { setNotesModalId(item.id); setNotesVal(item.notes || ''); }} aria-label={`Edit notes for ${item.symbol}`} className="p-2 text-indigo-400"><FileText className="w-4 h-4" /></button>
                     <button onClick={() => onRemoveHolding(item.id)} aria-label={`Delete ${item.symbol}`} className="danger-button p-2 text-rose-400"><Trash2 className="w-4 h-4" /></button>
@@ -456,6 +480,7 @@ export function HoldingsTable({ summary, onBulkUpdate, initialFilter = '', revie
                     onSelect={handleTickerSelect}
                     placeholder="Search AAPL, SHOP.TO, or TSE:RY"
                   />
+                  {!formData.symbol.trim() && <span className="field-hint">Use a ticker such as AAPL, MSFT, or SHOP.TO.</span>}
                   {isTseSymbol(formData.symbol) && (
                     <span className="text-[10px] text-red-400 font-semibold mt-1 block">TSE/TSX stock detected (CAD)</span>
                   )}
@@ -514,6 +539,7 @@ export function HoldingsTable({ summary, onBulkUpdate, initialFilter = '', revie
                     className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white"
                     required
                   />
+                  {!formData.shares && <span className="field-hint">Enter the number of shares you currently own.</span>}
                 </div>
               </div>
 
@@ -543,6 +569,7 @@ export function HoldingsTable({ summary, onBulkUpdate, initialFilter = '', revie
                     onChange={e => setFormData({ ...formData, currentPrice: e.target.value })}
                     className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white"
                   />
+                  {!formData.currentPrice && <span className="field-hint">Optional; saved prices can be refreshed later.</span>}
                 </div>
               </div>
 
