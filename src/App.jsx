@@ -10,7 +10,7 @@ import { PrivacyContext, useOverviewLayout } from './components/OverviewControls
 import { usePreference } from './hooks/usePreference';
 import { holdingDisplay } from './services/holdingDisplay';
 import { CurrencyMode } from './components/CurrencyMode';
-import { SECTIONS, sectionFromHash } from './services/sectionNavigation';
+import { SECTIONS, sectionFromLocation } from './services/sectionNavigation';
 import { MetricLabel } from './components/MetricLabel';
 import { LoadingSkeleton } from './components/LoadingSkeleton';
 import { formatMoney } from './services/formatMoney';
@@ -34,8 +34,7 @@ const loadHelpView = () => import('./components/HelpView').then(module => ({ def
 const RebalanceView = lazy(() => import('./components/RebalanceView').then(module => ({ default: module.RebalanceView })));
 const HistoryView = lazy(() => import('./components/HistoryView').then(module => ({ default: module.HistoryView })));
 const DividendView = lazy(() => import('./components/DividendView').then(module => ({ default: module.DividendView })));
-const loadPerformanceView = () => import('./components/PerformanceView').then(module => ({ default: module.PerformanceView }));
-const PerformanceView = lazy(loadPerformanceView);
+const PerformanceView = lazy(() => import('./components/PerformanceView').then(module => ({ default: module.PerformanceView })));
 const WatchlistView = lazy(() => import('./components/WatchlistView').then(module => ({ default: module.WatchlistView })));
 const HoldingsTable = lazy(loadHoldingsTable);
 const PortfolioInsights = lazy(loadPortfolioInsights);
@@ -90,9 +89,10 @@ export default function App() {
   const reducedMotion = reducedMotionPreference === 'on' || (reducedMotionPreference === 'system' && systemReducedMotion);
   const [valueCurrencyMode, setValueCurrencyMode] = usePreference('apex-value-currency', 'display', ['display', 'native']);
   const focusHeadingRef = React.useRef(false);
+  const [performanceContentReady, setPerformanceContentReady] = useState(false);
   const [activeTab, setActiveTab] = useState(() => {
     try {
-      const linked = typeof window !== 'undefined' ? sectionFromHash(window.location.hash) : null;
+      const linked = typeof window !== 'undefined' ? sectionFromLocation(window.location) : null;
       if (linked) return linked;
       const saved = localStorage.getItem('apex-active-section');
       return SECTIONS.includes(saved) ? saved : 'dashboard';
@@ -102,9 +102,10 @@ export default function App() {
     try { localStorage.setItem('apex-active-section', activeTab); } catch { /* Navigation works without browser storage. */ }
   }, [activeTab]);
   useEffect(() => {
-    if (!sectionFromHash(window.location.hash)) window.history.replaceState(null, '', `#/${activeTab}`);
+    const pathSection = String(window.location.pathname || '').replace(/^\/+|\/+$/g, '');
+    if (!SECTIONS.includes(pathSection)) window.history.replaceState(null, '', `/${activeTab}`);
     const navigateHistory = () => {
-      const section = sectionFromHash(window.location.hash);
+      const section = sectionFromLocation(window.location);
       if (section) { focusHeadingRef.current = true; setActiveTab(section); window.scrollTo({ top: 0, behavior: 'instant' }); }
     };
     window.addEventListener('popstate', navigateHistory);
@@ -114,9 +115,17 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   useEffect(() => {
+    if (activeTab !== 'performance') {
+      setPerformanceContentReady(false);
+      return undefined;
+    }
+    const timer = window.setTimeout(() => setPerformanceContentReady(true), 0);
+    return () => window.clearTimeout(timer);
+  }, [activeTab]);
+  useEffect(() => {
     const restore = event => {
       const section = event.detail['apex-active-section'];
-      if (SECTIONS.includes(section)) { setActiveTab(section); window.history.replaceState(null, '', `#/${section}`); }
+      if (SECTIONS.includes(section)) { setActiveTab(section); window.history.replaceState(null, '', `/${section}`); }
     };
     window.addEventListener(PREFERENCES_RESTORED, restore);
     return () => window.removeEventListener(PREFERENCES_RESTORED, restore);
@@ -222,7 +231,7 @@ export default function App() {
   const changeTab = (tab, { focus = true } = {}) => {
     if (!SECTIONS.includes(tab)) return;
     focusHeadingRef.current = focus;
-    if (sectionFromHash(window.location.hash) !== tab) window.history.pushState(null, '', `#/${tab}`);
+    if (sectionFromLocation(window.location) !== tab) window.history.pushState(null, '', `/${tab}`);
     setActiveTab(tab);
     if (scrollFrameRef.current) {
       window.cancelAnimationFrame(scrollFrameRef.current.first);
@@ -328,7 +337,6 @@ export default function App() {
         onDeleteAllData={() => askToConfirm('Delete all saved data?', 'This clears the current portfolio, transactions, watchlist, snapshots, and preferences. You can still use Recently deleted to undo the clear.', deleteAllData, 'Delete everything')}
         refreshMarketData={refreshMarketData}
         marketStatus={marketStatus}
-        preloadPerformance={loadPerformanceView}
       />
 
       {/* Main Container */}
@@ -508,7 +516,8 @@ export default function App() {
         )}
 
         {activeTab === 'dividends' && <DividendView onManageHoldings={() => changeTab('holdings')} onRecordDividend={() => { setTransactionIntent({ type: 'DIVIDEND', id: Date.now() }); changeTab('history'); }} summary={portfolioSummary} transactions={transactions} currencyCode={currency} theme={effectiveTheme} />}
-        {activeTab === 'performance' && <PerformanceView performance={performance} transactions={transactions} netContributionsUSD={netContributionsUSD} summary={portfolioSummary} backtestHistory={backtestHistory} currencyCode={currency} rate={rate} theme={effectiveTheme} historyLoading={historyLoading} historyError={historyError} onRetryHistory={refreshHistoricalData} onManageHoldings={() => changeTab('holdings')} onRecordDeposit={() => { setTransactionIntent({ type: 'DEPOSIT', id: Date.now() }); changeTab('history'); }} />}
+        {activeTab === 'performance' && !performanceContentReady && <PerformanceLoadingView />}
+        {activeTab === 'performance' && performanceContentReady && <PerformanceView performance={performance} transactions={transactions} netContributionsUSD={netContributionsUSD} summary={portfolioSummary} backtestHistory={backtestHistory} currencyCode={currency} rate={rate} theme={effectiveTheme} historyLoading={historyLoading} historyError={historyError} onRetryHistory={refreshHistoricalData} onManageHoldings={() => changeTab('holdings')} onRecordDeposit={() => { setTransactionIntent({ type: 'DEPOSIT', id: Date.now() }); changeTab('history'); }} />}
         {activeTab === 'help' && <HelpView />}
         </Suspense>
         </div>

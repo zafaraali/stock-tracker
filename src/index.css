@@ -654,8 +654,8 @@ nav a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .settings-file-group h4, .drive-action-groups h4 { font-size: .875rem; font-weight: 600; }
 .settings-file-group > p { margin: .25rem 0 .75rem; color: var(--muted); font-size: .8125rem; }
 .settings-file-actions .secondary-button { justify-content: flex-start; text-align: left; }
-.view-loading { min-height: 20rem; width: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .75rem; background: var(--surface-muted); color: var(--muted); border: 1px solid var(--border); border-radius: 1rem; }
-.view-loading::after { content: ''; width: min(14rem, 60%); height: .25rem; border-radius: 999px; background: color-mix(in srgb, var(--accent) 18%, var(--border)); overflow: hidden; animation: shimmer 1.4s ease-in-out infinite; }
+.view-loading { min-height: 20rem; width: 100%; max-width: 100%; min-width: 0; box-sizing: border-box; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .75rem; overflow: hidden; background: var(--surface-muted); color: var(--muted); border: 1px solid var(--border); border-radius: 1rem; }
+.view-loading::after { content: ''; width: min(14rem, 60%); max-width: calc(100% - 2rem); height: .25rem; flex: 0 1 .25rem; border-radius: 999px; background: color-mix(in srgb, var(--accent) 18%, var(--border)); overflow: hidden; animation: shimmer 1.4s ease-in-out infinite; }
 .view-loading svg { color: var(--accent); }
 .app-shell main :is(.shadow-md, .shadow-lg, .shadow-xl):not(button):not(.modal-panel) { box-shadow: 0 1px 3px rgb(15 23 42 / .05); }
 .summary-balance { flex-wrap: wrap; gap: 1rem; font-variant-numeric: tabular-nums; }
