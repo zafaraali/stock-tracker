@@ -28,6 +28,7 @@ import { PortfolioCharts } from './components/PortfolioCharts';
 import { HoldingsTable } from './components/HoldingsTable';
 import { PortfolioInsights } from './components/PortfolioInsights';
 import { TickerLinks } from './components/TickerLinks';
+import { HelpView } from './components/HelpView';
 import { DollarSign, ArrowUpRight, ArrowDownRight, TrendingUp, ChevronDown } from 'lucide-react';
 
 const RebalanceView = lazy(() => import('./components/RebalanceView').then(module => ({ default: module.RebalanceView })));
@@ -43,6 +44,17 @@ export default function App() {
   const [reviewSymbol, setReviewSymbol] = useState('');
   const consumeTransactionIntent = React.useCallback(() => setTransactionIntent(null), []);
   const [viewDensity, setViewDensity] = usePreference('apex-view-density', 'default', ['default', 'compact']);
+  const [reducedMotionPreference, setReducedMotionPreference] = usePreference('apex-reduced-motion', 'system', ['system', 'on', 'off']);
+  const [systemReducedMotion, setSystemReducedMotion] = useState(() => typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches);
+  useEffect(() => {
+    if (!window.matchMedia) return undefined;
+    const query = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const update = event => setSystemReducedMotion(event.matches);
+    setSystemReducedMotion(query.matches);
+    query.addEventListener?.('change', update);
+    return () => query.removeEventListener?.('change', update);
+  }, []);
+  const reducedMotion = reducedMotionPreference === 'on' || (reducedMotionPreference === 'system' && systemReducedMotion);
   const [valueCurrencyMode, setValueCurrencyMode] = usePreference('apex-value-currency', 'display', ['display', 'native']);
   const focusHeadingRef = React.useRef(false);
   const [activeTab, setActiveTab] = useState(() => {
@@ -183,7 +195,7 @@ export default function App() {
     : [];
 
   return (
-    <PrivacyContext.Provider value={privateMode}><DashboardCardsProvider><div className={`app-shell density-${viewDensity} accent-${accent} ${privateMode ? 'privacy-mode' : ''} min-h-screen ${isLight ? 'theme-light bg-slate-50 text-slate-900' : 'bg-slate-950 text-slate-100'} flex flex-col font-sans transition-colors duration-200`}>
+    <PrivacyContext.Provider value={privateMode}><DashboardCardsProvider><div className={`app-shell density-${viewDensity} accent-${accent} ${privateMode ? 'privacy-mode' : ''} ${reducedMotion ? 'motion-reduced' : ''} min-h-screen ${isLight ? 'theme-light bg-slate-50 text-slate-900' : 'bg-slate-950 text-slate-100'} flex flex-col font-sans transition-colors duration-200`}>
       <a className="skip-link" href="#main-content">Skip to main content</a>
       
       {/* Navigation */}
@@ -200,6 +212,8 @@ export default function App() {
         toggleTheme={toggleTheme}
         viewDensity={viewDensity}
         setViewDensity={setViewDensity}
+        reducedMotionPreference={reducedMotionPreference}
+        setReducedMotionPreference={setReducedMotionPreference}
         accent={accent}
         setAccent={setAccent}
         overviewLayout={overviewLayout}
@@ -247,7 +261,7 @@ export default function App() {
           <p className="text-xs text-slate-600 mt-1">Generated on {new Date().toLocaleDateString()} | Base Currency: {currency}</p>
         </div>
 
-        <header className="page-heading mb-6"><p className="account-context">Holdings list: <strong>{selectedAccountId === '__combined__' ? 'Combined · All lists' : accounts.find(account => account.id === selectedAccountId)?.name || 'Default list'}</strong><span>Display currency: {currency}</span></p><h1 id="page-title" tabIndex={-1}>{({ dashboard: 'Portfolio overview', holdings: 'Holdings', history: 'Transactions', watchlist: 'Watchlist', dividends: 'Dividends', performance: 'Performance', rebalance: 'Rebalance' })[activeTab]}</h1><p className="supporting-text">{({ dashboard: 'Your portfolio at a glance, from allocation to your largest positions.', holdings: 'Manage your holdings, prices, and investment notes.', history: 'Record trades, dividends, and cash movements.', watchlist: 'Track investment ideas before adding a holding.', dividends: 'Review income received and upcoming dividend estimates.', performance: 'Explore portfolio returns and compare with the market.', rebalance: 'Compare your current allocation with your targets.' })[activeTab]}</p></header>
+        <header className="page-heading mb-6"><p className="account-context">Holdings list: <strong>{selectedAccountId === '__combined__' ? 'Combined · All lists' : accounts.find(account => account.id === selectedAccountId)?.name || 'Default list'}</strong><span>Display currency: {currency}</span></p><h1 id="page-title" tabIndex={-1}>{({ dashboard: 'Portfolio overview', holdings: 'Holdings', history: 'Transactions', watchlist: 'Watchlist', dividends: 'Dividends', performance: 'Performance', rebalance: 'Rebalance', help: 'Help' })[activeTab]}</h1><p className="supporting-text">{({ dashboard: 'Your portfolio at a glance, from allocation to your largest positions.', holdings: 'Manage your holdings, prices, and investment notes.', history: 'Record trades, dividends, and cash movements.', watchlist: 'Track investment ideas before adding a holding.', dividends: 'Review income received and upcoming dividend estimates.', performance: 'Explore portfolio returns and compare with the market.', rebalance: 'Compare your current allocation with your targets.', help: 'Learn how each part of ApexFinance works and how your data is handled.' })[activeTab]}</p></header>
         {/* Tab Switcher Content */}
         <div id="tab-content" className="tab-scroll-target">
         <Suspense fallback={<LoadingSkeleton />}>
@@ -398,6 +412,7 @@ export default function App() {
 
         {activeTab === 'dividends' && <DividendView onManageHoldings={() => changeTab('holdings')} onRecordDividend={() => { setTransactionIntent({ type: 'DIVIDEND', id: Date.now() }); changeTab('history'); }} summary={portfolioSummary} transactions={transactions} currencyCode={currency} theme={effectiveTheme} />}
         {activeTab === 'performance' && <PerformanceView performance={performance} transactions={transactions} netContributionsUSD={netContributionsUSD} summary={portfolioSummary} backtestHistory={backtestHistory} currencyCode={currency} rate={rate} theme={effectiveTheme} historyLoading={historyLoading} historyError={historyError} onRetryHistory={refreshHistoricalData} onManageHoldings={() => changeTab('holdings')} onRecordDeposit={() => { setTransactionIntent({ type: 'DEPOSIT', id: Date.now() }); changeTab('history'); }} />}
+        {activeTab === 'help' && <HelpView />}
         </Suspense>
         </div>
         </>}
@@ -407,7 +422,8 @@ export default function App() {
       {/* Footer */}
       <footer className={`no-print border-t ${isLight ? 'border-slate-200 bg-white text-slate-500' : 'border-slate-900 bg-slate-950 text-slate-500'} py-4 text-center text-xs mb-12 sm:mb-0 transition-colors`}>
         ApexFinance &middot; {new Date().getFullYear()} &middot; Zafar Ali
-        <nav className="footer-links" aria-label="Finance resources">
+        <nav className="footer-links" aria-label="App and finance resources">
+          <a className="help-footer-link" href="#/help" onClick={event => { if (event.button === 0 && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey) { event.preventDefault(); changeTab('help'); } }}>Help</a>
           {[
             ['Yahoo Finance', 'https://finance.yahoo.com/'],
             ['Google Finance', 'https://www.google.com/finance/'],
