@@ -75,6 +75,20 @@ async function findBackup(token, name = BACKUP_NAME) {
   return (await response.json()).files?.[0] || null;
 }
 
+async function findApexFinanceBackups(token) {
+  const query = encodeURIComponent(`trashed = false and (name = '${escapeDriveQueryValue(BACKUP_NAME)}' or name contains '${escapeDriveQueryValue(ENCRYPTED_BACKUP_PREFIX)}')`);
+  const files = [];
+  let pageToken = '';
+  do {
+    const suffix = pageToken ? `&pageToken=${encodeURIComponent(pageToken)}` : '';
+    const response = await driveFetch(`https://www.googleapis.com/drive/v3/files?q=${query}&spaces=drive&fields=nextPageToken,files(id,name)&pageSize=100${suffix}`, {}, token);
+    const page = await response.json();
+    files.push(...(page.files || []));
+    pageToken = page.nextPageToken || '';
+  } while (pageToken);
+  return files;
+}
+
 export async function uploadGoogleDriveBackup(payload, name = BACKUP_NAME) {
   const token = await getAccessToken();
   const existing = await findBackup(token, name);
@@ -102,6 +116,13 @@ export async function downloadGoogleDriveBackup(name = BACKUP_NAME) {
 
 export const ENCRYPTED_DRIVE_BACKUP_NAME = ENCRYPTED_BACKUP_NAME;
 export const ENCRYPTED_DRIVE_BACKUP_PREFIX = ENCRYPTED_BACKUP_PREFIX;
+
+export async function clearAllGoogleDriveBackups() {
+  const token = await getAccessToken();
+  const files = await findApexFinanceBackups(token);
+  await Promise.all(files.map(file => driveFetch(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(file.id)}`, { method: 'DELETE' }, token)));
+  return files.length;
+}
 
 export async function downloadLatestGoogleDriveBackup(prefix = ENCRYPTED_BACKUP_PREFIX) {
   const token = await getAccessToken();

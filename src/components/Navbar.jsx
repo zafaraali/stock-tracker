@@ -222,6 +222,18 @@ export function Navbar({ viewDensity = 'default', setViewDensity, reducedMotionP
     finally { setDriveBusy(false); }
   };
 
+  const clearDriveBackups = async () => {
+    if (driveBusy || !window.confirm('Delete all ApexFinance backups from Google Drive? This permanently removes unencrypted and encrypted ApexFinance backup files from Drive.')) return;
+    setDriveBusy(true);
+    setDriveStatus('Clearing ApexFinance backups…');
+    try {
+      const { withBackupProgress, clearAllGoogleDriveBackups } = await loadBackupTools();
+      const count = await withBackupProgress('Clearing Google Drive backups…', clearAllGoogleDriveBackups);
+      setDriveStatus(count ? `Deleted ${count} ApexFinance backup${count === 1 ? '' : 's'} from Google Drive.` : 'No ApexFinance backups were found in Google Drive.');
+    } catch (error) { setDriveStatus(error.message); }
+    finally { setDriveBusy(false); }
+  };
+
   const renderControls = () => <>
           <select
             aria-label="Display currency"
@@ -387,6 +399,7 @@ export function Navbar({ viewDensity = 'default', setViewDensity, reducedMotionP
                 <p className="text-xs text-slate-500 mb-3">{googleDriveConfigured ? 'Save or restore your complete portfolio backup from Google Drive.' : 'Add VITE_GOOGLE_CLIENT_ID to enable Google Drive backup.'}</p>
                 {googleDriveConfigured && <div className="drive-action-groups">
                   <div><h4>Back up</h4><div className="settings-action-pair"><button type="button" className="primary-button" disabled={driveBusy} onClick={backupToDrive}>Back up to Drive</button><button type="button" className="primary-button" disabled={driveBusy} onClick={backupEncryptedToDrive}>Encrypted backup</button></div></div>
+                  <div><h4>Delete backups</h4><p className="supporting-text">Remove all unencrypted and encrypted ApexFinance backup files from Google Drive.</p><button type="button" className="danger-button secondary-button text-rose-400 mt-3" disabled={driveBusy} onClick={clearDriveBackups}><Trash2 className="w-4 h-4" /> Clear all Drive backups</button></div>
 
                 </div>}
                 {driveStatus && <p className={`text-xs mt-2 ${/saved|started|awaiting confirmation/i.test(driveStatus) ? 'drive-status-success' : 'text-slate-400'}`} role="status">{driveStatus}</p>}
