@@ -53,6 +53,8 @@
 @keyframes list-shift { from { opacity: .35; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes error-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes drawer-item-in { from { opacity: 0; transform: translateX(12px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes theme-toggle-pop { 0% { transform: rotate(0) scale(1); } 45% { transform: rotate(24deg) scale(1.22); } 100% { transform: rotate(0) scale(1); } }
+@keyframes refresh-pulse { 0% { transform: rotate(0) scale(1); } 50% { transform: rotate(90deg) scale(1.12); } 100% { transform: rotate(360deg) scale(1); } }
 @keyframes backdrop-in { from { opacity: 0; } to { opacity: 1; } }
 @keyframes modal-in { from { opacity: 0; transform: translateY(10px) scale(.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
 @keyframes toast-in { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
@@ -61,6 +63,8 @@
 }
 .motion-reduced *, .motion-reduced *::before, .motion-reduced *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: .01ms !important; }
 .motion-reduced :is(.brand-logo, .summary-grid > div, .primary-button, .secondary-button, .icon-button, .ticker-links a):hover { transform: none !important; }
+.theme-toggle-pulse .theme-toggle-icon { animation: theme-toggle-pop .42s cubic-bezier(.2,.8,.2,1) both; }
+.refresh-pulse svg { animation: refresh-pulse .52s cubic-bezier(.2,.8,.2,1) both; }
 .chart-donut-wrap { position: relative; }
 .money-value-change { display: inline-block; animation: money-value-change .42s ease-out both; }
 #tab-content > * { animation: tab-content-in .24s ease-out both; }

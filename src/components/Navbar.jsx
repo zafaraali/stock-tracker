@@ -5,7 +5,7 @@ import { requestBackupPassword } from './BackupPasswordDialog';
 import { withBackupProgress } from '../services/backupProgress';
 import { BackupReminder, useBackupReminder } from './BackupReminder';
 import { recordBackup } from '../services/backupReminder';
-import { TrendingUp, PieChart as PieIcon, ArrowDownUp, Sliders, History, Eye, EyeOff, Download, Upload, Sun, Moon, Trash2, RefreshCw, Settings, CalendarDays, Activity, Menu, X } from 'lucide-react';
+import { TrendingUp, PieChart as PieIcon, ArrowDownUp, Sliders, History, Eye, EyeOff, Download, Upload, Sun, Moon, Monitor, Trash2, RefreshCw, Settings, CalendarDays, Activity, Menu, X } from 'lucide-react';
 import { CURRENCY_RATES } from '../data/mockData';
 import { downloadGoogleDriveBackup, downloadLatestGoogleDriveBackup, ENCRYPTED_DRIVE_BACKUP_PREFIX, isGoogleDriveConfigured, uploadGoogleDriveBackup } from '../services/googleDrive';
 import { decryptBackup, encryptBackup } from '../services/encryptedBackup';
@@ -32,6 +32,8 @@ export function Navbar({ viewDensity = 'default', setViewDensity, reducedMotionP
   const [driveBusy, setDriveBusy] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [desktopControlsOpen, setDesktopControlsOpen] = useState(true);
+  const [themePulse, setThemePulse] = useState(false);
+  const [refreshPulse, setRefreshPulse] = useState(false);
   useEffect(() => {
     const restore = event => {
       if (Object.hasOwn(event.detail, 'apex-hidden-tabs')) setHiddenTabs(event.detail['apex-hidden-tabs']);
@@ -106,6 +108,18 @@ export function Navbar({ viewDensity = 'default', setViewDensity, reducedMotionP
     await installPrompt.prompt();
     const { outcome } = await installPrompt.userChoice;
     if (outcome === 'accepted' || outcome === 'dismissed') setInstallPrompt(null);
+  };
+
+  const handleThemeToggle = () => {
+    setThemePulse(true);
+    toggleTheme();
+    window.setTimeout(() => setThemePulse(false), 420);
+  };
+
+  const handleRefresh = () => {
+    setRefreshPulse(true);
+    refreshMarketData();
+    window.setTimeout(() => setRefreshPulse(false), 520);
   };
 
   const backupToDrive = async () => {
@@ -194,21 +208,21 @@ export function Navbar({ viewDensity = 'default', setViewDensity, reducedMotionP
 
           {/* Theme Toggle Button */}
           <button
-            onClick={refreshMarketData}
+            onClick={handleRefresh}
             disabled={marketStatus?.loading}
             title="Refresh live market prices"
             aria-label="Refresh live market prices"
-            className={`p-2 rounded-xl text-xs font-medium transition border ${isLight ? 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-300' : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700'} disabled:opacity-50`}
+            className={`refresh-market-button p-2 rounded-xl text-xs font-medium transition border ${refreshPulse ? 'refresh-pulse' : ''} ${isLight ? 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-300' : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700'} disabled:opacity-50`}
           >
             <RefreshCw className={`w-4 h-4 ${marketStatus?.loading ? 'animate-spin' : ''}`} />
           </button>
           <button
-            aria-label={`Switch to ${isLight ? 'dark' : 'light'} mode`}
-            onClick={toggleTheme}
-            title={`Switch to ${isLight ? 'Dark' : 'Light'} Mode`}
-            className={`p-2 rounded-xl text-xs font-medium transition border ${isLight ? 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-300' : 'bg-slate-800 hover:bg-slate-700 text-amber-400 border-slate-700'}`}
+            aria-label={`Switch to ${themePreference === 'system' ? 'dark' : isLight ? 'dark' : 'Match device'} mode`}
+            onClick={handleThemeToggle}
+            title={`Switch to ${themePreference === 'system' ? 'Dark' : isLight ? 'Dark' : 'Match device'} Mode`}
+            className={`theme-toggle-button p-2 rounded-xl text-xs font-medium transition border ${themePulse ? 'theme-toggle-pulse' : ''} ${isLight ? 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-300' : 'bg-slate-800 hover:bg-slate-700 text-amber-400 border-slate-700'}`}
           >
-            {isLight ? <Moon className="w-4 h-4 text-slate-700" /> : <Sun className="w-4 h-4 text-amber-400" />}
+            <span className="theme-toggle-icon inline-flex">{themePreference === 'system' ? <Monitor className="w-5 h-5 text-indigo-400" /> : isLight ? <Sun className="w-5 h-5 text-amber-400" /> : <Moon className="w-5 h-5 text-slate-300" />}</span>
           </button>
 
           {installPrompt && <button aria-label="Install ApexFinance app" title="Install ApexFinance app" onClick={installApp} className="icon-button"><Download className="w-5 h-5" /></button>}
