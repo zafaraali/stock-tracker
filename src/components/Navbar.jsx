@@ -45,10 +45,33 @@ export function Navbar({ viewDensity = 'default', setViewDensity, reducedMotionP
     return () => window.removeEventListener(PREFERENCES_RESTORED, restore);
   }, []);
   const drawerRef = useRef(null);
+  const shortcutsRef = useRef(null);
   const isLight = theme === 'light';
 
   useEffect(() => {
+    const closeShortcuts = event => {
+      if (shortcutsRef.current?.open && !shortcutsRef.current.contains(event.target)) shortcutsRef.current.open = false;
+    };
+    document.addEventListener('pointerdown', closeShortcuts);
+    return () => document.removeEventListener('pointerdown', closeShortcuts);
+  }, []);
+
+  useEffect(() => {
     try { localStorage.setItem('apex-desktop-controls', String(desktopControlsOpen)); } catch { /* Controls still work when storage is unavailable. */ }
+  }, [desktopControlsOpen]);
+
+  useEffect(() => {
+    const handleShortcut = event => {
+      const target = event.target;
+      if (['INPUT', 'TEXTAREA', 'SELECT'].includes(target?.tagName) || target?.isContentEditable) return;
+      if (event.key.toLowerCase() === 'h') {
+        event.preventDefault();
+        setDesktopControlsOpen(open => !open);
+        showPreferenceNotice(desktopControlsOpen ? 'Portfolio controls hidden.' : 'Portfolio controls shown.');
+      }
+    };
+    window.addEventListener('keydown', handleShortcut);
+    return () => window.removeEventListener('keydown', handleShortcut);
   }, [desktopControlsOpen]);
 
   useEffect(() => {
@@ -234,6 +257,21 @@ export function Navbar({ viewDensity = 'default', setViewDensity, reducedMotionP
 
           {installPrompt && <button aria-label="Install ApexFinance app" title="Install ApexFinance app" onClick={installApp} className="icon-button"><Download className="w-5 h-5" /></button>}
           <button aria-label={reminder.due ? 'Open settings · Backup due' : 'Open settings'} onClick={() => { setMobileMenuOpen(false); setSettingsOpen(true); }} className="icon-button"><Settings className="w-5 h-5" />{reminder.due && <span className="backup-due-dot" aria-hidden="true" />}</button>
+          <details ref={shortcutsRef} className="keyboard-shortcuts">
+            <summary className="secondary-button" aria-label="Show keyboard shortcuts">? <span className="shortcut-label">Shortcuts</span></summary>
+            <div className="keyboard-shortcuts-popover" role="note">
+              <p><kbd>R</kbd><span>Refresh prices</span></p>
+              <p><kbd>?</kbd><span>Open help</span></p>
+              <p><kbd>1</kbd><span>Dashboard</span></p>
+              <p><kbd>2</kbd><span>Holdings</span></p>
+              <p><kbd>3</kbd><span>Transactions</span></p>
+              <p><kbd>4</kbd><span>Watchlist</span></p>
+              <p><kbd>5</kbd><span>Dividends</span></p>
+              <p><kbd>6</kbd><span>Performance</span></p>
+              <p><kbd>7</kbd><span>Rebalance</span></p>
+              <p><kbd>8</kbd><span>Help</span></p>
+            </div>
+          </details>
           {preferenceNotice && <span className="preference-notice" role="status" aria-live="polite">{preferenceNotice}</span>}
 </>;
 

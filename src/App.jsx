@@ -187,9 +187,9 @@ export default function App() {
     timeout = window.setTimeout(dismissWhenIdle, undoNotificationId ? 10000 : 4500);
     return () => window.clearTimeout(timeout);
   }, [uiMessage, undoNotificationId, dismissMessage]);
-  const changeTab = tab => {
+  const changeTab = (tab, { focus = true } = {}) => {
     if (!SECTIONS.includes(tab)) return;
-    focusHeadingRef.current = true;
+    focusHeadingRef.current = focus;
     if (sectionFromHash(window.location.hash) !== tab) window.history.pushState(null, '', `#/${tab}`);
     setActiveTab(tab);
     if (scrollFrameRef.current) {
@@ -198,7 +198,7 @@ export default function App() {
     }
     const first = window.requestAnimationFrame(() => {
       const second = window.requestAnimationFrame(() => {
-        if (!document.querySelector('[role="dialog"]')) document.getElementById('page-title')?.focus({ preventScroll: true });
+        if (focus && !document.querySelector('[role="dialog"]')) document.getElementById('page-title')?.focus({ preventScroll: true });
         window.scrollTo({
         top: 0,
         behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth',
@@ -213,11 +213,20 @@ export default function App() {
       if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey) return;
       const target = event.target;
       if (['INPUT', 'TEXTAREA', 'SELECT'].includes(target?.tagName) || target?.isContentEditable) return;
+      const changeFromShortcut = tab => {
+        document.activeElement?.blur();
+        changeTab(tab, { focus: false });
+      };
       if (event.key.toLowerCase() === 'r') { event.preventDefault(); refreshMarketData(); }
-      if (event.key === '?') { event.preventDefault(); changeTab('help'); }
-      if (event.key === '1') { event.preventDefault(); changeTab('dashboard'); }
-      if (event.key === '2') { event.preventDefault(); changeTab('holdings'); }
-      if (event.key === '3') { event.preventDefault(); changeTab('history'); }
+      if (event.key === '?') { event.preventDefault(); changeFromShortcut('help'); }
+      if (event.key === '1') { event.preventDefault(); changeFromShortcut('dashboard'); }
+      if (event.key === '2') { event.preventDefault(); changeFromShortcut('holdings'); }
+      if (event.key === '3') { event.preventDefault(); changeFromShortcut('history'); }
+      if (event.key === '4') { event.preventDefault(); changeFromShortcut('watchlist'); }
+      if (event.key === '5') { event.preventDefault(); changeFromShortcut('dividends'); }
+      if (event.key === '6') { event.preventDefault(); changeFromShortcut('performance'); }
+      if (event.key === '7') { event.preventDefault(); changeFromShortcut('rebalance'); }
+      if (event.key === '8') { event.preventDefault(); changeFromShortcut('help'); }
     };
     window.addEventListener('keydown', handleShortcut);
     return () => window.removeEventListener('keydown', handleShortcut);

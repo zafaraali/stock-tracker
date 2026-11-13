@@ -4,8 +4,11 @@
 
 :root {
   --space-card: 1.25rem;
+  --space-section: 1.5rem;
   --control-height: 44px;
   --radius-card: 1rem;
+  --radius-control: .75rem;
+  --shadow-card: 0 10px 30px rgb(15 23 42 / .12);
   --surface: #0f172a;
   --surface-muted: #020617;
   --surface-raised: #1e293b;
@@ -879,6 +882,14 @@ nav a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 .app-shell .back-to-top { position: fixed; right: max(1rem, env(safe-area-inset-right)); bottom: calc(1.5rem + env(safe-area-inset-bottom)); z-index: 30; width: 48px; height: 48px; border-radius: 50%; background: var(--accent); border-color: var(--accent); color: white; box-shadow: 0 4px 16px rgb(0 0 0 / .25); }
 
+.keyboard-shortcuts { position: relative; }
+.keyboard-shortcuts > summary { list-style: none; cursor: pointer; }
+.keyboard-shortcuts > summary::-webkit-details-marker { display: none; }
+.keyboard-shortcuts-popover { position: absolute; top: calc(100% + .5rem); right: 0; z-index: 20; width: 12rem; padding: .65rem; border: 1px solid var(--border); border-radius: var(--radius-control); background: var(--surface-raised); color: var(--foreground); box-shadow: var(--shadow-card); }
+.keyboard-shortcuts-popover p { display: flex; align-items: center; justify-content: space-between; gap: .75rem; margin: 0; padding: .35rem .2rem; color: var(--muted); font-size: .72rem; }
+.keyboard-shortcuts-popover kbd { min-width: 1.45rem; padding: .15rem .3rem; border: 1px solid var(--border); border-radius: .3rem; color: var(--foreground); font-size: .68rem; text-align: center; }
+.keyboard-shortcuts[open] > summary { border-color: var(--accent); color: var(--accent-text, var(--accent)); }
+
 .footer-links { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: .25rem 1.25rem; margin-top: .6rem; padding: 0 1rem; }
 .footer-links a { display: inline-flex; align-items: center; min-height: 32px; color: var(--accent-text, var(--accent)); text-underline-offset: .2rem; }
 .footer-links a:hover { text-decoration: underline; }
@@ -1083,6 +1094,8 @@ nav a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   .chart-range { flex-wrap: nowrap; overflow-x: auto; padding-bottom: .2rem; }
   .chart-range button { flex: 0 0 auto; }
   .toast { top: calc(4.5rem + env(safe-area-inset-top)); left: .75rem; right: .75rem; max-width: none; }
+  .keyboard-shortcuts-popover { position: fixed; top: auto; right: .75rem; bottom: calc(1rem + env(safe-area-inset-bottom)); }
+  .shortcut-label { display: none; }
 }
 @media (prefers-reduced-motion: reduce) {
   .mobile-drawer-nav a[aria-current="page"]::before { transition: none; }
@@ -1092,6 +1105,19 @@ nav a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .price-status-badge.is-stale { background: color-mix(in srgb, #f59e0b 10%, var(--surface)); border-color: color-mix(in srgb, #f59e0b 42%, var(--border)); font-weight: 700; }
 .price-status-badge.is-stale .price-status-date { font-weight: 500; }
 .settings-category-nav-sticky { position: sticky; top: 0; z-index: 3; padding-block: .5rem; background: var(--surface); }
+.filter-active-summary { flex: 1 1 100%; margin: -.15rem 0 .1rem; color: var(--muted); font-size: .75rem; }
+.filter-active-summary strong { color: var(--foreground); font-variant-numeric: tabular-nums; }
+.holding-details .danger-button { border-left: 1px solid color-mix(in srgb, #f43f5e 35%, var(--border)); }
+.holdings-mobile-summary { position: sticky; top: 4.4rem; z-index: 4; box-shadow: 0 5px 16px rgb(15 23 42 / .12); }
+.modal-form-actions button, .modal-panel > .flex.justify-end button { min-width: 6rem; }
+.theme-light .price-status-badge.is-stale { color: #92400e; }
+@media (max-width: 639px) {
+  .holdings-mobile-summary { top: calc(4.5rem + env(safe-area-inset-top)); }
+}
+.save-notice { display: inline-flex; align-items: center; gap: .35rem; margin-top: .45rem; color: #34d399; font-size: .75rem; font-weight: 700; animation: toast-in .2s ease-out both; }
+.theme-light .save-notice { color: #047857; }
+.holding-row-saved { animation: holding-saved .8s ease-out both; }
+@keyframes holding-saved { 0% { background-color: color-mix(in srgb, var(--accent) 22%, var(--surface)); } 100% { background-color: transparent; } }
 @media (min-width: 1024px) {
   .holdings-desktop-table .financial-table th, .holdings-desktop-table .financial-table td { padding-inline: .75rem; }
   .holdings-desktop-table .financial-table th:nth-child(1), .holdings-desktop-table .financial-table td:nth-child(1) { width: 24%; }
@@ -1105,4 +1131,15 @@ nav a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 @media (max-width: 359px) {
   .supporting-text, .account-context { font-size: .75rem; }
   .chart-summary, .price-status-date { overflow-wrap: anywhere; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .holding-row-saved { animation: none; outline: 2px solid var(--accent); outline-offset: -2px; }
+}
+@media (max-width: 639px) {
+  .holdings-desktop-table, .responsive-table-wrap { position: relative; background: linear-gradient(90deg, var(--surface) 0 1rem, transparent 1.5rem calc(100% - 1.5rem), var(--surface) calc(100% - 1rem)); }
+  .holdings-desktop-table::after, .responsive-table-wrap::after { content: 'Swipe to see more'; position: sticky; left: 50%; display: block; width: max-content; margin: -.1rem auto .35rem; padding: .18rem .45rem; border-radius: 999px; background: var(--surface-muted); color: var(--muted); font-size: .65rem; pointer-events: none; }
+}
+@media print {
+  .print-summary { margin-top: .75rem; padding-top: .5rem; border-top: 1px solid #cbd5e1; line-height: 1.6; }
+  .page-heading { margin-top: 1rem; }
 }
