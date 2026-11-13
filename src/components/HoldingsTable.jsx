@@ -21,6 +21,8 @@ import { TickerLinks } from './TickerLinks';
 
 export function HoldingsTable({ summary, onBulkUpdate, initialFilter = '', reviewSymbol = '', currencyCode = 'USD', customCategories = [], valueCurrencyMode = 'display', setValueCurrencyMode, onAddHolding, onUpdateHolding, onUpdateHoldingPrice, onUpdateHoldingNotes, onRemoveHolding, onExportCSV, onImportCSV }) {
   const [formError, setFormError] = useState('');
+  const [saveNotice, setSaveNotice] = useState('');
+  const [savedHoldingId, setSavedHoldingId] = useState(null);
   const restoreRow = useRef(null);
   const focusPrice = useRef(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -36,6 +38,15 @@ export function HoldingsTable({ summary, onBulkUpdate, initialFilter = '', revie
   const [notesModalId, setNotesModalId] = useState(null);
   const [notesVal, setNotesVal] = useState('');
   const [customCategory, setCustomCategory] = useState('');
+
+  const showSaveNotice = (message, id = null) => {
+    setSaveNotice(message);
+    setSavedHoldingId(id);
+    window.setTimeout(() => {
+      setSaveNotice('');
+      setSavedHoldingId(null);
+    }, 2600);
+  };
 
   const [formData, setFormData] = useState({
     symbol: '',
@@ -166,6 +177,7 @@ export function HoldingsTable({ summary, onBulkUpdate, initialFilter = '', revie
     setCustomCategory('');
     setEditingHoldingId(null);
     setIsModalOpen(false);
+    showSaveNotice(editingHoldingId ? 'Holding updated.' : 'Holding added.', editingHoldingId);
   };
 
   const resetNewHoldingForm = () => {
@@ -200,12 +212,14 @@ export function HoldingsTable({ summary, onBulkUpdate, initialFilter = '', revie
     onUpdateHoldingPrice(id, price);
     setEditingId(null);
     setEditPriceVal('');
+    showSaveNotice('Price updated.', id);
   };
 
   const handleSaveNotes = (id) => {
     onUpdateHoldingNotes(id, notesVal);
     setNotesModalId(null);
     setNotesVal('');
+    showSaveNotice('Investment notes saved.', id);
   };
 
   return (
@@ -216,6 +230,7 @@ export function HoldingsTable({ summary, onBulkUpdate, initialFilter = '', revie
         <div>
           <h2 className="sr-only">Manage holdings</h2>
           <FormError message={formError} />
+          {saveNotice && <p className="save-notice" role="status" aria-live="polite">✓ {saveNotice}</p>}
           <p className="text-xs text-slate-400">Manage holdings, allocation targets, and prices <span className="toolbar-summary">· {summary.items.length} holding{summary.items.length === 1 ? '' : 's'} · <Money amount={formatMoney(summary.totalValue || 0, currencyCode)} /></span></p>
         </div>
         <div className="view-toolbar-actions">
@@ -285,7 +300,7 @@ export function HoldingsTable({ summary, onBulkUpdate, initialFilter = '', revie
                 const isEditing = editingId === item.id;
 
                 return (
-                  <tr key={item.id} data-holding-id={item.id} tabIndex={-1} className="hover:bg-slate-800/40 transition">
+                  <tr key={item.id} data-holding-id={item.id} tabIndex={-1} className={`hover:bg-slate-800/40 transition ${savedHoldingId === item.id ? 'holding-row-saved' : ''}`}>
                     <td data-label="Asset / Sector" className="holding-asset-cell py-3.5 px-4">
                       <div className="holding-asset-info">
                       <div className="holding-asset-heading">
@@ -394,7 +409,7 @@ export function HoldingsTable({ summary, onBulkUpdate, initialFilter = '', revie
             const isEditing = editingId === item.id;
 
             return (
-              <div key={item.id} data-holding-id={item.id} tabIndex={-1} className="p-4 space-y-3">
+              <div key={item.id} data-holding-id={item.id} tabIndex={-1} className={`p-4 space-y-3 ${savedHoldingId === item.id ? 'holding-row-saved' : ''}`}>
                 <div className="holdings-mobile-header flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <span className="font-bold text-base text-white">{item.symbol}</span><TickerLinks symbol={item.symbol} />
@@ -452,9 +467,9 @@ export function HoldingsTable({ summary, onBulkUpdate, initialFilter = '', revie
                 </div>
 
 <div className="supporting-text">Target: {formatPercent(item.targetPercent || 0)} · Dividend yield: {formatPercent(item.dividendYield || 0)}</div>                  <div className="holding-mobile-actions flex items-center gap-1">
-                    <button onClick={() => openEditHolding(item)} aria-label={`Edit ${item.symbol}`} className="p-2 text-indigo-400"><Edit2 className="w-4 h-4" /></button>
-                    <button onClick={() => { setNotesModalId(item.id); setNotesVal(item.notes || ''); }} aria-label={`Edit notes for ${item.symbol}`} className="p-2 text-indigo-400"><FileText className="w-4 h-4" /></button>
-                    <button onClick={() => onRemoveHolding(item.id)} aria-label={`Delete ${item.symbol}`} className="danger-button p-2 text-rose-400"><Trash2 className="w-4 h-4" /></button>
+                    <button onClick={() => openEditHolding(item)} aria-label={`Edit ${item.symbol}`} title={`Edit ${item.symbol}`} className="p-2 text-indigo-400"><Edit2 className="w-4 h-4" /></button>
+                    <button onClick={() => { setNotesModalId(item.id); setNotesVal(item.notes || ''); }} aria-label={`Edit notes for ${item.symbol}`} title={`Edit notes for ${item.symbol}`} className="p-2 text-indigo-400"><FileText className="w-4 h-4" /></button>
+                    <button onClick={() => onRemoveHolding(item.id)} aria-label={`Delete ${item.symbol}`} title={`Delete ${item.symbol}`} className="danger-button p-2 text-rose-400"><Trash2 className="w-4 h-4" /></button>
                   </div></div></details>
               </div>
             );
