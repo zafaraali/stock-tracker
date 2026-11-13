@@ -25,8 +25,8 @@ export function TickerLinks({ symbol, currency }) {
   return (
     <span className="ticker-links" aria-label={`${symbol} market links`}>
       {pair && <span className="text-[10px] text-slate-400 font-semibold whitespace-nowrap mr-2">{pair}</span>}
-      <a href={`https://finance.yahoo.com/quote/${encodeURIComponent(yahooSymbol)}`} target="_blank" rel="noreferrer" title={`Open ${symbol} on Yahoo Finance`}>Y</a>
-      <a href={`https://www.google.com/finance/quote/${encodeURIComponent(googleSymbol)}`} target="_blank" rel="noreferrer" title={`Open ${symbol} on Google Finance`}>G</a>
+      <a href={`https://finance.yahoo.com/quote/${encodeURIComponent(yahooSymbol)}`} target="_blank" rel="noreferrer" aria-label={`Open ${symbol} on Yahoo`} title={`Open ${symbol} on Yahoo`}><span className="ticker-short">Y</span><span className="ticker-full">Yahoo</span></a>
+      <a href={`https://www.google.com/finance/quote/${encodeURIComponent(googleSymbol)}`} target="_blank" rel="noreferrer" aria-label={`Open ${symbol} on Google`} title={`Open ${symbol} on Google`}><span className="ticker-short">G</span><span className="ticker-full">Google</span></a>
     </span>
   );
 }

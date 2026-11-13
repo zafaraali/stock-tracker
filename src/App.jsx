@@ -20,12 +20,14 @@ import { ConfirmDialog } from './components/ConfirmDialog';
 import { Toast } from './components/Toast';
 import { DashboardSetup } from './components/DashboardSetup';
 import { StatusBar } from './components/StatusBar';
+import { DataQuality } from './components/DataQuality';
 import React, { lazy, Suspense, useState, useEffect } from 'react';
 import { ACCENT_THEMES, usePortfolio } from './hooks/usePortfolio';
 import { Navbar } from './components/Navbar';
 import { PortfolioCharts } from './components/PortfolioCharts';
 import { HoldingsTable } from './components/HoldingsTable';
 import { PortfolioInsights } from './components/PortfolioInsights';
+import { TickerLinks } from './components/TickerLinks';
 import { DollarSign, ArrowUpRight, ArrowDownRight, TrendingUp, ChevronDown } from 'lucide-react';
 
 const RebalanceView = lazy(() => import('./components/RebalanceView').then(module => ({ default: module.RebalanceView })));
@@ -38,6 +40,7 @@ export default function App() {
   const [privateMode, setPrivateMode] = usePreference('apex-private-mode', false, [true, false]);
   const [overviewLayout, setOverviewLayout] = useOverviewLayout();
   const [transactionIntent, setTransactionIntent] = useState(null);
+  const [reviewSymbol, setReviewSymbol] = useState('');
   const consumeTransactionIntent = React.useCallback(() => setTransactionIntent(null), []);
   const [viewDensity, setViewDensity] = usePreference('apex-view-density', 'default', ['default', 'compact']);
   const [valueCurrencyMode, setValueCurrencyMode] = usePreference('apex-value-currency', 'display', ['display', 'native']);
@@ -226,6 +229,7 @@ export default function App() {
         {mode === 'demo' && <div className="form-error mb-5 flex flex-wrap justify-between gap-3 items-center"><span><strong>Demo portfolio</strong> · Sample holdings and prices. Changes stay in this demo.</span><button className="secondary-button" onClick={() => askToConfirm('Clear all saved data?', 'This removes the demo portfolio, transactions, watchlist, snapshots, and saved preferences. Recently deleted can undo this action.', () => { deleteAllData(); changeTab('dashboard'); }, 'Clear all data')}>Clear all data</button></div>}
         <StatusBar onRetry={refreshMarketData} marketStatus={marketStatus} priceDates={holdings.map(item => item.priceUpdatedAt)} fxData={fxData} fxError={fxError} lastSavedAt={lastSavedAt} historicalEstimated={historicalEstimated}>
           <RecentlyDeleted entries={trash} onRestore={restoreDeleted} onClear={clearRecentlyDeleted} />
+          <DataQuality holdings={holdings} onReview={symbolToReview => { setReviewSymbol(symbolToReview); changeTab('holdings'); }} />
         </StatusBar>
 
         {/* Printable Executive Header (Only visible when printing/exporting PDF) */}
@@ -239,7 +243,7 @@ export default function App() {
         <div id="tab-content" className="tab-scroll-target">
         <Suspense fallback={<LoadingSkeleton />}>
         {activeTab === 'dashboard' && <>
-          {holdings.length === 0 && <DashboardSetup onNavigate={changeTab} onExploreDemo={() => startPortfolio('demo')} />}
+          {holdings.length === 0 && !transactions.some(entry => ['DEPOSIT', 'WITHDRAW'].includes(entry.type) || entry.cashImpact === true) && <DashboardSetup onNavigate={changeTab} onExploreDemo={() => startPortfolio('demo')} />}
           {overviewLayout.order.filter(key => !overviewLayout.hidden.includes(key)).map(key => <React.Fragment key={key}>{({
             summary: (<section id="portfolio-summary" className="summary-section tab-scroll-target mb-6" aria-labelledby="summary-title">
         <div className={`summary-balance w-full ${isLight ? 'bg-white border-slate-200' : 'bg-slate-900 border-slate-800'} border rounded-2xl px-5 py-3 flex items-center justify-between text-left`}>
@@ -304,7 +308,7 @@ export default function App() {
 
         </div>
         </section>),
-            cash: (<CashPanel summary={portfolioSummary} currencyCode={currency} hasCashRecords={transactions.some(entry => ['DEPOSIT', 'WITHDRAW'].includes(entry.type) || entry.cashImpact === true)} onRecord={type => { setTransactionIntent({ type, currency, id: Date.now() }); changeTab('history'); }} />),
+            cash: (<CashPanel summary={portfolioSummary} currencyCode={currency} hasCashRecords={transactions.some(entry => ['DEPOSIT', 'WITHDRAW'].includes(entry.type) || entry.cashImpact === true)} onRecord={type => { setTransactionIntent({ type, currency, id: Date.now() }); changeTab('history'); }} onViewTransactions={() => changeTab('history')} />),
             charts: holdings.length > 0 ? (<PortfolioCharts performance={performance} backtestHistory={backtestHistory} summary={portfolioSummary} snapshots={snapshots} symbol={symbol} currencyCode={currency} rate={rate} theme={theme} compact={viewDensity === 'compact'} showPerformanceChart={false} />) : null,
             insights: holdings.length > 0 ? (<PortfolioInsights summary={portfolioSummary} currencyCode={currency} />) : null,
             holdings: holdings.length > 0 ? (<DashboardCard cardId="top-holdings" label="Top holdings" className="overview-panel mt-6" aria-labelledby="top-holdings-title">
@@ -314,7 +318,7 @@ export default function App() {
               </header>
               <ul className="top-holdings">
                 {[...portfolioSummary.items].sort((a, b) => b.totalValue - a.totalValue || a.symbol.localeCompare(b.symbol) || a.id.localeCompare(b.id)).slice(0, 5).map(item => { const display = holdingDisplay(item, valueCurrencyMode, currency); return <li key={item.id}>
-                  <div className="min-w-0"><strong>{item.symbol}</strong><p className="supporting-text truncate">{item.name}</p></div>
+                  <div className="min-w-0"><strong>{item.symbol}</strong><TickerLinks symbol={item.symbol} currency={item.isCash ? item.currency : undefined} /><p className="supporting-text truncate">{item.name}</p></div>
                   <div className="text-right shrink-0"><strong><Money amount={formatMoney(display.value, display.currency)} /></strong><p className={display.gain === 0 ? 'text-slate-400 text-sm' : display.gain > 0 ? 'text-emerald-500 text-sm' : 'text-rose-500 text-sm'}><Money amount={formatMoney(display.gain, display.currency, { signed: true })} /> <span className="text-xs">({formatPercent(display.percent)})</span></p></div>
                 </li>; })}
               </ul>
@@ -328,6 +332,7 @@ export default function App() {
             valueCurrencyMode={valueCurrencyMode}
             setValueCurrencyMode={setValueCurrencyMode}
             summary={portfolioSummary}
+            reviewSymbol={reviewSymbol}
             currencyCode={currency}
             customCategories={customCategories}
             theme={theme}
