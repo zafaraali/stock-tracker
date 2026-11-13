@@ -21,21 +21,22 @@ import { Toast } from './components/Toast';
 import { DashboardSetup } from './components/DashboardSetup';
 import { StatusBar } from './components/StatusBar';
 import { DataQuality } from './components/DataQuality';
+import { PortfolioHealth } from './components/PortfolioHealth';
 import React, { lazy, Suspense, useState, useEffect } from 'react';
 import { ACCENT_THEMES, usePortfolio } from './hooks/usePortfolio';
 import { Navbar } from './components/Navbar';
-import { PortfolioCharts } from './components/PortfolioCharts';
 import { HoldingsTable } from './components/HoldingsTable';
 import { PortfolioInsights } from './components/PortfolioInsights';
 import { TickerLinks } from './components/TickerLinks';
 import { HelpView } from './components/HelpView';
-import { DollarSign, ArrowUpRight, ArrowDownRight, TrendingUp, ChevronDown } from 'lucide-react';
+import { DollarSign, ArrowUpRight, ArrowDownRight, TrendingUp, ChevronDown, Briefcase, RefreshCw } from 'lucide-react';
 
 const RebalanceView = lazy(() => import('./components/RebalanceView').then(module => ({ default: module.RebalanceView })));
 const HistoryView = lazy(() => import('./components/HistoryView').then(module => ({ default: module.HistoryView })));
 const DividendView = lazy(() => import('./components/DividendView').then(module => ({ default: module.DividendView })));
 const PerformanceView = lazy(() => import('./components/PerformanceView').then(module => ({ default: module.PerformanceView })));
 const WatchlistView = lazy(() => import('./components/WatchlistView').then(module => ({ default: module.WatchlistView })));
+const PortfolioCharts = lazy(() => import('./components/PortfolioCharts').then(module => ({ default: module.PortfolioCharts })));
 
 export default function App() {
   const [privateMode, setPrivateMode] = usePreference('apex-private-mode', false, [true, false]);
@@ -90,6 +91,9 @@ export default function App() {
   }, []);
   const [confirmAction, setConfirmAction] = useState(null);
   const [summaryOpen, setSummaryOpen] = useState(true);
+  const [quickActionFeedback, setQuickActionFeedback] = useState('');
+  const [refreshNotice, setRefreshNotice] = useState('');
+  const refreshWasLoading = React.useRef(false);
   const scrollFrameRef = React.useRef(null);
   const {
     mode, startPortfolio, trash, undoNotificationId, restoreDeleted, clearRecentlyDeleted, performance, netContributionsUSD,
@@ -138,6 +142,34 @@ export default function App() {
     if (icon) icon.href = `data:image/svg+xml,${encodeURIComponent(svg)}`;
   }, [accent]);
   const isLight = effectiveTheme === 'light';
+  const latestPriceUpdatedAt = holdings.reduce((latest, item) => {
+    const timestamp = item.priceUpdatedAt ? Date.parse(item.priceUpdatedAt) : NaN;
+    return Number.isFinite(timestamp) && timestamp > latest ? timestamp : latest;
+  }, 0);
+  const latestPriceLabel = latestPriceUpdatedAt ? (() => {
+    const age = Date.now() - latestPriceUpdatedAt;
+    if (age < 60 * 1000) return 'just now';
+    if (age < 60 * 60 * 1000) return `${Math.floor(age / 60000)}m ago`;
+    if (age < 24 * 60 * 60 * 1000) return `${Math.floor(age / 3600000)}h ago`;
+    return new Date(latestPriceUpdatedAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+  })() : 'No market prices saved yet';
+  const lastSavedLabel = lastSavedAt ? (() => {
+    const age = Date.now() - Date.parse(lastSavedAt);
+    if (!Number.isFinite(age) || age < 60 * 1000) return 'just now';
+    if (age < 60 * 60 * 1000) return `${Math.floor(age / 60000)}m ago`;
+    if (age < 24 * 60 * 60 * 1000) return `${Math.floor(age / 3600000)}h ago`;
+    return new Date(lastSavedAt).toLocaleDateString();
+  })() : 'Save pending';
+  useEffect(() => {
+    if (marketStatus?.loading) refreshWasLoading.current = true;
+    if (refreshWasLoading.current && !marketStatus?.loading && (marketStatus?.lastUpdated || marketStatus?.error)) {
+      refreshWasLoading.current = false;
+      setRefreshNotice(marketStatus.error ? 'Refresh finished with unavailable prices.' : 'Prices refreshed successfully.');
+      const timeout = window.setTimeout(() => setRefreshNotice(''), 3500);
+      return () => window.clearTimeout(timeout);
+    }
+    return undefined;
+  }, [marketStatus?.loading, marketStatus?.lastUpdated, marketStatus?.error]);
   useEffect(() => {
     const meta = document.querySelector('meta[name="theme-color"]');
     if (meta) meta.content = isLight ? '#f8fafc' : '#0f172a';
@@ -177,6 +209,20 @@ export default function App() {
     scrollFrameRef.current = { first, second: null };
   };
   useEffect(() => {
+    const handleShortcut = event => {
+      if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey) return;
+      const target = event.target;
+      if (['INPUT', 'TEXTAREA', 'SELECT'].includes(target?.tagName) || target?.isContentEditable) return;
+      if (event.key.toLowerCase() === 'r') { event.preventDefault(); refreshMarketData(); }
+      if (event.key === '?') { event.preventDefault(); changeTab('help'); }
+      if (event.key === '1') { event.preventDefault(); changeTab('dashboard'); }
+      if (event.key === '2') { event.preventDefault(); changeTab('holdings'); }
+      if (event.key === '3') { event.preventDefault(); changeTab('history'); }
+    };
+    window.addEventListener('keydown', handleShortcut);
+    return () => window.removeEventListener('keydown', handleShortcut);
+  }, [activeTab, refreshMarketData]);
+  useEffect(() => {
     if (!focusHeadingRef.current || mode === 'pending') return;
     const frame = window.requestAnimationFrame(() => {
       if (!document.querySelector('[role="dialog"]')) document.getElementById('page-title')?.focus({ preventScroll: true });
@@ -186,6 +232,10 @@ export default function App() {
   }, [activeTab, mode]);
   const askToConfirm = (title, message, action, confirmLabel = 'Delete') => setConfirmAction({ title, message, action, confirmLabel });
   const runConfirmedAction = () => { confirmAction?.action(); setConfirmAction(null); };
+  const showQuickActionFeedback = message => {
+    setQuickActionFeedback(message);
+    window.setTimeout(() => setQuickActionFeedback(''), 2400);
+  };
   const previewGroups = pendingCsvImport?.kind === 'holdings'
     ? Object.entries(pendingCsvImport.rows.slice(0, 50).reduce((groups, row) => {
       const name = row.accountName || 'Selected list';
@@ -195,7 +245,7 @@ export default function App() {
     : [];
 
   return (
-    <PrivacyContext.Provider value={privateMode}><DashboardCardsProvider><div className={`app-shell density-${viewDensity} accent-${accent} ${privateMode ? 'privacy-mode' : ''} ${reducedMotion ? 'motion-reduced' : ''} min-h-screen ${isLight ? 'theme-light bg-slate-50 text-slate-900' : 'bg-slate-950 text-slate-100'} flex flex-col font-sans transition-colors duration-200`}>
+    <PrivacyContext.Provider value={privateMode}><DashboardCardsProvider><div className={`app-shell density-${viewDensity} accent-${accent} ${privateMode ? 'privacy-mode' : ''} ${reducedMotion ? 'motion-reduced' : ''} ${marketStatus?.loading ? 'market-refreshing' : ''} min-h-screen ${isLight ? 'theme-light bg-slate-50 text-slate-900' : 'bg-slate-950 text-slate-100'} flex flex-col font-sans transition-colors duration-200`}>
       <a className="skip-link" href="#main-content">Skip to main content</a>
       
       {/* Navigation */}
@@ -204,6 +254,7 @@ export default function App() {
         onTogglePrivacy={() => setPrivateMode(value => !value)}
         activeTab={activeTab}
         setActiveTab={changeTab}
+        portfolioSummary={portfolioSummary}
         currency={currency}
         setCurrency={setCurrency}
         theme={effectiveTheme}
@@ -254,17 +305,21 @@ export default function App() {
           <RecentlyDeleted entries={trash} onRestore={restoreDeleted} onClear={clearRecentlyDeleted} />
           <DataQuality holdings={holdings} onReview={symbolToReview => { setReviewSymbol(symbolToReview); changeTab('holdings'); }} />
         </StatusBar>
+        {refreshNotice && <p className={`refresh-notice ${marketStatus?.error ? 'is-warning' : ''}`} role="status" aria-live="polite">{refreshNotice}</p>}
+        <PortfolioHealth holdings={holdings} onReviewPrices={() => { const item = holdings.find(entry => !entry.priceUpdatedAt || Date.now() - Date.parse(entry.priceUpdatedAt) >= 24 * 60 * 60 * 1000); setReviewSymbol(item?.symbol || ''); changeTab('holdings'); }} onReviewTargets={() => { const item = holdings.find(entry => entry.targetPercent === '' || entry.targetPercent === null || entry.targetPercent === undefined); setReviewSymbol(item?.symbol || ''); changeTab('holdings'); }} />
+        {activeTab === 'dashboard' && <div className="dashboard-quick-actions" aria-label="Quick actions"><button type="button" className="secondary-button" onClick={() => { showQuickActionFeedback('Holdings manager opened.'); changeTab('holdings'); }}><Briefcase className="h-4 w-4" />Manage holdings</button><button type="button" className="secondary-button" onClick={() => { setTransactionIntent({ type: 'DEPOSIT', id: Date.now() }); showQuickActionFeedback('Cash entry form opened.'); changeTab('history'); }}><DollarSign className="h-4 w-4" />Record cash</button><button type="button" className="secondary-button" onClick={() => { showQuickActionFeedback('Refreshing market prices…'); refreshMarketData(); }} disabled={marketStatus?.loading}><RefreshCw className={`h-4 w-4 ${marketStatus?.loading ? 'animate-spin' : ''}`} />{marketStatus?.loading ? 'Refreshing…' : 'Refresh prices'}</button>{quickActionFeedback && <span className="quick-action-feedback" role="status" aria-live="polite">{quickActionFeedback}</span>}</div>}
 
         {/* Printable Executive Header (Only visible when printing/exporting PDF) */}
         <div className="hidden print:block mb-8 border-b border-slate-300 pb-4">
           <h1 className="text-2xl font-bold text-slate-900">ApexFinance - Executive Portfolio Report</h1>
           <p className="text-xs text-slate-600 mt-1">Generated on {new Date().toLocaleDateString()} | Base Currency: {currency}</p>
+          <p className="print-summary"><strong>Portfolio:</strong> {formatMoney(portfolioSummary.totalValue, currency)} · <strong>Cash:</strong> {formatMoney(portfolioSummary.cashValue, currency)} · <strong>Top holdings:</strong> {[...portfolioSummary.items].sort((a, b) => b.totalValue - a.totalValue).slice(0, 3).map(item => item.symbol).join(', ') || 'None'}</p>
         </div>
 
-        <header className="page-heading mb-6"><p className="account-context">Holdings list: <strong>{selectedAccountId === '__combined__' ? 'Combined · All lists' : accounts.find(account => account.id === selectedAccountId)?.name || 'Default list'}</strong><span>Display currency: {currency}</span></p><h1 id="page-title" tabIndex={-1}>{({ dashboard: 'Portfolio overview', holdings: 'Holdings', history: 'Transactions', watchlist: 'Watchlist', dividends: 'Dividends', performance: 'Performance', rebalance: 'Rebalance', help: 'Help' })[activeTab]}</h1><p className="supporting-text">{({ dashboard: 'Your portfolio at a glance, from allocation to your largest positions.', holdings: 'Manage your holdings, prices, and investment notes.', history: 'Record trades, dividends, and cash movements.', watchlist: 'Track investment ideas before adding a holding.', dividends: 'Review income received and upcoming dividend estimates.', performance: 'Explore portfolio returns and compare with the market.', rebalance: 'Compare your current allocation with your targets.', help: 'Learn how each part of ApexFinance works and how your data is handled.' })[activeTab]}</p></header>
+        <header className="page-heading mb-6"><p className="account-context">Holdings list: <strong>{selectedAccountId === '__combined__' ? 'Combined · All lists' : accounts.find(account => account.id === selectedAccountId)?.name || 'Default list'}</strong><span>Display currency: {currency}</span><span className="freshness-label" title={lastSavedAt ? `Last saved ${new Date(lastSavedAt).toLocaleString()}` : 'No saved changes yet'}>Saved: {lastSavedLabel}</span>{activeTab === 'dashboard' && <span className="freshness-label" title={latestPriceUpdatedAt ? `Latest saved market price: ${latestPriceLabel}` : latestPriceLabel}>Prices updated: {latestPriceLabel}</span>}</p><h1 id="page-title" tabIndex={-1}>{({ dashboard: 'Portfolio overview', holdings: 'Holdings', history: 'Transactions', watchlist: 'Watchlist', dividends: 'Dividends', performance: 'Performance', rebalance: 'Rebalance', help: 'Help' })[activeTab]}</h1><p className="supporting-text">{({ dashboard: 'Your portfolio at a glance, from allocation to your largest positions.', holdings: 'Manage your holdings, prices, and investment notes.', history: 'Record trades, dividends, and cash movements.', watchlist: 'Track investment ideas before adding a holding.', dividends: 'Review income received and upcoming dividend estimates.', performance: 'Explore portfolio returns and compare with the market.', rebalance: 'Compare your current allocation with your targets.', help: 'Learn how each part of ApexFinance works and how your data is handled.' })[activeTab]}</p></header>
         {/* Tab Switcher Content */}
         <div id="tab-content" className="tab-scroll-target">
-        <Suspense fallback={<LoadingSkeleton />}>
+        <Suspense fallback={<LoadingSkeleton variant={activeTab === 'dashboard' ? 'dashboard' : 'view'} />}>
         {activeTab === 'dashboard' && <>
           {holdings.length === 0 && !transactions.some(entry => ['DEPOSIT', 'WITHDRAW'].includes(entry.type) || entry.cashImpact === true) && <DashboardSetup onNavigate={changeTab} onExploreDemo={() => startPortfolio('demo')} />}
           {overviewLayout.order.filter(key => !overviewLayout.hidden.includes(key)).map(key => <React.Fragment key={key}>{({

@@ -14,6 +14,7 @@ import { CASH_TYPES, entryCurrency, entryRate, grossValue, cashChange, calculate
 import { EmptyState } from './EmptyState';
 
 const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
+const relativeDate = value => { const parsed = new Date(`${value}T00:00:00`); if (Number.isNaN(parsed.getTime())) return ''; const days = Math.max(0, Math.floor((Date.now() - parsed.getTime()) / 86400000)); if (days === 0) return 'today'; if (days === 1) return 'yesterday'; if (days < 30) return `${days} days ago`; if (days < 365) return `${Math.floor(days / 30)} months ago`; return `${Math.floor(days / 365)} years ago`; };
 const emptyForm = (type = 'BUY') => ({ id: '', holdingId: '', type, date: today(), shares: '', price: '', total: '', fee: '0', ratio: '2', currency: 'CAD', cashImpact: true });
 
 export function HistoryView({ transactions, holdings, draftScope = 'main', currencyCode = 'USD', rate, historicalFx, onSaveTransaction, onDeleteTransaction, intent, onIntentHandled }) {
@@ -82,6 +83,7 @@ export function HistoryView({ transactions, holdings, draftScope = 'main', curre
       <label className="text-xs text-slate-400">To<input className="field mt-1" type="date" value={toDate} onChange={event => setToDate(event.target.value)} /></label>
     </div>
     </FilterPanel>
+    <div className="view-mobile-summary" aria-label="Transaction summary"><div><span>Records</span><strong>{transactions.length}</strong></div><div><span>Showing</span><strong>{ordered.length}</strong></div><div><span>Page</span><strong>{pagination.page} / {pagination.totalPages || 1}</strong></div></div>
     <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden"><div className="overflow-x-auto"><table className="financial-table responsive-table w-full text-sm">
       <thead className="text-slate-400 border-b border-slate-800"><tr>{['Date', 'Type', 'Symbol', 'Shares / ratio', 'Execution price', 'Fees', 'Amount', 'Actions'].map(label => <th key={label} data-label={label} className="p-4">{label}</th>)}</tr></thead>
       <tbody className="divide-y divide-slate-800/60">{!ordered.length ? <tr><td colSpan={8}><EmptyState compact title={transactions.length ? 'No matching transactions' : 'No transactions yet'} description={transactions.length ? 'Try a different symbol, type, or date range.' : 'Record a deposit or trade to begin tracking your portfolio.'} actionLabel={transactions.length ? 'Clear filters' : 'Record a transaction'} onAction={() => { if (transactions.length) { setSearch(''); setTypeFilter('ALL'); setFromDate(''); setToDate(''); } else add('BUY'); }} /></td></tr> : pagination.pageItems.map(t => {
@@ -89,7 +91,7 @@ export function HistoryView({ transactions, holdings, draftScope = 'main', curre
         const fx = entryRate(t, holdings, historicalFx);
         const amount = t.type === 'BUY' ? grossValue(t) + Number(t.fee || 0) : t.type === 'SELL' ? grossValue(t) - Number(t.fee || 0) : Number(t.total || 0);
         return <tr key={t.id}>
-          <td data-label="Date" className="p-4 text-slate-400">{t.date}</td>
+          <td data-label="Date" className="p-4 text-slate-400"><span>{t.date}</span><span className="date-relative">{relativeDate(t.date)}</span></td>
           <td data-label="Type" className="p-4"><span className="font-semibold text-indigo-400">{t.type}</span>{['BUY', 'SELL', 'DIVIDEND'].includes(t.type) && <div className="text-xs text-slate-400">{t.cashImpact ? 'Tracked cash' : 'Outside cash ledger'}</div>}</td>
           <td data-label="Symbol" className="p-4 font-semibold">{CASH_TYPES.includes(t.type) ? currency + ' cash' : t.symbol}</td>
           <td data-label="Shares / ratio" className="p-4">{t.type === 'SPLIT' ? `${formatQuantity(t.ratio)}:1` : ['BUY', 'SELL'].includes(t.type) ? formatQuantity(t.shares) : '—'}</td>

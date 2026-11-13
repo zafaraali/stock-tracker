@@ -10,10 +10,11 @@ import { CURRENCY_RATES } from '../data/mockData';
 import { downloadGoogleDriveBackup, downloadLatestGoogleDriveBackup, ENCRYPTED_DRIVE_BACKUP_PREFIX, isGoogleDriveConfigured, uploadGoogleDriveBackup } from '../services/googleDrive';
 import { decryptBackup, encryptBackup } from '../services/encryptedBackup';
 import { OverviewControls } from './OverviewControls';
+import { formatMoney } from '../services/formatMoney';
 
 const OPTIONAL_TABS = [['history', 'Transactions'], ['watchlist', 'Watchlist'], ['dividends', 'Dividends'], ['performance', 'Performance'], ['rebalance', 'Rebalance']];
 
-export function Navbar({ viewDensity = 'default', setViewDensity, reducedMotionPreference = 'system', setReducedMotionPreference, privateMode, onTogglePrivacy, activeTab, setActiveTab, currency, setCurrency, theme, themePreference = 'dark', setThemePreference, toggleTheme, accent, setAccent, overviewLayout, setOverviewLayout, exportJSON, exportEncryptedJSON, backupPayload, restoreJSONBackup, exportCSV, exportAllCSV, importJSON, importEncryptedJSON, importCSV, accounts = [], selectedAccountId, setSelectedAccountId, addAccount, renameAccount, deleteAccount, onDeleteAllData, refreshMarketData, marketStatus }) {
+export function Navbar({ viewDensity = 'default', setViewDensity, reducedMotionPreference = 'system', setReducedMotionPreference, privateMode, onTogglePrivacy, activeTab, setActiveTab, portfolioSummary, currency, setCurrency, theme, themePreference = 'dark', setThemePreference, toggleTheme, accent, setAccent, overviewLayout, setOverviewLayout, exportJSON, exportEncryptedJSON, backupPayload, restoreJSONBackup, exportCSV, exportAllCSV, importJSON, importEncryptedJSON, importCSV, accounts = [], selectedAccountId, setSelectedAccountId, addAccount, renameAccount, deleteAccount, onDeleteAllData, refreshMarketData, marketStatus }) {
   const [hiddenTabs, setHiddenTabs] = useState(() => {
     try {
       const saved = JSON.parse(localStorage.getItem('apex-hidden-tabs'));
@@ -34,6 +35,7 @@ export function Navbar({ viewDensity = 'default', setViewDensity, reducedMotionP
   const [desktopControlsOpen, setDesktopControlsOpen] = useState(true);
   const [themePulse, setThemePulse] = useState(false);
   const [refreshPulse, setRefreshPulse] = useState(false);
+  const [preferenceNotice, setPreferenceNotice] = useState('');
   useEffect(() => {
     const restore = event => {
       if (Object.hasOwn(event.detail, 'apex-hidden-tabs')) setHiddenTabs(event.detail['apex-hidden-tabs']);
@@ -122,6 +124,11 @@ export function Navbar({ viewDensity = 'default', setViewDensity, reducedMotionP
     window.setTimeout(() => setRefreshPulse(false), 520);
   };
 
+  const showPreferenceNotice = message => {
+    setPreferenceNotice(message);
+    window.setTimeout(() => setPreferenceNotice(''), 1800);
+  };
+
   const backupToDrive = async () => {
     if (driveBusy) return;
     setDriveBusy(true);
@@ -186,7 +193,7 @@ export function Navbar({ viewDensity = 'default', setViewDensity, reducedMotionP
           <select
             aria-label="Display currency"
             value={currency}
-            onChange={(e) => setCurrency(e.target.value)}
+            onChange={(e) => { setCurrency(e.target.value); showPreferenceNotice(`Display currency changed to ${e.target.value}.`); }}
             className={`${isLight ? 'bg-slate-100 text-slate-800 border-slate-300' : 'bg-slate-950 text-slate-200 border-slate-800'} text-xs rounded-xl px-2.5 py-2 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 border`}
           >
             {Object.keys(CURRENCY_RATES).sort((a, b) => a.localeCompare(b)).map(code => (
@@ -199,7 +206,7 @@ export function Navbar({ viewDensity = 'default', setViewDensity, reducedMotionP
             aria-label="Holdings list"
             title="Select holdings list"
             value={selectedAccountId}
-            onChange={e => setSelectedAccountId(e.target.value)}
+            onChange={e => { setSelectedAccountId(e.target.value); showPreferenceNotice('Holdings list changed.'); }}
             className={`${isLight ? 'bg-slate-100 text-slate-800 border-slate-300' : 'bg-slate-950 text-slate-200 border-slate-800'} text-xs rounded-xl px-2.5 py-2 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 border max-w-36`}
           >
             <option value="__combined__">Combined</option>
@@ -214,12 +221,12 @@ export function Navbar({ viewDensity = 'default', setViewDensity, reducedMotionP
             aria-label="Refresh live market prices"
             className={`refresh-market-button p-2 rounded-xl text-xs font-medium transition border ${refreshPulse ? 'refresh-pulse' : ''} ${isLight ? 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-300' : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700'} disabled:opacity-50`}
           >
-            <RefreshCw className={`w-4 h-4 ${marketStatus?.loading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-4 h-4 ${marketStatus?.loading ? 'animate-spin' : ''}`} /><kbd className="shortcut-hint">R</kbd>
           </button>
           <button
-            aria-label={`Switch to ${themePreference === 'system' ? 'dark' : isLight ? 'dark' : 'Match device'} mode`}
+            aria-label={`Current theme: ${themePreference === 'system' ? 'Match device' : isLight ? 'Light' : 'Dark'}. Switch to ${themePreference === 'system' ? 'Dark' : isLight ? 'Match device' : 'Light'} mode`}
             onClick={handleThemeToggle}
-            title={`Switch to ${themePreference === 'system' ? 'Dark' : isLight ? 'Dark' : 'Match device'} Mode`}
+            title={`Current: ${themePreference === 'system' ? 'Match device' : isLight ? 'Light' : 'Dark'} · Switch to ${themePreference === 'system' ? 'Dark' : isLight ? 'Match device' : 'Light'}`}
             className={`theme-toggle-button p-2 rounded-xl text-xs font-medium transition border ${themePulse ? 'theme-toggle-pulse' : ''} ${isLight ? 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-300' : 'bg-slate-800 hover:bg-slate-700 text-amber-400 border-slate-700'}`}
           >
             <span className="theme-toggle-icon inline-flex">{themePreference === 'system' ? <Monitor className="w-5 h-5 text-indigo-400" /> : isLight ? <Sun className="w-5 h-5 text-amber-400" /> : <Moon className="w-5 h-5 text-slate-300" />}</span>
@@ -227,6 +234,7 @@ export function Navbar({ viewDensity = 'default', setViewDensity, reducedMotionP
 
           {installPrompt && <button aria-label="Install ApexFinance app" title="Install ApexFinance app" onClick={installApp} className="icon-button"><Download className="w-5 h-5" /></button>}
           <button aria-label={reminder.due ? 'Open settings · Backup due' : 'Open settings'} onClick={() => { setMobileMenuOpen(false); setSettingsOpen(true); }} className="icon-button"><Settings className="w-5 h-5" />{reminder.due && <span className="backup-due-dot" aria-hidden="true" />}</button>
+          {preferenceNotice && <span className="preference-notice" role="status" aria-live="polite">{preferenceNotice}</span>}
 </>;
 
   return (
@@ -273,32 +281,11 @@ export function Navbar({ viewDensity = 'default', setViewDensity, reducedMotionP
           >
             <ArrowDownUp className="w-4 h-4" /> Holdings
           </a>
-          {!hiddenTabs.includes('history') && (<a href="#/history"
-            aria-current={activeTab === 'history' ? 'page' : undefined} onClick={event => handleSectionLink(event, 'history')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-              activeTab === 'history' ? 'bg-indigo-600 text-white shadow' : `${isLight ? 'text-slate-600 hover:text-slate-900' : 'text-slate-400 hover:text-slate-200'}`
-            }`}
-          >
-            <History className="w-4 h-4" /> Transactions
-          </a>)}
-          {!hiddenTabs.includes('watchlist') && (<a href="#/watchlist"
-            aria-current={activeTab === 'watchlist' ? 'page' : undefined} onClick={event => handleSectionLink(event, 'watchlist')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-              activeTab === 'watchlist' ? 'bg-indigo-600 text-white shadow' : `${isLight ? 'text-slate-600 hover:text-slate-900' : 'text-slate-400 hover:text-slate-200'}`
-            }`}
-          >
-            <Eye className="w-4 h-4" /> Watchlist
-          </a>)}
+          {!hiddenTabs.includes('history') && (<a href="#/history" aria-current={activeTab === 'history' ? 'page' : undefined} onClick={event => handleSectionLink(event, 'history')} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${activeTab === 'history' ? 'bg-indigo-600 text-white shadow' : `${isLight ? 'text-slate-600 hover:text-slate-900' : 'text-slate-400 hover:text-slate-200'}`}`}><History className="w-4 h-4" /> Transactions</a>)}
+          {!hiddenTabs.includes('watchlist') && (<a href="#/watchlist" aria-current={activeTab === 'watchlist' ? 'page' : undefined} onClick={event => handleSectionLink(event, 'watchlist')} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${activeTab === 'watchlist' ? 'bg-indigo-600 text-white shadow' : `${isLight ? 'text-slate-600 hover:text-slate-900' : 'text-slate-400 hover:text-slate-200'}`}`}><Eye className="w-4 h-4" /> Watchlist</a>)}
           {!hiddenTabs.includes('dividends') && (<a href="#/dividends" aria-current={activeTab === 'dividends' ? 'page' : undefined} onClick={event => handleSectionLink(event, 'dividends')} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${activeTab === 'dividends' ? 'bg-indigo-600 text-white shadow' : `${isLight ? 'text-slate-600 hover:text-slate-900' : 'text-slate-400 hover:text-slate-200'}`}`}><CalendarDays className="w-4 h-4" /> Dividends</a>)}
           {!hiddenTabs.includes('performance') && (<a href="#/performance" aria-current={activeTab === 'performance' ? 'page' : undefined} onClick={event => handleSectionLink(event, 'performance')} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${activeTab === 'performance' ? 'bg-indigo-600 text-white shadow' : `${isLight ? 'text-slate-600 hover:text-slate-900' : 'text-slate-400 hover:text-slate-200'}`}`}><Activity className="w-4 h-4" /> Performance</a>)}
-          {!hiddenTabs.includes('rebalance') && (<a href="#/rebalance"
-            aria-current={activeTab === 'rebalance' ? 'page' : undefined} onClick={event => handleSectionLink(event, 'rebalance')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-              activeTab === 'rebalance' ? 'bg-indigo-600 text-white shadow' : `${isLight ? 'text-slate-600 hover:text-slate-900' : 'text-slate-400 hover:text-slate-200'}`
-            }`}
-          >
-            <Sliders className="w-4 h-4" /> Rebalance
-          </a>)}
+          {!hiddenTabs.includes('rebalance') && (<a href="#/rebalance" aria-current={activeTab === 'rebalance' ? 'page' : undefined} onClick={event => handleSectionLink(event, 'rebalance')} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${activeTab === 'rebalance' ? 'bg-indigo-600 text-white shadow' : `${isLight ? 'text-slate-600 hover:text-slate-900' : 'text-slate-400 hover:text-slate-200'}`}`}><Sliders className="w-4 h-4" /> Rebalance</a>)}
         </div>
 
         {/* Actions & Currency & Theme Toggle */}
@@ -310,7 +297,7 @@ export function Navbar({ viewDensity = 'default', setViewDensity, reducedMotionP
         </div>
           {settingsOpen && <Modal title="Settings & data" onClose={() => setSettingsOpen(false)}>
             <p className="text-sm text-slate-400 mb-5">Your holdings, transactions, watchlist, settings, and snapshots stay in this browser's local storage. Keep an encrypted or otherwise secure copy of exported backups.</p>
-            <nav className="settings-category-nav" aria-label="Settings categories">
+            <nav className="settings-category-nav settings-category-nav-sticky" aria-label="Settings categories">
               {[['app', 'App'], ['appearance', 'Appearance'], ['lists', 'Holdings lists'], ['data', 'Data']].map(([key, label]) => <button type="button" key={key} aria-pressed={settingsSection === key} aria-controls={`settings-${key}-panel`} onClick={() => setSettingsSection(key)}>{label}</button>)}
             </nav>
             <section id="settings-app-panel" aria-labelledby="settings-app-title" className="settings-category-panel" hidden={settingsSection !== 'app'}>
@@ -323,7 +310,7 @@ export function Navbar({ viewDensity = 'default', setViewDensity, reducedMotionP
               <h3 id="settings-appearance-title" className="section-title">Appearance</h3>
               <label className="flex items-center justify-between gap-4 rounded-xl border border-slate-800 p-3 text-sm"><span><strong className="block">Accent color</strong><small className="text-slate-500">Choose the highlight color used throughout the app.</small></span><select aria-label="Accent color" value={accent} onChange={event => setAccent(event.target.value)} className="field mt-0 w-auto"><option value="green">Green (default)</option><option value="red">Red</option><option value="orange">Orange</option><option value="yellow">Yellow</option><option value="blue">Blue</option><option value="indigo">Indigo</option><option value="violet">Violet</option></select></label>
               <label className="settings-theme-control"><span><strong className="block">View density</strong><small className="text-slate-500">Compact reduces vertical spacing so more fits on screen.</small></span><select aria-label="View density" value={viewDensity} onChange={event => setViewDensity(event.target.value)} className="field mt-0 w-auto"><option value="default">Default</option><option value="compact">Compact</option></select></label>
-              <label className="settings-theme-control"><span><strong className="block">Motion</strong><small className="supporting-text">Control interface animations. System accessibility preferences are always respected.</small></span><select aria-label="Motion" value={reducedMotionPreference === 'system' ? 'off' : reducedMotionPreference} onChange={event => setReducedMotionPreference?.(event.target.value)} className="field mt-0 w-auto"><option value="off">Animations on</option><option value="on">Reduce motion</option></select></label>
+              <label className="settings-theme-control"><span><strong className="block">Motion</strong><small className="supporting-text">Choose whether animations follow your device accessibility preference.</small></span><select aria-label="Motion" value={reducedMotionPreference} onChange={event => setReducedMotionPreference?.(event.target.value)} className="field mt-0 w-auto"><option value="system">Follow device</option><option value="off">Animations on</option><option value="on">Reduce motion</option></select></label>
               <fieldset className="settings-tab-options"><legend className="font-semibold">Navigation tabs</legend><p className="supporting-text">Choose which tabs appear in the top bar and mobile menu.</p>
                 {['Dashboard', 'Holdings'].map(label => <label key={label} className="settings-tab-option"><span>{label}<small>Always shown</small></span><input type="checkbox" checked disabled aria-label={`Show ${label} tab`} /></label>)}
                 {OPTIONAL_TABS.map(([key, label]) => <label key={key} className="settings-tab-option"><span>{label}</span><input type="checkbox" aria-label={`Show ${label} tab`} checked={!hiddenTabs.includes(key)} onChange={event => {
@@ -354,7 +341,7 @@ export function Navbar({ viewDensity = 'default', setViewDensity, reducedMotionP
                   <div><h4>Back up</h4><div className="settings-action-pair"><button type="button" className="primary-button" disabled={driveBusy} onClick={backupToDrive}>Back up to Drive</button><button type="button" className="primary-button" disabled={driveBusy} onClick={backupEncryptedToDrive}>Encrypted backup</button></div></div>
 
                 </div>}
-                {driveStatus && <p className="text-xs text-slate-400 mt-2" role="status">{driveStatus}</p>}
+                {driveStatus && <p className={`text-xs mt-2 ${/saved|started|awaiting confirmation/i.test(driveStatus) ? 'drive-status-success' : 'text-slate-400'}`} role="status">{driveStatus}</p>}
               </div>
               <section className="settings-file-group"><h4>Download backup</h4><p>Complete portfolio and settings as a JSON file.</p><div className="settings-file-actions">
               <button className="secondary-button" onClick={exportJSON}><Download className="w-4 h-4" /> Download complete JSON backup</button>
@@ -396,14 +383,16 @@ export function Navbar({ viewDensity = 'default', setViewDensity, reducedMotionP
           aria-label="Mobile navigation"
           className={`relative ml-auto h-full w-[min(86vw,22rem)] overflow-y-auto border-l p-5 shadow-2xl ${isLight ? 'bg-white border-slate-200 text-slate-900' : 'bg-slate-900 border-slate-800 text-slate-100'}`}
         >
-          <div className="flex items-center justify-between gap-4 mb-6">
+          <div className="mobile-drawer-header flex items-center justify-between gap-4 mb-6">
             <div>
-              <p className="text-xs uppercase tracking-[.18em] text-slate-500">Navigate</p>
+              <p className="text-xs uppercase tracking-[.18em] text-slate-500">Navigation</p>
               <p className="text-lg font-semibold">ApexFinance</p>
             </div>
             <button type="button" aria-label="Close navigation menu" onClick={() => setMobileMenuOpen(false)} className="icon-button"><X className="w-5 h-5" /></button>
           </div>
-          <div className="grid gap-2">
+          <p className="drawer-current-page">Current page: <strong>{({ dashboard: 'Dashboard', holdings: 'Holdings', history: 'Transactions', watchlist: 'Watchlist', dividends: 'Dividends', performance: 'Performance', rebalance: 'Rebalance', help: 'Help' })[activeTab]}</strong></p>
+          {portfolioSummary && <div className="drawer-portfolio-summary" aria-label="Portfolio summary"><div><span>Portfolio</span><strong>{formatMoney(portfolioSummary.totalValue || 0, currency)}</strong></div><div><span>Cash</span><strong>{formatMoney(portfolioSummary.cashValue || 0, currency)}</strong></div></div>}
+          <div className="mobile-drawer-nav grid gap-2" aria-label="Primary sections">
             {[
               ["dashboard", "Dashboard", PieIcon],
               ["holdings", "Holdings", ArrowDownUp],
@@ -426,7 +415,7 @@ export function Navbar({ viewDensity = 'default', setViewDensity, reducedMotionP
               </a>
             ))}
           </div>
-          <div className="drawer-controls mt-6 border-t border-slate-800 pt-5"><h2 className="section-title mb-3">Portfolio controls</h2>{renderControls()}</div>
+          <div className="drawer-controls mt-6 border-t border-slate-800 pt-5"><p className="text-xs uppercase tracking-[.18em] text-slate-500 mb-2">Controls</p><h2 className="section-title mb-3">Portfolio controls</h2>{renderControls()}</div>
         </aside>
       </div>}
     </nav>

@@ -1,4 +1,4 @@
-import { isTseSymbol, toYahooSymbol } from '../services/marketApi';
+import { inferSymbolMetadata, isTseSymbol, toYahooSymbol } from '../services/marketApi';
 
 const currencyPair = currency => {
   const code = String(currency || '').trim().toUpperCase();
@@ -13,7 +13,8 @@ const googleQuote = symbol => {
     const exchange = yahooSymbol.endsWith('.V') ? 'CVE' : 'TSE';
     return `${yahooSymbol.replace(/\.(TO|V)$/, '')}:${exchange}`;
   }
-  return normalized;
+  const exchange = inferSymbolMetadata(normalized).exchange || 'NASDAQ';
+  return `${normalized}:${exchange}`;
 };
 
 export function TickerLinks({ symbol, currency }) {

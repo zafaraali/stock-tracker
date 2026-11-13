@@ -7,6 +7,7 @@ const topics = [
   ['Watchlist, dividends, and performance', 'Watchlist is for ideas you are monitoring without adding them to the portfolio. Dividends shows recorded income and estimated future income. Performance compares portfolio changes with contributions and market history when enough data is available.'],
   ['Currency and market data', 'The currency selector changes how values are displayed; it does not change underlying transactions or holdings. Refresh market data when you want the latest available prices. Historical estimates and stale prices are labeled so you can distinguish them from fresh data.'],
   ['Settings and backups', 'Settings controls theme, density, motion, visible tabs, named holdings lists, and data tools. Your data is stored locally in this browser. Export a JSON backup regularly, use CSV for spreadsheet workflows, and review imported or restored data before confirming it.'],
+  ['Keyboard shortcuts', 'Press 1 for Dashboard, 2 for Holdings, 3 for Transactions, R to refresh market data, or ? to open this Help tab. Shortcuts are ignored while you are typing in a field.'],
 ];
 
 export function HelpView() {
@@ -19,7 +20,7 @@ export function HelpView() {
         </div>
       </section>
       <div className="help-topic-grid">
-        {topics.map(([title, body]) => <section key={title} className="help-topic rounded-2xl border border-slate-800 bg-slate-900/40 p-5"><h2 className="text-base font-semibold">{title}</h2><p className="supporting-text mt-2">{body}</p></section>)}
+        {topics.map(([title, body]) => <details key={title} className="help-topic help-disclosure rounded-2xl border border-slate-800 bg-slate-900/40 p-5" open><summary className="text-base font-semibold">{title}</summary><p className="supporting-text mt-2">{body}</p></details>)}
       </div>
       <section className="rounded-2xl border border-emerald-500/25 bg-emerald-500/5 p-5"><div className="flex items-start gap-3"><ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-emerald-400" aria-hidden="true" /><div><h2 className="text-base font-semibold">Important data notes</h2><p className="supporting-text mt-2">ApexFinance is a personal tracking tool, not a brokerage or financial adviser. Market prices, exchange rates, dividend estimates, and historical comparisons may be delayed, estimated, or unavailable. Verify important figures with your broker or a trusted market-data source.</p></div></div></section>
       <p className="supporting-text flex flex-wrap items-center gap-2 text-sm">Need market context? Open <a className="inline-flex items-center gap-1 text-indigo-400 hover:underline" href="https://finance.yahoo.com/" target="_blank" rel="noopener noreferrer">Yahoo Finance <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" /></a> or <a className="inline-flex items-center gap-1 text-indigo-400 hover:underline" href="https://www.google.com/finance/" target="_blank" rel="noopener noreferrer">Google Finance <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" /></a>.</p>

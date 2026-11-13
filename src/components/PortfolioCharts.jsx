@@ -10,6 +10,7 @@ import { chartColor } from '../services/chartColors';
 import { formatMoney } from '../services/formatMoney';
 import React, { useContext, useEffect, useRef, useState } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, AreaChart, Area, XAxis, YAxis, CartesianGrid, Legend } from 'recharts';
+import { BarChart3 } from 'lucide-react';
 import { BENCHMARK_SYMBOL, buildPerformanceComparison } from '../services/performanceComparison';
 
 
@@ -88,6 +89,7 @@ export function PortfolioCharts({ performance, backtestHistory = [], summary, sn
   const chartTheme = isLight
     ? { grid: '#e2e8f0', axis: '#64748b', portfolio: 'var(--accent-text, var(--accent))', benchmark: '#d97706', tooltip: '#ffffff', tooltipText: '#0f172a' }
     : { grid: '#334155', axis: '#94a3b8', portfolio: 'var(--accent-text, var(--accent))', benchmark: '#fbbf24', tooltip: '#0f172a', tooltipText: '#f8fafc' };
+  const chartEmpty = (title, description) => <div className="chart-empty-state" role="status"><BarChart3 aria-hidden="true" className="h-8 w-8" /><strong>{title}</strong><span>{description}</span></div>;
   
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
@@ -98,10 +100,11 @@ export function PortfolioCharts({ performance, backtestHistory = [], summary, sn
       <div className={`${cardBg} chart-card border p-5 rounded-2xl lg:col-span-2 transition-colors`}>
         <div className="flex flex-wrap items-center justify-between gap-3 mb-4"><h3 className={`text-xs font-semibold ${headingColor} tracking-wider uppercase`}>Estimated Performance vs VOO</h3><div className="chart-range flex gap-1" role="group" aria-label="Chart time range">{['YTD', '1M', '3M', '6M', '1Y', '3Y', '5Y'].map(option => <button type="button" key={option} aria-pressed={range === option} className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold ${range === option ? 'bg-indigo-600 text-white' : isLight ? 'bg-slate-100 text-slate-600' : 'bg-slate-800 text-slate-400'}`} onClick={() => setRange(option)}>{option}</button>)}</div></div>
         <p className="text-sm text-slate-400 mb-4">Backtested return for your current holdings versus VOO, the Vanguard S&amp;P 500 ETF. Maximum history is five years.</p>
+        <p className="sr-only">{Number.isFinite(portfolioReturn) ? `Portfolio return is ${metric(portfolioReturn)}.` : 'Portfolio return is not available yet.'} {Number.isFinite(benchmarkReturn) ? `VOO return is ${metric(benchmarkReturn)}.` : 'VOO return is not available yet.'}</p>
         <div className="h-64 w-full">
           {comparisonHistory.length === 0 ? (
             <div className="chart-empty-state h-full flex items-center justify-center text-slate-500 text-sm text-center" role="status">
-              VOO performance data is not available yet.
+              {chartEmpty('Performance history is not ready', 'VOO comparison data will appear after market history is available.')}
             </div>
           ) : (
             <ResponsiveContainer width="100%" height="100%">
@@ -115,7 +118,7 @@ export function PortfolioCharts({ performance, backtestHistory = [], summary, sn
               <CartesianGrid strokeDasharray="3 3" stroke={chartTheme.grid} />
               <XAxis dataKey="date" stroke={chartTheme.axis} fontSize={11} />
               <YAxis stroke={chartTheme.axis} fontSize={11} tickFormatter={value => `${value.toFixed(0)}%`} />
-              <Tooltip contentStyle={{ backgroundColor: chartTheme.tooltip, border: `1px solid ${chartTheme.grid}`, borderRadius: 10, color: chartTheme.tooltipText }} labelStyle={{ color: chartTheme.tooltipText }} itemStyle={{ color: chartTheme.tooltipText }} formatter={value => `${Number(value).toFixed(2)}%`} />
+              <Tooltip contentStyle={{ backgroundColor: chartTheme.tooltip, border: `1px solid ${chartTheme.grid}`, borderRadius: 10, color: chartTheme.tooltipText }} labelStyle={{ color: chartTheme.tooltipText }} itemStyle={{ color: chartTheme.tooltipText }} labelFormatter={value => { const date = new Date(value); return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }); }} formatter={value => `${Number(value).toFixed(2)}%`} />
               <Legend wrapperStyle={{ color: chartTheme.tooltipText }} />
               <Area isAnimationActive={!reducedMotion} animationBegin={80} animationDuration={850} animationEasing="ease-out" type="monotone" name="Portfolio" dataKey="value" stroke={chartTheme.portfolio} strokeWidth={3} dot={false} fill="none" />
               <Area isAnimationActive={!reducedMotion} animationBegin={160} animationDuration={850} animationEasing="ease-out" type="monotone" name="VOO (S&P 500)" dataKey="capital" stroke={chartTheme.benchmark} fill="none" strokeWidth={2} />
@@ -138,9 +141,10 @@ export function PortfolioCharts({ performance, backtestHistory = [], summary, sn
       <DashboardCard as="div" cardId="asset-allocation" label="Asset Allocation"><div ref={assetCard} onMouseLeave={() => setHoverAsset(null)} className={`${cardBg} chart-card border p-5 rounded-2xl lg:col-span-1 transition-colors`}>
         <div className="chart-save-header mb-4"><h3 className={`text-xs font-semibold ${headingColor} tracking-wider uppercase`}>Asset Allocation</h3><ChartImageButton label="Asset Allocation" disabled={!assetPieData.length} onSave={() => saveAllocationImage({ title: 'Asset Allocation', data: assetPieData, currencyCode, theme, privateMode, sector: false })} /></div>
         {assetPieData.length > 0 && <p className="chart-summary">{assetPieData[0].name === 'Cash' ? 'Largest allocation' : 'Largest holding'}: <strong>{assetPieData[0].name}</strong> · {formatPercent(assetPieData[0].value / assetTotal * 100)} of portfolio</p>}
+        {assetPieData.length > 0 && <p className="sr-only">Asset allocation contains {assetPieData.length} positions. The largest is {assetPieData[0].name} at {formatPercent(assetPieData[0].value / assetTotal * 100)}.</p>}
         <div className="chart-selection-slot no-print" aria-live="polite">{selectedAsset && <button className="secondary-button" onClick={() => { setSelectedAsset(null); setHoverAsset(null); }}>Pinned: {selectedAsset} · Clear</button>}</div>
         {assetPieData.length === 0 ? (
-          <div className="chart-empty-state h-64 flex items-center justify-center text-slate-500 text-sm text-center px-6" role="status">Add a holding to see how your portfolio is allocated.</div>
+          <div className="h-64 flex items-center justify-center px-6">{chartEmpty('No allocation yet', 'Add a holding or record cash to see your portfolio mix.')}</div>
         ) : (
           <div className="space-y-2">
             <div className="chart-donut-wrap h-80 w-full flex items-center">
@@ -192,9 +196,10 @@ export function PortfolioCharts({ performance, backtestHistory = [], summary, sn
       <DashboardCard as="div" cardId="sector-breakdown" label="Sector Breakdown"><div ref={sectorCard} onMouseLeave={() => setHoverSector(null)} className={`${cardBg} chart-card border p-5 rounded-2xl lg:col-span-1 transition-colors`}>
         <div className="chart-save-header mb-4"><h3 className={`text-xs font-semibold ${headingColor} tracking-wider uppercase`}>Sector Breakdown</h3><ChartImageButton label="Sector Breakdown" disabled={!sectorPieData.length} onSave={() => saveAllocationImage({ title: 'Sector Breakdown', data: sectorPieData, currencyCode, theme, privateMode, sector: true })} /></div>
         {sectorPieData.length > 0 && sectorTotal > 0 && <p className="chart-summary">{sectorPieData[0].name === 'Cash' ? 'Largest allocation' : 'Largest sector'}: <strong>{sectorPieData[0].name}</strong> · {formatPercent(sectorPieData[0].value / sectorTotal * 100)} {summary.cashValue > 0 ? 'of portfolio' : 'of holdings'}</p>}
+        {sectorPieData.length > 0 && sectorTotal > 0 && <p className="sr-only">Sector allocation contains {sectorPieData.length} categories. The largest is {sectorPieData[0].name} at {formatPercent(sectorPieData[0].value / sectorTotal * 100)}.</p>}
         <div className="chart-selection-slot no-print" aria-live="polite">{selectedSector && <button className="secondary-button" onClick={() => { setSelectedSector(null); setHoverSector(null); }}>Pinned: {selectedSector} · Clear</button>}</div>
         {sectorPieData.length === 0 ? (
-          <div className="h-64 flex items-center justify-center text-slate-500 text-sm">No sector data</div>
+          <div className="h-64 flex items-center justify-center px-6">{chartEmpty('No sector data yet', 'Add holdings with categories to see sector allocation.')}</div>
         ) : (
           <>
           <div className="chart-donut-wrap h-80 w-full flex items-center">
