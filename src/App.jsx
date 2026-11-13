@@ -218,7 +218,7 @@ export default function App() {
         changeTab(tab, { focus: false });
       };
       if (event.key.toLowerCase() === 'r') { event.preventDefault(); refreshMarketData(); }
-      if (event.key === '?') { event.preventDefault(); changeFromShortcut('help'); }
+      if (event.key.toLowerCase() === 'h') { event.preventDefault(); changeFromShortcut('help'); }
       if (event.key === '1') { event.preventDefault(); changeFromShortcut('dashboard'); }
       if (event.key === '2') { event.preventDefault(); changeFromShortcut('holdings'); }
       if (event.key === '3') { event.preventDefault(); changeFromShortcut('history'); }
@@ -226,7 +226,6 @@ export default function App() {
       if (event.key === '5') { event.preventDefault(); changeFromShortcut('dividends'); }
       if (event.key === '6') { event.preventDefault(); changeFromShortcut('performance'); }
       if (event.key === '7') { event.preventDefault(); changeFromShortcut('rebalance'); }
-      if (event.key === '8') { event.preventDefault(); changeFromShortcut('help'); }
     };
     window.addEventListener('keydown', handleShortcut);
     return () => window.removeEventListener('keydown', handleShortcut);

@@ -64,7 +64,7 @@ export function Navbar({ viewDensity = 'default', setViewDensity, reducedMotionP
     const handleShortcut = event => {
       const target = event.target;
       if (['INPUT', 'TEXTAREA', 'SELECT'].includes(target?.tagName) || target?.isContentEditable) return;
-      if (event.key.toLowerCase() === 'h') {
+      if (event.key.toLowerCase() === 'c') {
         event.preventDefault();
         setDesktopControlsOpen(open => !open);
         showPreferenceNotice(desktopControlsOpen ? 'Portfolio controls hidden.' : 'Portfolio controls shown.');
@@ -261,7 +261,8 @@ export function Navbar({ viewDensity = 'default', setViewDensity, reducedMotionP
             <summary className="secondary-button" aria-label="Show keyboard shortcuts">? <span className="shortcut-label">Shortcuts</span></summary>
             <div className="keyboard-shortcuts-popover" role="note">
               <p><kbd>R</kbd><span>Refresh prices</span></p>
-              <p><kbd>?</kbd><span>Open help</span></p>
+              <p><kbd>H</kbd><span>Open help</span></p>
+              <p><kbd>C</kbd><span>Toggle controls</span></p>
               <p><kbd>1</kbd><span>Dashboard</span></p>
               <p><kbd>2</kbd><span>Holdings</span></p>
               <p><kbd>3</kbd><span>Transactions</span></p>
@@ -269,7 +270,6 @@ export function Navbar({ viewDensity = 'default', setViewDensity, reducedMotionP
               <p><kbd>5</kbd><span>Dividends</span></p>
               <p><kbd>6</kbd><span>Performance</span></p>
               <p><kbd>7</kbd><span>Rebalance</span></p>
-              <p><kbd>8</kbd><span>Help</span></p>
             </div>
           </details>
           {preferenceNotice && <span className="preference-notice" role="status" aria-live="polite">{preferenceNotice}</span>}
