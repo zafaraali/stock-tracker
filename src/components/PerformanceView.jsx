@@ -3,7 +3,9 @@ import { calculatePeriodReturn } from '../services/periodReturn';
 import { formatMoney } from '../services/formatMoney';
 import { Activity, ArrowDownRight, ArrowUpRight } from 'lucide-react';
 import { EmptyState } from './EmptyState';
-import { PerformanceComparisonChart } from './PerformanceComparisonChart';
+import React, { lazy, Suspense } from 'react';
+
+const PerformanceComparisonChart = lazy(() => import('./PerformanceComparisonChart').then(module => ({ default: module.PerformanceComparisonChart })));
 
 const percent = value => `${Number(value || 0) >= 0 ? '+' : ''}${Number(value || 0).toFixed(2)}%`;
 
@@ -26,7 +28,7 @@ export function PerformanceView({ performance, transactions, netContributionsUSD
   const card = `${theme === 'light' ? 'bg-white border-slate-200 shadow-md' : 'bg-slate-900 border-slate-800'} border rounded-2xl p-5`;
   return (
     <div className="space-y-6">
-      <PerformanceComparisonChart backtestHistory={backtestHistory} summary={summary} theme={theme} loading={historyLoading} refreshError={historyError} onRetry={onRetryHistory} />
+      <Suspense fallback={<section className="overview-panel" aria-label="Loading comparison chart" role="status"><p className="supporting-text">Preparing comparison chart…</p></section>}><PerformanceComparisonChart backtestHistory={backtestHistory} summary={summary} theme={theme} loading={historyLoading} refreshError={historyError} onRetry={onRetryHistory} /></Suspense>
       <header className={`${card} page-view-header flex justify-between gap-4`}>
         <div><p className="text-xs uppercase tracking-wide text-indigo-400">Performance analytics</p><h2 className="text-2xl font-bold mt-1">Portfolio performance</h2><p className="text-sm text-slate-400 mt-2">Return is based on current portfolio value compared with net external capital contributed.</p></div>
         <Activity className="w-8 h-8 text-indigo-400" />

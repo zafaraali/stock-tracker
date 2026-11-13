@@ -1,20 +1,26 @@
-import { withBackupPreferences, PREFERENCES_RESTORED } from '../services/backupPreferences';
+import { PREFERENCES_RESTORED } from '../services/backupPreferences';
 import React, { useEffect, useRef, useState } from 'react';
 import { Modal } from './Modal';
-import { requestBackupPassword } from './BackupPasswordDialog';
-import { withBackupProgress } from '../services/backupProgress';
 import { BackupReminder, useBackupReminder } from './BackupReminder';
-import { recordBackup } from '../services/backupReminder';
 import { TrendingUp, PieChart as PieIcon, ArrowDownUp, Sliders, History, Eye, EyeOff, Download, Upload, Sun, Moon, Monitor, Trash2, RefreshCw, Settings, CalendarDays, Activity, Menu, X } from 'lucide-react';
 import { CURRENCY_RATES } from '../data/mockData';
-import { downloadGoogleDriveBackup, downloadLatestGoogleDriveBackup, ENCRYPTED_DRIVE_BACKUP_PREFIX, isGoogleDriveConfigured, uploadGoogleDriveBackup } from '../services/googleDrive';
-import { decryptBackup, encryptBackup } from '../services/encryptedBackup';
 import { OverviewControls } from './OverviewControls';
 import { formatMoney } from '../services/formatMoney';
 
 const OPTIONAL_TABS = [['history', 'Transactions'], ['watchlist', 'Watchlist'], ['dividends', 'Dividends'], ['performance', 'Performance'], ['rebalance', 'Rebalance']];
+const googleDriveConfigured = Boolean(import.meta.env.VITE_GOOGLE_CLIENT_ID);
+const loadBackupTools = () => Promise.all([
+  import('../services/backupProgress'),
+  import('../services/googleDrive'),
+  import('../services/encryptedBackup'),
+  import('./BackupPasswordDialog'),
+  import('../services/backupPreferences'),
+  import('../services/backupReminder')
+]).then(([progress, drive, encrypted, password, preferences, reminder]) => ({
+  ...progress, ...drive, ...encrypted, ...password, ...preferences, ...reminder
+}));
 
-export function Navbar({ viewDensity = 'default', setViewDensity, reducedMotionPreference = 'system', setReducedMotionPreference, privateMode, onTogglePrivacy, activeTab, setActiveTab, portfolioSummary, currency, setCurrency, theme, themePreference = 'dark', setThemePreference, toggleTheme, accent, setAccent, overviewLayout, setOverviewLayout, exportJSON, exportEncryptedJSON, backupPayload, restoreJSONBackup, exportCSV, exportAllCSV, importJSON, importEncryptedJSON, importCSV, accounts = [], selectedAccountId, setSelectedAccountId, addAccount, renameAccount, deleteAccount, onDeleteAllData, refreshMarketData, marketStatus }) {
+export function Navbar({ viewDensity = 'default', setViewDensity, reducedMotionPreference = 'system', setReducedMotionPreference, privateMode, onTogglePrivacy, activeTab, setActiveTab, portfolioSummary, currency, setCurrency, theme, themePreference = 'dark', setThemePreference, toggleTheme, accent, setAccent, overviewLayout, setOverviewLayout, exportJSON, exportEncryptedJSON, backupPayload, restoreJSONBackup, exportCSV, exportAllCSV, importJSON, importEncryptedJSON, importCSV, accounts = [], selectedAccountId, setSelectedAccountId, addAccount, renameAccount, deleteAccount, onDeleteAllData, refreshMarketData, marketStatus, preloadPerformance }) {
   const [hiddenTabs, setHiddenTabs] = useState(() => {
     try {
       const saved = JSON.parse(localStorage.getItem('apex-hidden-tabs'));
@@ -47,6 +53,22 @@ export function Navbar({ viewDensity = 'default', setViewDensity, reducedMotionP
   const drawerRef = useRef(null);
   const shortcutsRef = useRef(null);
   const isLight = theme === 'light';
+
+  useEffect(() => {
+    if (!preloadPerformance) return undefined;
+    const preload = event => {
+      if (!event.target.closest?.('a[href="#/performance"]')) return;
+      preloadPerformance();
+      document.removeEventListener('pointerover', preload);
+      document.removeEventListener('focusin', preload);
+    };
+    document.addEventListener('pointerover', preload);
+    document.addEventListener('focusin', preload);
+    return () => {
+      document.removeEventListener('pointerover', preload);
+      document.removeEventListener('focusin', preload);
+    };
+  }, [preloadPerformance]);
 
   useEffect(() => {
     const closeShortcuts = event => {
@@ -157,6 +179,7 @@ export function Navbar({ viewDensity = 'default', setViewDensity, reducedMotionP
     setDriveBusy(true);
     setDriveStatus('Backing up…');
     try {
+      const { withBackupProgress, uploadGoogleDriveBackup, withBackupPreferences, recordBackup } = await loadBackupTools();
       await withBackupProgress('Uploading backup…', () => uploadGoogleDriveBackup(withBackupPreferences(backupPayload)));
       setDriveStatus('Backup saved to Google Drive.');
       recordBackup('drive');
@@ -172,6 +195,7 @@ export function Navbar({ viewDensity = 'default', setViewDensity, reducedMotionP
     setDriveBusy(true);
     setDriveStatus('Loading backup…');
     try {
+      const { withBackupProgress, downloadGoogleDriveBackup } = await loadBackupTools();
       const payload = await withBackupProgress('Downloading backup…', () => downloadGoogleDriveBackup());
       restoreJSONBackup(payload);
       setDriveStatus('Restore awaiting confirmation. Review the backup preview; your data has not changed.');
@@ -184,6 +208,7 @@ export function Navbar({ viewDensity = 'default', setViewDensity, reducedMotionP
 
   const backupEncryptedToDrive = async () => {
     if (driveBusy) return;
+    const { requestBackupPassword, withBackupProgress, uploadGoogleDriveBackup, ENCRYPTED_DRIVE_BACKUP_PREFIX, encryptBackup, withBackupPreferences, recordBackup } = await loadBackupTools();
     const password = await requestBackupPassword({ confirm: true });
     if (!password) return;
     setDriveBusy(true);
@@ -200,6 +225,7 @@ export function Navbar({ viewDensity = 'default', setViewDensity, reducedMotionP
 
   const restoreEncryptedFromDrive = async () => {
     if (driveBusy) return;
+    const { requestBackupPassword, withBackupProgress, downloadLatestGoogleDriveBackup, ENCRYPTED_DRIVE_BACKUP_PREFIX, decryptBackup } = await loadBackupTools();
     const password = await requestBackupPassword();
     if (!password) return;
     setDriveBusy(true);
@@ -276,7 +302,7 @@ export function Navbar({ viewDensity = 'default', setViewDensity, reducedMotionP
 </>;
 
   return (
-    <nav className={`no-print ${isLight ? 'bg-white/90 border-slate-200 text-slate-800' : 'bg-slate-900/95 border-slate-800 text-slate-100'} border-b sticky top-0 z-40 px-4 lg:px-8 py-3 transition-colors duration-200`}>
+    <nav className={`no-print ${isLight ? 'bg-white border-slate-200 text-slate-800' : 'bg-slate-900 border-slate-800 text-slate-100'} border-b sticky top-0 z-40 px-4 lg:px-8 py-3 transition-colors duration-200`}>
       <div className={`navbar-top-row max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4 ${desktopControlsOpen ? '' : 'controls-collapsed'}`}>
         
         {/* Brand */}
@@ -374,8 +400,8 @@ export function Navbar({ viewDensity = 'default', setViewDensity, reducedMotionP
               <h3 id="settings-data-title" className="section-title">Everyday data tools</h3><p className="supporting-text">Save copies, export spreadsheets, or add holdings from CSV. Recovery and deletion are grouped below.</p>
               <div className="rounded-xl border border-slate-800 p-3">
                 <p className="text-sm font-semibold mb-1">Google Drive backup</p>
-                <p className="text-xs text-slate-500 mb-3">{isGoogleDriveConfigured() ? 'Save or restore your complete portfolio backup from Google Drive.' : 'Add VITE_GOOGLE_CLIENT_ID to enable Google Drive backup.'}</p>
-                {isGoogleDriveConfigured() && <div className="drive-action-groups">
+                <p className="text-xs text-slate-500 mb-3">{googleDriveConfigured ? 'Save or restore your complete portfolio backup from Google Drive.' : 'Add VITE_GOOGLE_CLIENT_ID to enable Google Drive backup.'}</p>
+                {googleDriveConfigured && <div className="drive-action-groups">
                   <div><h4>Back up</h4><div className="settings-action-pair"><button type="button" className="primary-button" disabled={driveBusy} onClick={backupToDrive}>Back up to Drive</button><button type="button" className="primary-button" disabled={driveBusy} onClick={backupEncryptedToDrive}>Encrypted backup</button></div></div>
 
                 </div>}
@@ -395,7 +421,7 @@ export function Navbar({ viewDensity = 'default', setViewDensity, reducedMotionP
 </div></section>
 
             <details className="recovery-tools"><summary>Recovery & deletion</summary><div className="recovery-tools-body"><p className="supporting-text">Restore actions can replace your portfolio. Review the backup before confirming. Export a copy of your current data first.</p>
-              {isGoogleDriveConfigured() && <section className="settings-file-group"><h4>Restore from Google Drive</h4><div className="settings-action-pair"><button type="button" className="secondary-button" disabled={driveBusy} onClick={restoreFromDrive}>Restore from Drive</button><button type="button" className="secondary-button" disabled={driveBusy} onClick={restoreEncryptedFromDrive}>Restore encrypted</button></div>{driveStatus && <p className="supporting-text" role="status">{driveStatus}</p>}</section>}
+              {googleDriveConfigured && <section className="settings-file-group"><h4>Restore from Google Drive</h4><div className="settings-action-pair"><button type="button" className="secondary-button" disabled={driveBusy} onClick={restoreFromDrive}>Restore from Drive</button><button type="button" className="secondary-button" disabled={driveBusy} onClick={restoreEncryptedFromDrive}>Restore encrypted</button></div>{driveStatus && <p className="supporting-text" role="status">{driveStatus}</p>}</section>}
               <section className="settings-file-group"><h4>Restore backup</h4><p>Review a saved JSON backup before replacing your portfolio.</p><div className="settings-file-actions">
               <label className="secondary-button cursor-pointer relative"><Upload className="w-4 h-4" /> Restore JSON backup<input aria-label="Choose JSON backup" type="file" accept=".json" className="absolute inset-0 opacity-0 cursor-pointer w-full" onChange={event => { importJSON(event); setSettingsOpen(false); }} /></label>
               <label className="secondary-button cursor-pointer relative"><Upload className="w-4 h-4" /> Restore encrypted backup<input aria-label="Choose encrypted backup" type="file" accept=".json" className="absolute inset-0 opacity-0 cursor-pointer w-full" onChange={event => { importEncryptedJSON(event); setSettingsOpen(false); }} /></label>

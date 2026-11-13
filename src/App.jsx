@@ -25,18 +25,50 @@ import { PortfolioHealth } from './components/PortfolioHealth';
 import React, { lazy, Suspense, useState, useEffect } from 'react';
 import { ACCENT_THEMES, usePortfolio } from './hooks/usePortfolio';
 import { Navbar } from './components/Navbar';
-import { HoldingsTable } from './components/HoldingsTable';
-import { PortfolioInsights } from './components/PortfolioInsights';
 import { TickerLinks } from './components/TickerLinks';
-import { HelpView } from './components/HelpView';
 import { DollarSign, ArrowUpRight, ArrowDownRight, TrendingUp, ChevronDown, Briefcase, RefreshCw } from 'lucide-react';
 
+const loadHoldingsTable = () => import('./components/HoldingsTable').then(module => ({ default: module.HoldingsTable }));
+const loadPortfolioInsights = () => import('./components/PortfolioInsights').then(module => ({ default: module.PortfolioInsights }));
+const loadHelpView = () => import('./components/HelpView').then(module => ({ default: module.HelpView }));
 const RebalanceView = lazy(() => import('./components/RebalanceView').then(module => ({ default: module.RebalanceView })));
 const HistoryView = lazy(() => import('./components/HistoryView').then(module => ({ default: module.HistoryView })));
 const DividendView = lazy(() => import('./components/DividendView').then(module => ({ default: module.DividendView })));
-const PerformanceView = lazy(() => import('./components/PerformanceView').then(module => ({ default: module.PerformanceView })));
+const loadPerformanceView = () => import('./components/PerformanceView').then(module => ({ default: module.PerformanceView }));
+const PerformanceView = lazy(loadPerformanceView);
 const WatchlistView = lazy(() => import('./components/WatchlistView').then(module => ({ default: module.WatchlistView })));
+const HoldingsTable = lazy(loadHoldingsTable);
+const PortfolioInsights = lazy(loadPortfolioInsights);
+const HelpView = lazy(loadHelpView);
 const PortfolioCharts = lazy(() => import('./components/PortfolioCharts').then(module => ({ default: module.PortfolioCharts })));
+
+function DeferredPortfolioCharts(props) {
+  const [ready, setReady] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    const reveal = () => { if (!cancelled) setReady(true); };
+    if (window.requestIdleCallback) {
+      const idleId = window.requestIdleCallback(reveal, { timeout: 1200 });
+      return () => { cancelled = true; window.cancelIdleCallback?.(idleId); };
+    }
+    const timeoutId = window.setTimeout(reveal, 250);
+    return () => { cancelled = true; window.clearTimeout(timeoutId); };
+  }, []);
+  return ready
+    ? <PortfolioCharts {...props} />
+    : <div className="chart-card chart-deferred-placeholder" role="status" aria-label="Preparing portfolio charts"><LoadingSkeleton variant="view" /></div>;
+}
+
+function PerformanceLoadingView() {
+  return <div className="space-y-6" aria-label="Loading performance" role="status">
+    <section className="overview-panel page-view-header">
+      <p className="text-xs uppercase tracking-wide text-indigo-400">Performance analytics</p>
+      <h2 className="text-2xl font-bold mt-1">Portfolio performance</h2>
+      <p className="text-sm text-slate-400 mt-2">Loading your return history…</p>
+    </section>
+    <LoadingSkeleton variant="view" />
+  </div>;
+}
 
 export default function App() {
   const [privateMode, setPrivateMode] = usePreference('apex-private-mode', false, [true, false]);
@@ -132,7 +164,7 @@ export default function App() {
     importJSON, importEncryptedJSON, importCSV, pendingCsvImport, confirmCsvImport, cancelCsvImport, accounts, selectedAccountId, setSelectedAccountId, addAccount, renameAccount, deleteAccount,
     refreshMarketData, customCategories,
     marketStatus, uiMessage, dismissMessage, storageError, storageBlocked, lastSavedAt, resumeSaving, pendingImport, confirmImport, cancelImport, fxRates, fxData, fxError, historicalFx, historicalEstimated
-  } = usePortfolio();
+  } = usePortfolio({ shouldLoadHistoricalData: activeTab === 'performance' });
 
   useEffect(() => {
     const color = ACCENT_THEMES[accent]?.color || ACCENT_THEMES.green.color;
@@ -296,6 +328,7 @@ export default function App() {
         onDeleteAllData={() => askToConfirm('Delete all saved data?', 'This clears the current portfolio, transactions, watchlist, snapshots, and preferences. You can still use Recently deleted to undo the clear.', deleteAllData, 'Delete everything')}
         refreshMarketData={refreshMarketData}
         marketStatus={marketStatus}
+        preloadPerformance={loadPerformanceView}
       />
 
       {/* Main Container */}
@@ -315,7 +348,7 @@ export default function App() {
           <DataQuality holdings={holdings} onReview={symbolToReview => { setReviewSymbol(symbolToReview); changeTab('holdings'); }} />
         </StatusBar>
         {refreshNotice && <p className={`refresh-notice ${marketStatus?.error ? 'is-warning' : ''}`} role="status" aria-live="polite">{refreshNotice}</p>}
-        <PortfolioHealth holdings={holdings} onReviewPrices={() => { const item = holdings.find(entry => !entry.priceUpdatedAt || Date.now() - Date.parse(entry.priceUpdatedAt) >= 24 * 60 * 60 * 1000); setReviewSymbol(item?.symbol || ''); changeTab('holdings'); }} onReviewTargets={() => { const item = holdings.find(entry => entry.targetPercent === '' || entry.targetPercent === null || entry.targetPercent === undefined); setReviewSymbol(item?.symbol || ''); changeTab('holdings'); }} />
+        {activeTab === 'dashboard' && <PortfolioHealth holdings={holdings} onReviewPrices={() => { const item = holdings.find(entry => !entry.priceUpdatedAt || Date.now() - Date.parse(entry.priceUpdatedAt) >= 24 * 60 * 60 * 1000); setReviewSymbol(item?.symbol || ''); changeTab('holdings'); }} onReviewTargets={() => { const item = holdings.find(entry => entry.targetPercent === '' || entry.targetPercent === null || entry.targetPercent === undefined); setReviewSymbol(item?.symbol || ''); changeTab('holdings'); }} />}
         {activeTab === 'dashboard' && <div className="dashboard-quick-actions" aria-label="Quick actions"><button type="button" className="secondary-button" onClick={() => { showQuickActionFeedback('Holdings manager opened.'); changeTab('holdings'); }}><Briefcase className="h-4 w-4" />Manage holdings</button><button type="button" className="secondary-button" onClick={() => { setTransactionIntent({ type: 'DEPOSIT', id: Date.now() }); showQuickActionFeedback('Cash entry form opened.'); changeTab('history'); }}><DollarSign className="h-4 w-4" />Record cash</button><button type="button" className="secondary-button" onClick={() => { showQuickActionFeedback('Refreshing market prices…'); refreshMarketData(); }} disabled={marketStatus?.loading}><RefreshCw className={`h-4 w-4 ${marketStatus?.loading ? 'animate-spin' : ''}`} />{marketStatus?.loading ? 'Refreshing…' : 'Refresh prices'}</button>{quickActionFeedback && <span className="quick-action-feedback" role="status" aria-live="polite">{quickActionFeedback}</span>}</div>}
 
         {/* Printable Executive Header (Only visible when printing/exporting PDF) */}
@@ -328,7 +361,7 @@ export default function App() {
         <header className="page-heading mb-6"><p className="account-context">Holdings list: <strong>{selectedAccountId === '__combined__' ? 'Combined · All lists' : accounts.find(account => account.id === selectedAccountId)?.name || 'Default list'}</strong><span>Display currency: {currency}</span><span className="freshness-label" title={lastSavedAt ? `Last saved ${new Date(lastSavedAt).toLocaleString()}` : 'No saved changes yet'}>Saved: {lastSavedLabel}</span>{activeTab === 'dashboard' && <span className="freshness-label" title={latestPriceUpdatedAt ? `Latest saved market price: ${latestPriceLabel}` : latestPriceLabel}>Prices updated: {latestPriceLabel}</span>}</p><h1 id="page-title" tabIndex={-1}>{({ dashboard: 'Portfolio overview', holdings: 'Holdings', history: 'Transactions', watchlist: 'Watchlist', dividends: 'Dividends', performance: 'Performance', rebalance: 'Rebalance', help: 'Help' })[activeTab]}</h1><p className="supporting-text">{({ dashboard: 'Your portfolio at a glance, from allocation to your largest positions.', holdings: 'Manage your holdings, prices, and investment notes.', history: 'Record trades, dividends, and cash movements.', watchlist: 'Track investment ideas before adding a holding.', dividends: 'Review income received and upcoming dividend estimates.', performance: 'Explore portfolio returns and compare with the market.', rebalance: 'Compare your current allocation with your targets.', help: 'Learn how each part of ApexFinance works and how your data is handled.' })[activeTab]}</p></header>
         {/* Tab Switcher Content */}
         <div id="tab-content" className="tab-scroll-target">
-        <Suspense fallback={<LoadingSkeleton variant={activeTab === 'dashboard' ? 'dashboard' : 'view'} />}>
+        <Suspense fallback={activeTab === 'performance' ? <PerformanceLoadingView /> : <LoadingSkeleton variant={activeTab === 'dashboard' ? 'dashboard' : 'view'} />}>
         {activeTab === 'dashboard' && <>
           {holdings.length === 0 && !transactions.some(entry => ['DEPOSIT', 'WITHDRAW'].includes(entry.type) || entry.cashImpact === true) && <DashboardSetup onNavigate={changeTab} onExploreDemo={() => startPortfolio('demo')} />}
           {overviewLayout.order.filter(key => !overviewLayout.hidden.includes(key)).map(key => <React.Fragment key={key}>{({
@@ -396,7 +429,7 @@ export default function App() {
         </div>
         </section>),
             cash: (<CashPanel summary={portfolioSummary} currencyCode={currency} hasCashRecords={transactions.some(entry => ['DEPOSIT', 'WITHDRAW'].includes(entry.type) || entry.cashImpact === true)} onRecord={type => { setTransactionIntent({ type, currency, id: Date.now() }); changeTab('history'); }} onViewTransactions={() => changeTab('history')} />),
-            charts: holdings.length > 0 ? (<PortfolioCharts performance={performance} backtestHistory={backtestHistory} summary={portfolioSummary} snapshots={snapshots} symbol={symbol} currencyCode={currency} rate={rate} theme={effectiveTheme} compact={viewDensity === 'compact'} showPerformanceChart={false} />) : null,
+            charts: holdings.length > 0 ? (<DeferredPortfolioCharts performance={performance} backtestHistory={backtestHistory} summary={portfolioSummary} snapshots={snapshots} symbol={symbol} currencyCode={currency} rate={rate} theme={effectiveTheme} compact={viewDensity === 'compact'} showPerformanceChart={false} />) : null,
             insights: holdings.length > 0 ? (<PortfolioInsights summary={portfolioSummary} currencyCode={currency} />) : null,
             holdings: holdings.length > 0 ? (<DashboardCard cardId="top-holdings" label="Top holdings" className="overview-panel mt-6" aria-labelledby="top-holdings-title">
               <header className="flex items-center justify-between flex-wrap gap-3 mb-4">
