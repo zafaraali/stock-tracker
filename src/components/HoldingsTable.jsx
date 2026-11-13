@@ -467,9 +467,9 @@ export function HoldingsTable({ summary, onBulkUpdate, initialFilter = '', revie
                 </div>
 
 <div className="supporting-text">Target: {formatPercent(item.targetPercent || 0)} · Dividend yield: {formatPercent(item.dividendYield || 0)}</div>                  <div className="holding-mobile-actions flex items-center gap-1">
-                    <button onClick={() => openEditHolding(item)} aria-label={`Edit ${item.symbol}`} className="p-2 text-indigo-400"><Edit2 className="w-4 h-4" /></button>
-                    <button onClick={() => { setNotesModalId(item.id); setNotesVal(item.notes || ''); }} aria-label={`Edit notes for ${item.symbol}`} className="p-2 text-indigo-400"><FileText className="w-4 h-4" /></button>
-                    <button onClick={() => onRemoveHolding(item.id)} aria-label={`Delete ${item.symbol}`} className="danger-button p-2 text-rose-400"><Trash2 className="w-4 h-4" /></button>
+                    <button onClick={() => openEditHolding(item)} aria-label={`Edit ${item.symbol}`} title={`Edit ${item.symbol}`} className="p-2 text-indigo-400"><Edit2 className="w-4 h-4" /></button>
+                    <button onClick={() => { setNotesModalId(item.id); setNotesVal(item.notes || ''); }} aria-label={`Edit notes for ${item.symbol}`} title={`Edit notes for ${item.symbol}`} className="p-2 text-indigo-400"><FileText className="w-4 h-4" /></button>
+                    <button onClick={() => onRemoveHolding(item.id)} aria-label={`Delete ${item.symbol}`} title={`Delete ${item.symbol}`} className="danger-button p-2 text-rose-400"><Trash2 className="w-4 h-4" /></button>
                   </div></div></details>
               </div>
             );

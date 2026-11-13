@@ -256,7 +256,7 @@ export function Navbar({ viewDensity = 'default', setViewDensity, reducedMotionP
           </button>
 
           {installPrompt && <button aria-label="Install ApexFinance app" title="Install ApexFinance app" onClick={installApp} className="icon-button"><Download className="w-5 h-5" /></button>}
-          <button aria-label={reminder.due ? 'Open settings · Backup due' : 'Open settings'} onClick={() => { setMobileMenuOpen(false); setSettingsOpen(true); }} className="icon-button"><Settings className="w-5 h-5" />{reminder.due && <span className="backup-due-dot" aria-hidden="true" />}</button>
+          <button aria-label={reminder.due ? 'Open settings · Backup due' : 'Open settings'} title="Open settings" onClick={() => { setMobileMenuOpen(false); setSettingsOpen(true); }} className="icon-button"><Settings className="w-5 h-5" />{reminder.due && <span className="backup-due-dot" aria-hidden="true" />}</button>
           <details ref={shortcutsRef} className="keyboard-shortcuts">
             <summary className="secondary-button" aria-label="Show keyboard shortcuts">? <span className="shortcut-label">Shortcuts</span></summary>
             <div className="keyboard-shortcuts-popover" role="note">
@@ -277,7 +277,7 @@ export function Navbar({ viewDensity = 'default', setViewDensity, reducedMotionP
 
   return (
     <nav className={`no-print ${isLight ? 'bg-white/90 border-slate-200 text-slate-800' : 'bg-slate-900/95 border-slate-800 text-slate-100'} border-b sticky top-0 z-40 px-4 lg:px-8 py-3 transition-colors duration-200`}>
-      <div className="navbar-top-row max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
+      <div className={`navbar-top-row max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4 ${desktopControlsOpen ? '' : 'controls-collapsed'}`}>
         
         {/* Brand */}
         <button aria-label="Go to dashboard" className="flex items-center gap-2 cursor-pointer" aria-current={activeTab === 'dashboard' ? 'page' : undefined} onClick={() => setActiveTab('dashboard')}>
@@ -327,8 +327,8 @@ export function Navbar({ viewDensity = 'default', setViewDensity, reducedMotionP
         </div>
 
         {/* Actions & Currency & Theme Toggle */}
-        <button type="button" className="desktop-controls-toggle secondary-button hidden lg:inline-flex" aria-expanded={desktopControlsOpen} aria-controls="desktop-portfolio-controls" onClick={() => setDesktopControlsOpen(open => !open)}>
-          <Sliders className="w-4 h-4" /> {desktopControlsOpen ? 'Hide controls' : 'Portfolio controls'}
+        <button type="button" className={`desktop-controls-toggle secondary-button hidden lg:inline-flex ${desktopControlsOpen ? '' : 'controls-hidden-toggle'}`} aria-expanded={desktopControlsOpen} aria-controls="desktop-portfolio-controls" aria-label={desktopControlsOpen ? 'Hide portfolio controls' : 'Show portfolio controls'} title="Toggle portfolio controls (C)" onClick={() => setDesktopControlsOpen(open => !open)}>
+          <Sliders className="w-4 h-4" /> {desktopControlsOpen ? 'Visible' : 'Hidden'} <kbd className="shortcut-hint">C</kbd>
         </button>
         <div id="desktop-portfolio-controls" className={`navbar-actions ${desktopControlsOpen ? 'hidden lg:flex' : 'hidden'} items-center gap-2.5 flex-wrap justify-start w-full border-t border-slate-800 pt-3`}>
           {renderControls()}

@@ -253,7 +253,8 @@ export default function App() {
     : [];
 
   return (
-    <PrivacyContext.Provider value={privateMode}><DashboardCardsProvider><div className={`app-shell density-${viewDensity} accent-${accent} ${privateMode ? 'privacy-mode' : ''} ${reducedMotion ? 'motion-reduced' : ''} ${marketStatus?.loading ? 'market-refreshing' : ''} min-h-screen ${isLight ? 'theme-light bg-slate-50 text-slate-900' : 'bg-slate-950 text-slate-100'} flex flex-col font-sans transition-colors duration-200`}>
+    <PrivacyContext.Provider value={privateMode}><DashboardCardsProvider><div className={`app-shell density-${viewDensity} accent-${accent} ${privateMode ? 'privacy-mode' : ''} ${reducedMotion ? 'motion-reduced' : ''} ${marketStatus?.loading ? 'market-refreshing' : ''} min-h-screen ${isLight ? 'theme-light bg-slate-50 text-slate-900' : 'bg-slate-950 text-slate-100'} flex flex-col font-sans transition-colors duration-200`} aria-busy={Boolean(marketStatus?.loading)}>
+      {marketStatus?.loading && <p className="sr-only" role="status" aria-live="polite">Refreshing market prices.</p>}
       <a className="skip-link" href="#main-content">Skip to main content</a>
       
       {/* Navigation */}

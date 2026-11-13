@@ -183,6 +183,8 @@ main, #tab-content, #tab-content > .space-y-6 { min-width: 0; }
 .chart-donut-center > span { color: var(--muted); font-size: .68rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
 .chart-donut-center strong { color: var(--foreground); font-size: 1.25rem; line-height: 1.25; margin-top: .25rem; }
 .chart-hover-card { position: relative; display: flex; min-width: 8.5rem; max-width: 100%; flex-direction: column; align-items: center; gap: .15rem; border: 1px solid #d1d5db; border-radius: .75rem; background: #ffffff; padding: .45rem .75rem; box-shadow: 0 10px 24px rgb(15 23 42 / .24); color: #0f172a; pointer-events: none; animation: chart-pop-in .16s ease-out; }
+.chart-hover-card { text-align: center; }
+.theme-light .chart-hover-card { border-color: #94a3b8; box-shadow: 0 10px 24px rgb(15 23 42 / .18); }
 .chart-hover-card strong { overflow: hidden; max-width: 100%; text-overflow: ellipsis; white-space: nowrap; font-size: .75rem; }
 .chart-hover-card span { color: #475569; font-size: .7rem; font-weight: 600; }
 @keyframes chart-pop-in { from { opacity: 0; transform: translateY(.25rem) scale(.96); } to { opacity: 1; transform: translateY(0) scale(1); } }
@@ -889,6 +891,16 @@ nav a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .keyboard-shortcuts-popover p { display: flex; align-items: center; justify-content: space-between; gap: .75rem; margin: 0; padding: .35rem .2rem; color: var(--muted); font-size: .72rem; }
 .keyboard-shortcuts-popover kbd { min-width: 1.45rem; padding: .15rem .3rem; border: 1px solid var(--border); border-radius: .3rem; color: var(--foreground); font-size: .68rem; text-align: center; }
 .keyboard-shortcuts[open] > summary { border-color: var(--accent); color: var(--accent-text, var(--accent)); }
+.desktop-controls-toggle { gap: .55rem; }
+.desktop-controls-toggle .shortcut-hint { margin-left: .15rem; }
+.desktop-controls-toggle.controls-hidden-toggle { border-color: color-mix(in srgb, var(--accent) 55%, var(--border)); color: var(--accent-text, var(--accent)); background: color-mix(in srgb, var(--accent) 8%, var(--surface)); }
+.theme-light .desktop-controls-toggle.controls-hidden-toggle { background: color-mix(in srgb, var(--accent) 7%, white); }
+@media (min-width: 1024px) {
+  .navbar-top-row.controls-collapsed { position: relative; flex-wrap: nowrap; padding-right: 11.5rem; }
+  .navbar-top-row.controls-collapsed .desktop-section-links { min-width: 0; flex: 1 1 auto; overflow-x: auto; scrollbar-width: none; }
+  .navbar-top-row.controls-collapsed .desktop-section-links::-webkit-scrollbar { display: none; }
+  .navbar-top-row.controls-collapsed .desktop-controls-toggle { position: absolute; top: 50%; right: 0; margin: 0 !important; transform: translateY(-50%); white-space: nowrap; }
+}
 
 .footer-links { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: .25rem 1.25rem; margin-top: .6rem; padding: 0 1rem; }
 .footer-links a { display: inline-flex; align-items: center; min-height: 32px; color: var(--accent-text, var(--accent)); text-underline-offset: .2rem; }
@@ -1111,6 +1123,7 @@ nav a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .holdings-mobile-summary { position: sticky; top: 4.4rem; z-index: 4; box-shadow: 0 5px 16px rgb(15 23 42 / .12); }
 .modal-form-actions button, .modal-panel > .flex.justify-end button { min-width: 6rem; }
 .theme-light .price-status-badge.is-stale { color: #92400e; }
+.theme-light .text-slate-500, .theme-light .text-slate-400 { color: #475569; }
 @media (max-width: 639px) {
   .holdings-mobile-summary { top: calc(4.5rem + env(safe-area-inset-top)); }
 }
