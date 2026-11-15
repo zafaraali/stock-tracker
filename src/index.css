@@ -903,6 +903,7 @@ nav a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   .navbar-top-row.controls-collapsed .desktop-section-links { min-width: 0; flex: 1 1 auto; overflow-x: auto; scrollbar-width: none; }
   .navbar-top-row.controls-collapsed .desktop-section-links::-webkit-scrollbar { display: none; }
   .navbar-top-row.controls-collapsed .desktop-controls-toggle { position: absolute; top: 50%; right: 0; margin: 0 !important; transform: translateY(-50%); white-space: nowrap; }
+  .navbar-top-row.controls-collapsed .desktop-controls-toggle:hover { transform: translateY(-50%); }
 }
 
 .footer-links { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: .25rem 1.25rem; margin-top: .6rem; padding: 0 1rem; }
