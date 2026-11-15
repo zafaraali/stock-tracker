@@ -59,7 +59,6 @@
 @keyframes feedback-pop { 0% { transform: scale(1); } 45% { transform: scale(1.06); } 100% { transform: scale(1); } }
 @keyframes list-shift { from { opacity: .35; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes error-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
-@keyframes drawer-item-in { from { opacity: 0; transform: translateX(12px); } to { opacity: 1; transform: translateX(0); } }
 @keyframes theme-toggle-pop { 0% { transform: rotate(0) scale(1); } 45% { transform: rotate(24deg) scale(1.22); } 100% { transform: rotate(0) scale(1); } }
 @keyframes refresh-pulse { 0% { transform: rotate(0) scale(1); } 50% { transform: rotate(90deg) scale(1.12); } 100% { transform: rotate(360deg) scale(1); } }
 @keyframes backdrop-in { from { opacity: 0; } to { opacity: 1; } }
@@ -284,13 +283,7 @@ main h1 { font-size: clamp(1.5rem, 3vw, 2rem); font-weight: 700; letter-spacing:
 .drawer-controls input { min-width: 0; width: 100%; }
 .drawer-controls select { flex: 1 1 100%; max-width: 100%; }
 .drawer-controls kbd { display: none; }
-#mobile-navigation-drawer { animation: drawer-in .22s ease-out; overscroll-behavior: contain; padding-bottom: max(1.25rem, env(safe-area-inset-bottom)); }
-#mobile-navigation-drawer a:nth-child(1) { animation: drawer-item-in .22s ease-out .02s both; }
-#mobile-navigation-drawer a:nth-child(2) { animation: drawer-item-in .22s ease-out .05s both; }
-#mobile-navigation-drawer a:nth-child(3) { animation: drawer-item-in .22s ease-out .08s both; }
-#mobile-navigation-drawer a:nth-child(4) { animation: drawer-item-in .22s ease-out .11s both; }
-#mobile-navigation-drawer a:nth-child(5) { animation: drawer-item-in .22s ease-out .14s both; }
-@keyframes drawer-in { from { transform: translateX(100%); } to { transform: translateX(0); } }
+#mobile-navigation-drawer { overscroll-behavior: contain; padding-bottom: max(1.25rem, env(safe-area-inset-bottom)); }
 @media (max-width: 359px) { .navbar-current { display: none; } }
 @media (max-width: 359px) {
   .modal-panel { padding: 1rem; border-radius: 1rem; }
@@ -1523,3 +1516,7 @@ nav a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   .app-shell .responsive-table td { grid-column: 1; }
   .app-shell .responsive-table tbody { padding: .5rem; }
 }
+
+/* One quiet reveal; avoid sliding the panel and its links independently. */
+.mobile-drawer-overlay { animation: mobile-drawer-reveal .14s ease-out; }
+@keyframes mobile-drawer-reveal { from { opacity: 0; } to { opacity: 1; } }

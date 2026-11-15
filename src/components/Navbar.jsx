@@ -99,7 +99,7 @@ export function Navbar({ viewDensity = 'default', setViewDensity, reducedMotionP
     const background = [...(document.querySelector('.app-shell')?.children || [])].filter(element => !element.contains(panel));
     const previousInert = background.map(element => element.inert);
     background.forEach(element => { element.inert = true; });
-    panel?.querySelector('button')?.focus();
+    panel?.querySelector('button')?.focus({ preventScroll: true });
     const handleEscape = event => {
       if (event.key === 'Escape') setMobileMenuOpen(false);
       if (event.key === 'Tab') {
@@ -119,7 +119,7 @@ export function Navbar({ viewDensity = 'default', setViewDensity, reducedMotionP
       window.removeEventListener('keydown', handleEscape);
       document.body.style.overflow = previousOverflow;
       background.forEach((element, index) => { element.inert = previousInert[index]; });
-      previousFocus?.focus();
+      previousFocus?.focus({ preventScroll: true });
     };
   }, [mobileMenuOpen]);
 

@@ -34,9 +34,13 @@ test('More stays aligned and supports keyboard opening and dismissal', async ({ 
 test('drawer fills the viewport after scrolling, rotates, traps focus and navigates', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.evaluate(() => window.scrollTo(0, 500));
+  const scrollBefore = await page.evaluate(() => window.scrollY);
   await page.getByRole('button', { name: 'Open navigation menu' }).click();
   const drawer = page.locator('#mobile-navigation-drawer');
   await expect(drawer).toBeVisible();
+  expect(await page.evaluate(() => window.scrollY)).toBe(scrollBefore);
+  await expect(drawer).toHaveCSS('transform', 'none');
+  await expect(drawer.getByRole('link').first()).toHaveCSS('animation-name', 'none');
   await expect(drawer.getByLabel('Show keyboard shortcuts')).toHaveCount(0);
   const bounds = await drawer.boundingBox();
   expect(Math.abs(bounds.y)).toBeLessThan(1);
