@@ -89,3 +89,9 @@ Google Drive backup is manual and stores one file named `ApexFinance backup.json
 
 For Cloudflare Workers Builds, add `VITE_GOOGLE_CLIENT_ID` as a **Build variable** under **Settings → Builds → Build variables and secrets**. Vite embeds `VITE_*` values during `npm run build`, so a runtime Worker variable alone is not enough. Add the deployed site URL to the OAuth client’s authorized origins and redeploy.
 
+
+### UI regression checks
+
+Run `npm run test:ui` to check the More disclosure, mobile drawer, holding inspector, context-menu keyboard navigation, and narrow-screen layouts in Chrome, WebKit, and iPhone emulation. Install the WebKit test browser first with `npx playwright install webkit`. Chrome must also be installed. The suite uses its own local server on port 5182 and isolated browser storage with synthetic portfolios; it does not read your saved portfolio.
+
+Stress cases include 25 holdings, long names and notes, large balances, enlarged text, increased contrast, reduced motion, and mobile rotation. Emulation does not replace physical iPhone Safari or VoiceOver testing; check those on a real device, especially the on-screen keyboard and safe-area behavior.

@@ -215,6 +215,7 @@ export default function App() {
     const meta = document.querySelector('meta[name="theme-color"]');
     if (meta) meta.content = isLight ? '#f5f5f7' : '#242426';
     document.documentElement.style.colorScheme = isLight ? 'light' : 'dark';
+    document.documentElement.style.backgroundColor = isLight ? '#f5f5f7' : '#1c1c1e';
   }, [isLight]);
   const isTotalPositive = portfolioSummary.totalGainLoss >= 0;
   useEffect(() => {
@@ -456,6 +457,7 @@ export default function App() {
 
         {activeTab === 'holdings' && (
           <HoldingsTable
+            onViewTransactions={item => { setTransactionIntent({ type: 'VIEW', symbol: item.symbol, id: Date.now() }); changeTab('history'); }}
             transactions={transactions}
             history={backtestHistory}
             onBulkUpdate={updateHoldingsBulk}

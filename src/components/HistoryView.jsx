@@ -31,7 +31,7 @@ export function HistoryView({ transactions, holdings, draftScope = 'main', curre
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
   const dateInputRef = useRef(null);
-  useEffect(() => { if (intent) { setForm({ ...emptyForm(intent.type), currency: intent.currency || currencyCode }); setOpen(true); setError(''); onIntentHandled?.(); } }, [intent, currencyCode, onIntentHandled]);
+  useEffect(() => { if (intent?.type === 'VIEW') { setSearch(intent.symbol || ''); setTypeFilter('ALL'); setFromDate(''); setToDate(''); onIntentHandled?.(); return; } if (intent) { setForm({ ...emptyForm(intent.type), currency: intent.currency || currencyCode }); setOpen(true); setError(''); onIntentHandled?.(); } }, [intent, currencyCode, onIntentHandled]);
   const isCash = CASH_TYPES.includes(form.type);
   const isTrade = ['BUY', 'SELL'].includes(form.type);
   const isEditing = Boolean(form.id);

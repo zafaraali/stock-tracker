@@ -1,3 +1,4 @@
+import { HoldingContextMenu } from './HoldingContextMenu';
 import { HoldingInspector } from './HoldingInspector';
 import { Money } from './Money';
 import { BulkHoldingEditor } from './BulkHoldingEditor';
@@ -20,8 +21,12 @@ import { fetchMarketFundamentals, isTseSymbol, searchMarketSymbols, inferSymbolM
 import { EmptyState } from './EmptyState';
 import { TickerLinks } from './TickerLinks';
 
-export function HoldingsTable({ summary, history = [], transactions = [], onBulkUpdate, initialFilter = '', reviewSymbol = '', currencyCode = 'USD', customCategories = [], valueCurrencyMode = 'display', setValueCurrencyMode, onAddHolding, onUpdateHolding, onUpdateHoldingPrice, onUpdateHoldingNotes, onRemoveHolding, onExportCSV, onImportCSV }) {
+export function HoldingsTable({ summary, history = [], transactions = [], onBulkUpdate, onViewTransactions, initialFilter = '', reviewSymbol = '', currencyCode = 'USD', customCategories = [], valueCurrencyMode = 'display', setValueCurrencyMode, onAddHolding, onUpdateHolding, onUpdateHoldingPrice, onUpdateHoldingNotes, onRemoveHolding, onExportCSV, onImportCSV }) {
+  const [contextMenu, setContextMenu] = useState(null);
+  const closeContextMenu = React.useCallback(() => setContextMenu(null), []);
+  const showContextMenu = (event, item) => { if (event.target.closest('a, input, textarea, select')) return; event.preventDefault(); event.currentTarget.focus({ preventScroll: true }); setContextMenu({ item, x: event.clientX, y: event.clientY }); };
   const [selectedHoldingId, setSelectedHoldingId] = useState(null);
+  const holdingList = useRef(null);
   const selectedHolding = summary.items.find(item => item.id === selectedHoldingId);
   const holdingSearch = useRef(null);
   useEffect(() => {
@@ -29,6 +34,29 @@ export function HoldingsTable({ summary, history = [], transactions = [], onBulk
     window.addEventListener('keydown', find);
     return () => window.removeEventListener('keydown', find);
   }, []);
+  const selectRow = (event, item) => {
+    if (event.target.closest('button, a, input, select, textarea, summary, details, label')) return;
+    event.currentTarget.focus({ preventScroll: true });
+    setSelectedHoldingId(item.id);
+  };
+  const navigateRows = (event, item) => {
+    if (event.target !== event.currentTarget && !event.target.closest('.holding-select')) return;
+    if (event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10')) { event.preventDefault(); const bounds = event.currentTarget.getBoundingClientRect(); setContextMenu({ item, x: bounds.left + 20, y: bounds.top + 24 }); return; }
+    if (event.key === 'Escape') { event.preventDefault(); setSelectedHoldingId(null); return; }
+    if (event.key === 'Enter' || event.key === ' ') { if (event.target === event.currentTarget) { event.preventDefault(); setSelectedHoldingId(item.id); } return; }
+    if (!['ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) return;
+    event.preventDefault();
+    const rows = [...holdingList.current.querySelectorAll('[data-holding-id]')].filter(row => row.getClientRects().length);
+    const index = rows.findIndex(row => row.dataset.holdingId === item.id);
+    const next = event.key === 'Home' ? 0 : event.key === 'End' ? rows.length - 1 : Math.max(0, Math.min(rows.length - 1, index + (event.key === 'ArrowDown' ? 1 : -1)));
+    const row = rows[next];
+    if (row) { setSelectedHoldingId(row.dataset.holdingId); row.focus({ preventScroll: true }); row.scrollIntoView({ block: 'nearest' }); }
+  };
+  const closeInspector = () => {
+    const row = [...(holdingList.current?.querySelectorAll('[data-holding-id]') || [])].find(row => row.dataset.holdingId === selectedHoldingId && row.getClientRects().length);
+    setSelectedHoldingId(null);
+    row?.focus({ preventScroll: true });
+  };
   const [formError, setFormError] = useState('');
   const [saveNotice, setSaveNotice] = useState('');
   const [savedHoldingId, setSavedHoldingId] = useState(null);
@@ -234,6 +262,7 @@ export function HoldingsTable({ summary, history = [], transactions = [], onBulk
   return (
     <div className="holdings-panel bg-slate-900 border border-slate-800/80 rounded-2xl overflow-hidden shadow-xl mb-16 sm:mb-8">
       
+      {contextMenu && <HoldingContextMenu {...contextMenu} onClose={closeContextMenu} onEdit={() => openEditHolding(contextMenu.item)} onPrice={() => openEditHolding(contextMenu.item, true)} onTransactions={() => onViewTransactions?.(contextMenu.item)} />}
       {/* Header Bar */}
       <div className="view-toolbar p-5 border-b border-slate-800 flex flex-wrap items-center justify-between gap-4">
         <div>
@@ -282,7 +311,7 @@ export function HoldingsTable({ summary, history = [], transactions = [], onBulk
       </FilterPanel>
       <div className="holdings-mobile-summary" aria-label="Holdings summary"><div><span>Portfolio value</span><strong><Money amount={formatMoney(summary.totalValue || 0, currencyCode)} /></strong></div><div><span>Cash</span><strong><Money amount={formatMoney(summary.cashValue || 0, currencyCode)} /></strong></div><div><span>Holdings</span><strong>{summary.items.length}</strong></div></div>
       <div className={selectedHolding ? 'holdings-workspace has-inspector' : 'holdings-workspace'}>
-      <div className="holdings-list-pane">
+      <div ref={holdingList} className="holdings-list-pane">
       {/* Desktop Table */}
       <div className="holdings-desktop-table overflow-x-auto hidden sm:block">
         <table className="financial-table w-full text-left text-sm text-slate-300">
@@ -312,7 +341,7 @@ export function HoldingsTable({ summary, history = [], transactions = [], onBulk
                 const isEditing = editingId === item.id;
 
                 return (
-                  <tr key={item.id} data-holding-id={item.id} tabIndex={-1} className={`hover:bg-slate-800/40 transition ${selectedHoldingId === item.id ? 'holding-selected' : ''} ${savedHoldingId === item.id ? 'holding-row-saved' : ''}`}>
+                  <tr key={item.id} data-holding-id={item.id} tabIndex={0} onContextMenu={event => showContextMenu(event, item)} onClick={event => selectRow(event, item)} onKeyDown={event => navigateRows(event, item)} className={`hover:bg-slate-800/40 transition ${selectedHoldingId === item.id ? 'holding-selected' : ''} ${savedHoldingId === item.id ? 'holding-row-saved' : ''}`}>
                     <td data-label="Asset / Sector" className="holding-asset-cell py-3.5 px-4">
                       <div className="holding-asset-info">
                       <div className="holding-asset-heading">
@@ -327,7 +356,7 @@ export function HoldingsTable({ summary, history = [], transactions = [], onBulk
                         )}
                       </div>
                       <div className="holding-asset-name text-xs text-slate-400">{item.name}</div>
-                      <PriceStatus item={item} onEdit={() => openEditHolding(item, true)} />
+                      <PriceStatus compact item={item} onEdit={() => openEditHolding(item, true)} />
                       {item.notes && (
                         <div className="text-[11px] text-slate-500 italic mt-0.5 truncate max-w-[180px]" title={item.notes}>
                           "{item.notes}"
@@ -421,7 +450,7 @@ export function HoldingsTable({ summary, history = [], transactions = [], onBulk
             const isEditing = editingId === item.id;
 
             return (
-              <div key={item.id} data-holding-id={item.id} tabIndex={-1} className={`p-4 space-y-3 ${savedHoldingId === item.id ? 'holding-row-saved' : ''}`}>
+              <div key={item.id} data-holding-id={item.id} tabIndex={0} onContextMenu={event => showContextMenu(event, item)} onClick={event => selectRow(event, item)} onKeyDown={event => navigateRows(event, item)} className={`p-4 space-y-3 ${savedHoldingId === item.id ? 'holding-row-saved' : ''}`}>
                 <div className="holdings-mobile-header flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <button type="button" className="holding-select font-bold text-base text-white" aria-label={`View ${item.symbol} details`} aria-expanded={selectedHoldingId === item.id} onClick={() => setSelectedHoldingId(item.id)}>{item.symbol}</button><TickerLinks symbol={item.symbol} />
@@ -443,7 +472,7 @@ export function HoldingsTable({ summary, history = [], transactions = [], onBulk
                     <Money amount={formatMoney(display.gain, display.currency, { signed: true })} /> ({formatPercent(display.percent)})
                   </span>
                 </div>
-                <details className="holding-details"><summary>Holding details & actions</summary><div className="space-y-3 pt-3"><DividendSource item={item} /><PriceStatus item={item} onEdit={() => openEditHolding(item, true)} />
+                <details className="holding-details"><summary>Holding details & actions</summary><div className="space-y-3 pt-3"><DividendSource item={item} /><PriceStatus compact item={item} onEdit={() => openEditHolding(item, true)} />
                 {item.notes && <div className="text-xs text-slate-500 italic bg-slate-950 p-2 rounded">"{item.notes}"</div>}
 
                 <div className="grid grid-cols-2 gap-2 text-xs bg-slate-950 p-3 rounded-xl border border-slate-800/60">
@@ -490,7 +519,7 @@ export function HoldingsTable({ summary, history = [], transactions = [], onBulk
       </div>
 
       </div>
-      {selectedHolding && <HoldingInspector key={selectedHolding.id} item={selectedHolding} history={history} transactions={transactions} currencyCode={currencyCode} valueCurrencyMode={valueCurrencyMode} onClose={() => setSelectedHoldingId(null)} onEdit={() => openEditHolding(selectedHolding)} />}
+      {selectedHolding && <HoldingInspector item={selectedHolding} history={history} transactions={transactions} currencyCode={currencyCode} valueCurrencyMode={valueCurrencyMode} onClose={closeInspector} onEdit={() => openEditHolding(selectedHolding)} />}
       </div>
       <Pagination {...pagination} total={visibleItems.length} onPageChange={pagination.setPage} onPageSizeChange={setPageSize} label="Holdings" />
 

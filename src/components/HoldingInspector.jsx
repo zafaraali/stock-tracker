@@ -15,9 +15,9 @@ export function HoldingInspector({ item, currencyCode, valueCurrencyMode, histor
   const activity = transactions.filter(entry => entry.holdingId === item.id).sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5);
   useEffect(() => {
     const previous = document.activeElement;
-    closeButton.current?.focus({ preventScroll: true });
-    if (window.matchMedia('(max-width: 1439px)').matches) closeButton.current?.closest('aside')?.scrollIntoView({ block: 'nearest' });
-    return () => { if (previous?.isConnected) previous.focus({ preventScroll: true }); };
+    const panel = closeButton.current?.closest('aside');
+    if (window.matchMedia('(max-width: 1023px)').matches) { closeButton.current?.focus({ preventScroll: true }); closeButton.current?.closest('aside')?.scrollIntoView({ block: 'nearest' }); }
+    return () => { if (panel?.contains(document.activeElement) && previous?.isConnected) previous.focus({ preventScroll: true }); };
   }, []);
   return <aside className="holding-inspector" aria-labelledby="holding-inspector-title" onKeyDown={event => { if (event.key === 'Escape') { event.stopPropagation(); onClose(); } }}>
     <header className="inspector-header"><div><h2 id="holding-inspector-title">{item.symbol}</h2><p className="supporting-text">{item.name || item.category}</p></div><button ref={closeButton} className="icon-button" aria-label="Close holding details" onClick={onClose}><X size={16} /></button></header>

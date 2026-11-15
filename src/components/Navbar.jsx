@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom';
 import { PREFERENCES_RESTORED } from '../services/backupPreferences';
 import React, { useEffect, useRef, useState } from 'react';
 import { Modal } from './Modal';
@@ -79,10 +80,11 @@ export function Navbar({ viewDensity = 'default', setViewDensity, reducedMotionP
     const handleShortcut = event => {
       const target = event.target;
       if (['INPUT', 'TEXTAREA', 'SELECT'].includes(target?.tagName) || target?.isContentEditable) return;
-      if (event.key.toLowerCase() === 'c') {
+      if (event.metaKey || event.ctrlKey || event.altKey || event.repeat || event.isComposing || document.querySelector('[role="dialog"]')) return;
+      if (event.key.toLowerCase() === 'm') {
         event.preventDefault();
         setDesktopControlsOpen(open => !open);
-        showPreferenceNotice(desktopControlsOpen ? 'Portfolio controls hidden.' : 'Portfolio controls shown.');
+        showPreferenceNotice(desktopControlsOpen ? 'More closed.' : 'More opened.');
       }
     };
     window.addEventListener('keydown', handleShortcut);
@@ -94,11 +96,14 @@ export function Navbar({ viewDensity = 'default', setViewDensity, reducedMotionP
     const previousFocus = document.activeElement;
     const previousOverflow = document.body.style.overflow;
     const panel = drawerRef.current;
+    const background = [...(document.querySelector('.app-shell')?.children || [])].filter(element => !element.contains(panel));
+    const previousInert = background.map(element => element.inert);
+    background.forEach(element => { element.inert = true; });
     panel?.querySelector('button')?.focus();
     const handleEscape = event => {
       if (event.key === 'Escape') setMobileMenuOpen(false);
       if (event.key === 'Tab') {
-        const controls = [...panel.querySelectorAll('button, a[href], input, select')].filter(el => !el.disabled);
+        const controls = [...panel.querySelectorAll('button, a[href], input, select, summary, [tabindex="0"]')].filter(el => !el.disabled && el.getClientRects().length);
         const first = controls[0], last = controls.at(-1);
         if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
         else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
@@ -113,6 +118,7 @@ export function Navbar({ viewDensity = 'default', setViewDensity, reducedMotionP
       breakpoint.removeEventListener('change', closeOnDesktop);
       window.removeEventListener('keydown', handleEscape);
       document.body.style.overflow = previousOverflow;
+      background.forEach((element, index) => { element.inert = previousInert[index]; });
       previousFocus?.focus();
     };
   }, [mobileMenuOpen]);
@@ -243,7 +249,7 @@ export function Navbar({ viewDensity = 'default', setViewDensity, reducedMotionP
     finally { setDriveBusy(false); }
   };
 
-  const renderControls = () => <>
+  const renderControls = (mobile = false) => <>
           <div className="popover-heading"><strong>Portfolio controls</strong><span>Display and preferences</span></div>
           <div className="popover-fields">
           <label className="popover-field"><span>Display currency</span>
@@ -293,12 +299,12 @@ export function Navbar({ viewDensity = 'default', setViewDensity, reducedMotionP
 
           {installPrompt && <button aria-label="Install ApexFinance app" title="Install ApexFinance app" onClick={installApp} className="popover-action icon-button"><Download className="w-5 h-5" /><span>Install app</span></button>}
           <button aria-label={reminder.due ? 'Open settings · Backup due' : 'Open settings'} title="Open settings" onClick={() => { setMobileMenuOpen(false); setDesktopControlsOpen(false); setSettingsOpen(true); }} className="popover-action icon-button"><Settings className="w-5 h-5" /><span>Settings</span>{reminder.due && <span className="backup-due-dot" aria-hidden="true" />}</button>
-          <details ref={shortcutsRef} className="keyboard-shortcuts">
+          {!mobile && <details ref={shortcutsRef} className="keyboard-shortcuts">
             <summary className="popover-action secondary-button" aria-label="Show keyboard shortcuts"><span className="shortcut-symbol" aria-hidden="true">⌘</span><span>Keyboard shortcuts</span><ChevronDown size={14} aria-hidden="true" /></summary>
             <div className="keyboard-shortcuts-popover" role="note">
               <p><kbd>R</kbd><span>Refresh prices</span></p>
               <p><kbd>H</kbd><span>Open help</span></p>
-              <p><kbd>C</kbd><span>Toggle controls</span></p>
+              <p><kbd>M</kbd><span>Toggle More</span></p>
               <p><kbd>1</kbd><span>Dashboard</span></p>
               <p><kbd>2</kbd><span>Holdings</span></p>
               <p><kbd>3</kbd><span>Transactions</span></p>
@@ -307,7 +313,7 @@ export function Navbar({ viewDensity = 'default', setViewDensity, reducedMotionP
               <p><kbd>6</kbd><span>Performance</span></p>
               <p><kbd>7</kbd><span>Rebalance</span></p>
             </div>
-          </details>
+          </details>}
           </div>
           {preferenceNotice && <span className="preference-notice" role="status" aria-live="polite">{preferenceNotice}</span>}
 </>;
@@ -367,7 +373,7 @@ export function Navbar({ viewDensity = 'default', setViewDensity, reducedMotionP
         {/* Trailing toolbar controls and anchored disclosure. */}
         <div className="toolbar-trailing">
         <button type="button" className={`navbar-privacy icon-button ${privateMode ? 'privacy-active' : ''}`} aria-label={privateMode ? 'Show balances' : 'Hide balances'} title={privateMode ? 'Privacy on · Show balances' : 'Hide balances'} aria-pressed={privateMode} onClick={onTogglePrivacy}>{privateMode ? <EyeOff aria-hidden="true" className="w-5 h-5" /> : <Eye aria-hidden="true" className="w-5 h-5" />}</button>
-        <button type="button" className={`desktop-controls-toggle secondary-button hidden lg:inline-flex ${desktopControlsOpen ? '' : 'controls-hidden-toggle'}`} aria-expanded={desktopControlsOpen} aria-controls="desktop-portfolio-controls" onKeyDown={event => { if (event.key === 'ArrowDown') { event.preventDefault(); setDesktopControlsOpen(true); window.requestAnimationFrame(() => document.querySelector('#desktop-portfolio-controls select')?.focus()); } }} aria-label={desktopControlsOpen ? 'Hide portfolio controls' : 'Show portfolio controls'} title="Toggle portfolio controls (C)" onClick={() => setDesktopControlsOpen(open => !open)}>
+        <button type="button" className={`desktop-controls-toggle secondary-button hidden lg:inline-flex ${desktopControlsOpen ? '' : 'controls-hidden-toggle'}`} aria-expanded={desktopControlsOpen} aria-controls="desktop-portfolio-controls" onKeyDown={event => { if (event.key === 'ArrowDown') { event.preventDefault(); setDesktopControlsOpen(true); window.requestAnimationFrame(() => document.querySelector('#desktop-portfolio-controls select')?.focus()); } }} aria-label={desktopControlsOpen ? 'Hide portfolio controls' : 'Show portfolio controls'} aria-keyshortcuts="m" title="Toggle More (M)" onClick={() => setDesktopControlsOpen(open => !open)}>
           <MoreHorizontal className="w-4 h-4" aria-hidden="true" /><span>More</span><ChevronDown className="more-chevron" aria-hidden="true" />
         </button>
         <div id="desktop-portfolio-controls" role="group" aria-label="Portfolio controls" onBlur={event => { if (event.relatedTarget && !event.currentTarget.parentElement.contains(event.relatedTarget)) setDesktopControlsOpen(false); }} className={`navbar-actions ${desktopControlsOpen ? 'hidden lg:flex' : 'hidden'} items-center gap-2.5 flex-wrap justify-start w-full border-t border-slate-800 pt-3`}>
@@ -376,9 +382,10 @@ export function Navbar({ viewDensity = 'default', setViewDensity, reducedMotionP
         </div>
           {settingsOpen && <Modal title="Settings & data" onClose={() => setSettingsOpen(false)}>
             <p className="text-sm text-slate-400 mb-5">Your holdings, transactions, watchlist, settings, and snapshots stay in this browser's local storage. Keep an encrypted or otherwise secure copy of exported backups.</p>
-            <nav className="settings-category-nav settings-category-nav-sticky" aria-label="Settings categories">
+            <div className="settings-layout"><nav className="settings-category-nav settings-category-nav-sticky" aria-label="Settings categories">
               {[['app', 'App'], ['appearance', 'Appearance'], ['lists', 'Holdings lists'], ['data', 'Data']].map(([key, label]) => <button type="button" key={key} aria-pressed={settingsSection === key} aria-controls={`settings-${key}-panel`} onClick={() => setSettingsSection(key)}>{label}</button>)}
             </nav>
+            <div className="settings-content">
             <section id="settings-app-panel" aria-labelledby="settings-app-title" className="settings-category-panel" hidden={settingsSection !== 'app'}>
               <h3 id="settings-app-title" className="section-title">App</h3>
               <p className="supporting-text mb-3">Privacy mode hides displayed amounts and quantities for screen sharing. It does not encrypt data, redact notes, or change backup contents. Turn it off before printing financial reports.</p>
@@ -448,12 +455,13 @@ export function Navbar({ viewDensity = 'default', setViewDensity, reducedMotionP
             </div>
             </div></details>
             </section>
+            </div></div>
           </Modal>}
 
       </div>
 
       {/* Mobile navigation drawer */}
-      {mobileMenuOpen && <div className="lg:hidden fixed inset-0 z-50" role="presentation">
+      {mobileMenuOpen && createPortal(<div className="mobile-drawer-overlay lg:hidden fixed inset-0 z-50" role="presentation">
         <button type="button" aria-label="Close navigation menu" onClick={() => setMobileMenuOpen(false)} className="absolute inset-0 w-full h-full bg-slate-950/60 backdrop-blur-sm" />
         <aside
           ref={drawerRef}
@@ -495,9 +503,9 @@ export function Navbar({ viewDensity = 'default', setViewDensity, reducedMotionP
               </a>
             ))}
           </div>
-          <div className="drawer-controls mt-6 border-t border-slate-800 pt-5"><p className="text-xs uppercase tracking-[.18em] text-slate-500 mb-2">Controls</p><h2 className="section-title mb-3">Portfolio controls</h2>{renderControls()}</div>
+          <div className="drawer-controls mt-6 border-t border-slate-800 pt-5"><p className="text-xs uppercase tracking-[.18em] text-slate-500 mb-2">Controls</p><h2 className="section-title mb-3">Portfolio controls</h2>{renderControls(true)}</div>
         </aside>
-      </div>}
+      </div>, document.querySelector('.app-shell') || document.body)}
     </nav>
   );
 }

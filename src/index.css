@@ -1290,12 +1290,12 @@ nav a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   .app-navigation[data-sidebar-open="false"] { margin-left: 0; }
   .app-navigation[data-sidebar-open="false"] :is(.desktop-section-links, .navbar-brand) { display: none; }
 }
-@media screen and (min-width: 1440px) {
-  .holdings-workspace.has-inspector { display: grid; grid-template-columns: minmax(0, 1fr) 320px; align-items: start; }
+@media screen and (min-width: 1024px) {
+  .holdings-workspace.has-inspector { display: grid; grid-template-columns: minmax(0, 1fr) clamp(260px, 24vw, 320px); align-items: start; }
   .holding-inspector { border-top: 0; border-left: 1px solid var(--border); align-self: stretch; }
   .has-inspector .financial-table { min-width: 790px; }
 }
-@media screen and (max-width: 1439px) {
+@media screen and (max-width: 1023px) {
   .holdings-workspace.has-inspector { display: flex; flex-direction: column; }
   .has-inspector .holding-inspector { order: -1; width: 100%; border-bottom: 1px solid var(--border); }
 }
@@ -1309,7 +1309,7 @@ nav a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   .app-navigation::after { background: var(--surface-muted); -webkit-backdrop-filter: none; backdrop-filter: none; }
 }
 
-@media screen and (min-width: 1440px) {
+@media screen and (min-width: 1024px) {
   /* Price and dividend details move to the inspector while it is open. */
   .has-inspector .holdings-desktop-table .financial-table { min-width: 600px; }
   .has-inspector .financial-table :is(th, td):nth-child(3),
@@ -1331,18 +1331,18 @@ nav a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   .popover-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; padding: 0 .4rem 1rem; }
   .popover-field { display: flex; flex-direction: column; min-width: 0; gap: .4rem; }
   .popover-field > span { font-size: .75rem; color: var(--muted); font-weight: 500; }
-  .app-navigation .popover-field select { width: 100%; max-width: none; min-height: 36px; border-radius: 7px; font-size: .8125rem; color: var(--foreground); background-color: var(--surface-muted); border-color: var(--border); }
+  :is(.app-navigation, .mobile-drawer-overlay) .popover-field select { width: 100%; max-width: none; min-height: 36px; border-radius: 7px; font-size: .8125rem; color: var(--foreground); background-color: var(--surface-muted); border-color: var(--border); }
   .popover-actions { display: grid; gap: 3px; padding-top: .5rem; border-top: 1px solid var(--border); width: 100%; }
-  .app-navigation .popover-actions .popover-action { display: flex; align-items: center; justify-content: flex-start; width: 100%; min-height: 38px; height: auto; padding: .55rem .6rem !important; gap: .7rem; border: 0; border-radius: 7px; box-shadow: none; background: transparent; color: var(--foreground); font-size: .8125rem; font-weight: 500; text-align: left; cursor: pointer; transform: none; }
+  :is(.app-navigation, .mobile-drawer-overlay) .popover-actions .popover-action { display: flex; align-items: center; justify-content: flex-start; width: 100%; min-height: 38px; height: auto; padding: .55rem .6rem !important; gap: .7rem; border: 0; border-radius: 7px; box-shadow: none; background: transparent; color: var(--foreground); font-size: .8125rem; font-weight: 500; text-align: left; cursor: pointer; transform: none; }
   .popover-action > svg, .popover-action > .theme-toggle-icon, .shortcut-symbol { flex: 0 0 18px; width: 18px; height: 18px; color: var(--muted); }
   .popover-action > span:not(.theme-toggle-icon):not(.shortcut-symbol) { flex: 1; }
   .popover-action > small { margin-left: auto; font-size: .75rem; color: var(--muted); }
   .shortcut-symbol { text-align: center; line-height: 18px; }
-  .app-navigation .popover-actions .popover-action:hover { background: var(--surface-raised); color: var(--foreground); }
-  .app-navigation .popover-actions .keyboard-shortcuts { width: 100%; }
+  :is(.app-navigation, .mobile-drawer-overlay) .popover-actions .popover-action:hover { background: var(--surface-raised); color: var(--foreground); }
+  :is(.app-navigation, .mobile-drawer-overlay) .popover-actions .keyboard-shortcuts { width: 100%; }
   .popover-actions summary { list-style: none; }
   .popover-actions summary::-webkit-details-marker { display: none; }
-  .app-navigation .popover-actions .keyboard-shortcuts-popover { position: static; width: 100%; max-width: none; margin-top: .35rem; padding: .6rem .75rem; border: 0; background: var(--surface-muted); box-shadow: none; }
+  :is(.app-navigation, .mobile-drawer-overlay) .popover-actions .keyboard-shortcuts-popover { position: static; width: 100%; max-width: none; margin-top: .35rem; padding: .6rem .75rem; border: 0; background: var(--surface-muted); box-shadow: none; }
   .popover-actions .keyboard-shortcuts summary > svg { transition: transform .16s ease; }
   .popover-actions .keyboard-shortcuts[open] summary > svg { transform: rotate(180deg); }
   .app-navigation .preference-notice { margin: .6rem .4rem .2rem; font-size: .75rem; }
@@ -1367,4 +1367,159 @@ nav a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) {
   .app-navigation[data-controls-open="true"] #desktop-portfolio-controls { animation: none; }
   .more-chevron { transition: none; }
+}
+
+/* Quiet metadata and a consistent dialog rhythm. */
+@media screen {
+  .app-shell :is(.holding-asset-badges > span, .holdings-mobile-header .rounded-full) { border-color: transparent; border-radius: 5px; background: color-mix(in srgb, var(--foreground) 5%, var(--surface)); color: var(--muted); font-size: .6875rem; font-weight: 500; padding: .15rem .4rem; }
+  .app-shell .price-status-badge { border-color: transparent; background: transparent; padding: .2rem 0; font-weight: 500; font-size: .6875rem; }
+  .app-shell .price-status-badge.is-stale { background: color-mix(in srgb, #f59e0b 5%, var(--surface)); border-color: transparent; padding: .3rem .45rem; border-radius: 5px; }
+  .app-shell .price-status-badge .price-status-date { color: var(--muted); font-weight: 400; }
+  .app-shell .price-status-dot { box-shadow: none; }
+  .app-shell .modal-panel { border-radius: 14px; padding: 1.5rem; }
+  .app-shell .modal-panel > header { align-items: center; margin-bottom: 1.25rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border); }
+  .app-shell .modal-panel > header h2 { font-size: 1.125rem; font-weight: 600; letter-spacing: -.02em; line-height: 1.35; }
+  .app-shell .modal-panel > header .icon-button { background: transparent; border-color: transparent; box-shadow: none; flex-shrink: 0; }
+  .app-shell .modal-form-body { padding: .2rem .2rem 1.25rem; }
+  .app-shell .modal-form-body > * + * { margin-top: 1.25rem; }
+  .app-shell .modal-form-body .grid { gap: 1rem; }
+  .app-shell .modal-form-body label { font-size: .8125rem; font-weight: 500; }
+  .app-shell .modal-form-actions { gap: .5rem; padding-top: 1rem; border-top: 1px solid var(--border); }
+  .app-shell .modal-panel .field { font-weight: 400; }
+}
+@media screen and (min-width: 1024px) and (pointer: fine) {
+  .app-shell { --control-height: 32px; }
+  .app-shell :is(.primary-button, .secondary-button, .icon-button) { min-height: 32px; padding: .35rem .7rem; font-size: .8125rem; font-weight: 500; border-radius: 7px; }
+  .app-shell .icon-button { min-width: 32px; padding: .35rem; }
+  .app-shell button:has(> svg:only-child) { min-width: 32px; }
+  .app-shell .ticker-links a { width: 28px; height: 28px; min-height: 28px; font-size: .6875rem; }
+  .app-shell :is(.filter-panel, .holding-details, .holdings-tools, .optional-fields, .recovery-tools, .overview-tools details, .help-disclosure) > summary { min-height: 32px; }
+  .app-shell .field { min-height: 34px; padding: .4rem .65rem; font-size: .8125rem; border-radius: 6px; }
+  .app-shell .modal-panel > header .icon-button { min-height: 28px; min-width: 28px; padding: .3rem; }
+  .app-shell .modal-form-actions button, .app-shell .modal-panel > .flex.justify-end button { min-width: 5rem; }
+}
+@media screen and (max-width: 479px) {
+  .app-shell .modal-panel { padding: 1rem; }
+}
+
+@media screen {
+  .holdings-list-pane [data-holding-id] { cursor: pointer; }
+  .holdings-list-pane [data-holding-id]:focus-visible { outline: 2px solid var(--accent-text, var(--accent)); outline-offset: -2px; }
+  .app-shell .empty-state { display: flex; flex-direction: column; align-items: center; gap: .5rem; padding: 2rem 1.25rem; }
+  .app-shell .empty-state:not(.compact) { padding-block: 3rem; }
+  .empty-state .empty-state-icon { margin-bottom: .25rem; border-radius: 10px; }
+  .empty-state > p { margin-top: 0; max-width: 26rem; line-height: 1.5; }
+  .empty-state > button { margin-top: .5rem; }
+}
+@media screen and (min-width: 1024px) {
+  .holding-inspector { position: sticky; top: 5.5rem; max-height: calc(100dvh - 7rem); overflow-y: auto; align-self: start; scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
+}
+
+@media screen {
+  .app-shell { --focus-ring: color-mix(in srgb, var(--accent) 50%, transparent); }
+  .app-shell :is(button, a, input, select, textarea, summary, [tabindex]):focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 15%, transparent); }
+  .app-shell svg.lucide { stroke-width: 1.75; vertical-align: middle; flex-shrink: 0; }
+  .settings-content { min-width: 0; }
+  .app-shell .settings-category-panel > :is(label, .settings-theme-control, fieldset) { background: var(--surface-muted); border-color: var(--border); border-radius: 9px; padding: .9rem 1rem; }
+  .settings-category-panel > * + * { margin-top: .75rem; }
+  .app-shell .settings-category-panel strong { font-weight: 550; }
+  .settings-category-panel small { display: block; margin-top: .2rem; line-height: 1.5; color: var(--muted); }
+  .holding-context-menu { position: fixed; z-index: 90; min-width: 210px; max-width: calc(100vw - 16px); padding: 5px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); color: var(--foreground); box-shadow: 0 10px 32px rgb(0 0 0 / .22); }
+  .holding-context-menu > p { padding: .4rem .65rem; font-size: .6875rem; font-weight: 600; color: var(--muted); }
+  .holding-context-menu > button { display: flex; align-items: center; gap: .65rem; width: 100%; min-height: 34px; padding: .45rem .65rem; border-radius: 6px; font-size: .8125rem; text-align: left; }
+  .holding-context-menu > button:hover, .holding-context-menu > button:focus { background: color-mix(in srgb, var(--accent) 16%, var(--surface)); outline: none; box-shadow: none; }
+  .holding-context-menu > button:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -2px; }
+  @supports (color: -webkit-focus-ring-color) { .app-shell { --focus-ring: -webkit-focus-ring-color; } }
+}
+@media screen and (min-width: 768px) {
+  .modal-panel:has(.settings-layout) { max-width: 52rem; }
+  .settings-layout { display: grid; grid-template-columns: 160px minmax(0, 1fr); gap: 1.5rem; align-items: start; }
+  .app-shell .settings-layout .settings-category-nav { display: flex; flex-direction: column; gap: .3rem; padding: .5rem; margin: 0; border: 0; border-radius: 10px; background: var(--surface-muted); position: sticky; top: 0; }
+  .app-shell .settings-category-nav button { text-align: left; min-height: 34px; border: 0; background: transparent; font-weight: 500; font-size: .8125rem; padding: .5rem .65rem; border-radius: 6px; }
+  .app-shell .settings-category-nav button[aria-pressed="true"] { background: color-mix(in srgb, var(--accent) 15%, var(--surface)); color: var(--foreground); }
+}
+@media screen and (max-width: 767px) {
+  .holding-context-menu > button { min-height: 44px; }
+  .settings-layout .settings-category-nav { position: static; }
+}
+
+@media screen and (max-width: 1023px) {
+  .mobile-drawer-overlay { height: 100dvh; width: 100%; overflow: hidden; }
+  #mobile-navigation-drawer { height: 100%; max-height: 100dvh; min-width: 0; padding-top: max(1.25rem, env(safe-area-inset-top)); padding-bottom: max(1.25rem, env(safe-area-inset-bottom)); }
+  .mobile-drawer-overlay .popover-fields { grid-template-columns: minmax(0, 1fr); }
+  .mobile-drawer-overlay .popover-field select { min-height: 44px; }
+  .mobile-drawer-overlay .popover-actions .popover-action { min-height: 44px; }
+  .app-shell > main { min-width: 0; max-width: 100%; }
+}
+
+@media screen and (max-width: 639px) {
+  .holding-mobile-actions .danger-button { margin-left: 0; }
+  .holding-details .grid-cols-2 > div { min-width: 0; overflow-wrap: anywhere; }
+  .holding-details .grid-cols-2 > div > .flex { flex-wrap: wrap; }
+  .holding-details input[type="number"] { min-width: 0; max-width: 100%; }
+  .help-disclosure > summary { position: relative; display: block; padding-right: 1.5rem; overflow-wrap: anywhere; }
+  .help-disclosure > summary::after { position: absolute; right: .25rem; top: 1rem; margin: 0; }
+  .help-hero .flex > div:last-child { min-width: 0; }
+}
+
+/* Preserve readable content and selection under accessibility preferences. */
+@media screen {
+  .summary-value, .inspector-value, .holding-card-value { overflow-wrap: anywhere; min-width: 0; }
+  .holding-asset-name, .inspector-header > div { min-width: 0; overflow-wrap: anywhere; }
+}
+@media screen and (prefers-contrast: more) {
+  .app-shell { --muted: var(--foreground); --secondary-text: var(--foreground); --border: currentColor; }
+  .app-shell:not(.theme-light), .app-shell.theme-light { --muted: var(--foreground); --secondary-text: var(--foreground); }
+  .app-shell .holding-selected, .app-shell .desktop-section-links a[aria-current="page"] { outline: 2px solid currentColor; outline-offset: -2px; }
+  .app-shell .app-navigation::after, .app-shell > nav { background: var(--surface); -webkit-backdrop-filter: none; backdrop-filter: none; }
+}
+@media (forced-colors: active) {
+  .holding-context-menu { background: Canvas; color: CanvasText; border-color: ButtonBorder; }
+  .holding-context-menu > button:focus, .holding-selected { outline: 2px solid Highlight; outline-offset: -2px; }
+}
+
+@media screen { .app-shell .money { overflow-wrap: anywhere; } }
+
+/* Reserve scrollbar space so asynchronous content cannot shift the toolbar. */
+@media screen and (min-width: 1024px) { html { overflow-y: scroll; } }
+
+/* Keep the floating action distinct from neutral icon controls. */
+@media screen {
+  .app-shell button.back-to-top.icon-button {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+    min-width: 48px;
+    min-height: 48px;
+  }
+  .app-shell button.back-to-top.icon-button:hover:not(:disabled) {
+    background: var(--accent-hover);
+    border-color: var(--accent-hover);
+    color: #fff;
+  }
+  .app-shell button.back-to-top.icon-button svg { color: inherit; }
+}
+
+@media screen and (max-width: 639px) { .app-shell .account-context .freshness-label { white-space: normal; overflow-wrap: anywhere; min-width: 0; max-width: 100%; } }
+
+/* Mobile data is a vertical card list, including content inside scroll wrappers. */
+@media screen and (max-width: 767px) {
+  .app-shell .responsive-table { display: block; width: 100%; min-width: 0; max-width: 100%; }
+  .app-shell .responsive-table tbody { display: block; width: 100%; min-width: 0; }
+  .app-shell .responsive-table tr { width: 100%; min-width: 0; max-width: 100%; }
+  .app-shell .responsive-table td { min-width: 0; max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
+  .app-shell .responsive-table td > * { min-width: 0; max-width: 100%; }
+  .app-shell .responsive-table td .flex { flex-wrap: wrap; min-width: 0; }
+  .app-shell .responsive-table td button { max-width: 100%; white-space: normal; }
+  .app-shell .responsive-table td[data-label="Actions"] { flex-wrap: wrap; gap: .5rem; }
+  .app-shell .responsive-table td .money { white-space: normal; overflow-wrap: anywhere; }
+  .app-shell .responsive-table td:last-child::before { display: block; }
+  .app-shell .responsive-table td[data-label="Actions"]::before,
+  .app-shell .responsive-table td[colspan]::before { display: none; }
+  .app-shell .responsive-table td[colspan] { display: block; }
+}
+@media screen and (max-width: 479px) {
+  .app-shell .responsive-table tr { grid-template-columns: minmax(0, 1fr); gap: .85rem; padding: .85rem; }
+  .app-shell .responsive-table td { grid-column: 1; }
+  .app-shell .responsive-table tbody { padding: .5rem; }
 }

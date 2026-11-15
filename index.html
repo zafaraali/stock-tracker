@@ -8,39 +8,19 @@
     <meta name="theme-color" content="#242426" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <style>
-      .launch-screen{position:fixed;inset:0;z-index:9999;display:grid;place-content:center;justify-items:center;gap:22px;background:#1c1c1e;color:#ededf0;font-family:system-ui,sans-serif;pointer-events:none;transition:opacity .45s ease,visibility .45s ease}
-      .launch-screen.is-ready{opacity:0;visibility:hidden}
-      .launch-mark{position:relative;display:grid;place-items:center;width:88px;height:88px;border-radius:26px;background:#2f6f52;box-shadow:0 0 55px #2f6f5240;animation:launch-breathe 1.8s ease-in-out infinite}
-      .launch-mark:before{content:'';position:absolute;inset:-11px;border:1px solid #5ac18c50;border-radius:35px;animation:launch-orbit 2s ease-in-out infinite}
-      .launch-mark svg{width:56px;height:56px;overflow:visible}
-      .launch-mark path{stroke-dasharray:110;stroke-dashoffset:110;animation:launch-draw 1.5s ease-in-out infinite}
-      .launch-name{font-size:23px;font-weight:700;letter-spacing:-.5px}.launch-name span{color:#84c9a5}
-      .launch-caption{margin:0;color:#a1a1a6;font-size:12px;letter-spacing:.08em}
-      .launch-track{width:120px;height:3px;border-radius:5px;background:#303032;overflow:hidden}.launch-track:after{content:'';display:block;width:45%;height:100%;border-radius:5px;background:#84c9a5;animation:launch-travel 1.2s ease-in-out infinite}
-      .loading-light .launch-screen{background:#f5f5f7;color:#242426}.loading-light .launch-caption{color:#76767c}.loading-light .launch-track{background:#e5e5e7}
-      @keyframes launch-draw{0%{stroke-dashoffset:110}55%,100%{stroke-dashoffset:0}}
-      @keyframes launch-breathe{50%{box-shadow:0 0 75px #2f6f5270;transform:translateY(-3px)}}
-      @keyframes launch-orbit{50%{transform:scale(1.08);opacity:.4}}
-      @keyframes launch-travel{from{transform:translateX(-110%)}to{transform:translateX(330%)}}
-      @media(prefers-reduced-motion:reduce){.launch-screen{transition:none}.launch-mark,.launch-mark:before,.launch-mark path,.launch-track:after{animation:none}.launch-mark path{stroke-dashoffset:0}}
-    </style>
+    <style>html { background: #1c1c1e; color-scheme: dark; } body { margin: 0; background: inherit; }</style>
     <script>
       try {
         const saved = JSON.parse(localStorage.getItem('st_pro_data_v2'));
         const deviceLight = window.matchMedia?.('(prefers-color-scheme: light)').matches;
-        if (saved?.theme === 'light' || (saved?.theme === 'system' && deviceLight)) document.documentElement.classList.add('loading-light');
+        const light = saved?.theme === 'light' || (saved?.theme === 'system' && deviceLight);
+        document.documentElement.style.colorScheme = light ? 'light' : 'dark';
+        document.documentElement.style.backgroundColor = light ? '#f5f5f7' : '#1c1c1e';
       } catch {}
     </script>
     <title>ApexFinance</title>
   </head>
-  <body class="bg-slate-950 text-slate-100 antialiased">
-    <div id="launch-screen" class="launch-screen" role="status" aria-label="Loading ApexFinance">
-      <div class="launch-mark" aria-hidden="true"><svg viewBox="0 0 64 64"><path d="M10 46L26 30L39 42L55 19M42 19H55V32" fill="none" stroke="white" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
-      <div class="launch-name" aria-hidden="true">Apex<span>Finance</span></div>
-      <p class="launch-caption" aria-hidden="true">Your portfolio, in focus.</p>
-      <div class="launch-track" aria-hidden="true"></div>
-    </div>
+  <body class="antialiased">
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
