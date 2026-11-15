@@ -8,12 +8,12 @@ function imageCanvas(title, subtitle, height, theme) {
   const context = canvas.getContext('2d');
   if (!context) throw new Error('Image export is unavailable in this browser.');
   const light = theme === 'light';
-  context.fillStyle = light ? '#ffffff' : '#0f172a';
+  context.fillStyle = light ? '#ffffff' : '#242426';
   context.fillRect(0, 0, canvas.width, height);
-  context.fillStyle = light ? '#0f172a' : '#f1f5f9';
+  context.fillStyle = light ? '#242426' : '#f2f2f7';
   context.font = 'bold 32px system-ui, sans-serif';
   context.fillText(title, 48, 64);
-  context.fillStyle = light ? '#475569' : '#94a3b8';
+  context.fillStyle = light ? '#636368' : '#a1a1a6';
   context.font = '20px system-ui, sans-serif';
   context.fillText(subtitle, 48, 103);
   return { canvas, context, light };
@@ -47,18 +47,18 @@ export async function saveAllocationImage({ title, data, currencyCode, theme, pr
     context.fill();
     angle = next;
   });
-  context.fillStyle = light ? '#475569' : '#94a3b8';
+  context.fillStyle = light ? '#636368' : '#a1a1a6';
   context.font = '18px system-ui, sans-serif';
   context.textAlign = 'center';
   context.fillText('TOTAL VALUE', 600, 311);
-  context.fillStyle = light ? '#0f172a' : '#f1f5f9';
+  context.fillStyle = light ? '#242426' : '#f2f2f7';
   context.font = 'bold 23px system-ui, sans-serif';
   context.fillText(privateMode ? 'Amount hidden' : formatMoney(total, currencyCode, { compact: true }), 600, 347, 210);
   data.forEach((item, index) => {
     const y = 554 + index * 48;
     context.fillStyle = chartColor(item.name, sector ? 'sector' : undefined);
     context.beginPath(); context.arc(60, y - 6, 7, 0, Math.PI * 2); context.fill();
-    context.fillStyle = light ? '#0f172a' : '#f1f5f9';
+    context.fillStyle = light ? '#242426' : '#f2f2f7';
     context.font = '22px system-ui, sans-serif';
     context.textAlign = 'left';
     context.fillText(item.name, 82, y, 540);
@@ -66,7 +66,7 @@ export async function saveAllocationImage({ title, data, currencyCode, theme, pr
     context.fillText(`${privateMode ? 'Amount hidden' : formatMoney(item.value, currencyCode)} | ${(item.value / total * 100).toFixed(1)}%`, 1152, y, 480);
   });
   context.textAlign = 'left';
-  context.fillStyle = light ? '#64748b' : '#94a3b8';
+  context.fillStyle = light ? '#76767c' : '#a1a1a6';
   context.font = '18px system-ui, sans-serif';
   context.fillText('ApexFinance', 48, canvas.height - 36);
   await downloadCanvas(canvas, `apexfinance-${sector ? 'sector-breakdown' : 'asset-allocation'}`);
@@ -100,10 +100,10 @@ export async function savePerformanceImage({ element, title, range, theme, metri
     context.fillText(`Portfolio: ${metrics.portfolio}`, 48, 625);
     context.fillStyle = light ? '#b45309' : '#fbbf24';
     context.fillText(`VOO (S&P 500): ${metrics.benchmark}`, 440, 625);
-    context.fillStyle = light ? '#0f172a' : '#f1f5f9';
+    context.fillStyle = light ? '#242426' : '#f2f2f7';
     context.fillText(`Excess return: ${metrics.excess}`, 48, 673);
     context.font = '18px system-ui, sans-serif';
-    context.fillStyle = light ? '#64748b' : '#94a3b8';
+    context.fillStyle = light ? '#76767c' : '#a1a1a6';
     context.fillText('Estimated backtest using current holding weights. Cash and dividends excluded.', 48, 738);
     await downloadCanvas(canvas, `apexfinance-performance-${range.toLowerCase()}`);
   } finally { URL.revokeObjectURL(url); }

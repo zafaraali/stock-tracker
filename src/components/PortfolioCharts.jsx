@@ -87,8 +87,8 @@ export function PortfolioCharts({ performance, backtestHistory = [], summary, sn
   const cardBg = isLight ? 'bg-white border-slate-200 shadow-md' : 'bg-slate-900 border-slate-800/80 shadow-xl';
   const headingColor = isLight ? 'text-slate-700' : 'text-slate-400';
   const chartTheme = isLight
-    ? { grid: '#e2e8f0', axis: '#64748b', portfolio: 'var(--accent-text, var(--accent))', benchmark: '#d97706', tooltip: '#ffffff', tooltipText: '#0f172a' }
-    : { grid: '#334155', axis: '#94a3b8', portfolio: 'var(--accent-text, var(--accent))', benchmark: '#fbbf24', tooltip: '#0f172a', tooltipText: '#f8fafc' };
+    ? { grid: 'var(--border)', axis: 'var(--muted)', portfolio: 'var(--accent-text, var(--accent))', benchmark: '#d97706', tooltip: 'var(--surface)', tooltipText: 'var(--foreground)' }
+    : { grid: 'var(--border)', axis: 'var(--muted)', portfolio: 'var(--accent-text, var(--accent))', benchmark: '#fbbf24', tooltip: 'var(--surface)', tooltipText: 'var(--foreground)' };
   const chartEmpty = (title, description) => <div className="chart-empty-state" role="status"><BarChart3 aria-hidden="true" className="h-8 w-8" /><strong>{title}</strong><span>{description}</span></div>;
   
   return (

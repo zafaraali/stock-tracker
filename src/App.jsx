@@ -213,7 +213,7 @@ export default function App() {
   }, [marketStatus?.loading, marketStatus?.lastUpdated, marketStatus?.error]);
   useEffect(() => {
     const meta = document.querySelector('meta[name="theme-color"]');
-    if (meta) meta.content = isLight ? '#f8fafc' : '#0f172a';
+    if (meta) meta.content = isLight ? '#f5f5f7' : '#242426';
     document.documentElement.style.colorScheme = isLight ? 'light' : 'dark';
   }, [isLight]);
   const isTotalPositive = portfolioSummary.totalGainLoss >= 0;
