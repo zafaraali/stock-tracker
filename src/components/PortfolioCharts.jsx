@@ -115,9 +115,9 @@ export function PortfolioCharts({ performance, backtestHistory = [], summary, sn
                   <stop offset="95%" stopColor="var(--accent)" stopOpacity={0}/>
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke={chartTheme.grid} />
-              <XAxis dataKey="date" stroke={chartTheme.axis} fontSize={11} />
-              <YAxis stroke={chartTheme.axis} fontSize={11} tickFormatter={value => `${value.toFixed(0)}%`} />
+              <CartesianGrid vertical={false} strokeOpacity={0.35} stroke={chartTheme.grid} />
+              <XAxis dataKey="date" tickLine={false} axisLine={false} minTickGap={48} tickMargin={10} stroke={chartTheme.axis} fontSize={11} />
+              <YAxis tickLine={false} axisLine={false} tickCount={4} width={44} stroke={chartTheme.axis} fontSize={11} tickFormatter={value => `${value.toFixed(0)}%`} />
               <Tooltip contentStyle={{ backgroundColor: chartTheme.tooltip, border: `1px solid ${chartTheme.grid}`, borderRadius: 10, color: chartTheme.tooltipText }} labelStyle={{ color: chartTheme.tooltipText }} itemStyle={{ color: chartTheme.tooltipText }} labelFormatter={value => { const date = new Date(value); return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }); }} formatter={value => `${Number(value).toFixed(2)}%`} />
               <Legend wrapperStyle={{ color: chartTheme.tooltipText }} />
               <Area isAnimationActive={!reducedMotion} animationBegin={80} animationDuration={850} animationEasing="ease-out" type="monotone" name="Portfolio" dataKey="value" stroke={chartTheme.portfolio} strokeWidth={3} dot={false} fill="none" />
@@ -140,6 +140,7 @@ export function PortfolioCharts({ performance, backtestHistory = [], summary, sn
       {/* Asset Allocation Pie Chart */}
       <DashboardCard as="div" cardId="asset-allocation" label="Asset Allocation"><div ref={assetCard} onMouseLeave={() => setHoverAsset(null)} className={`${cardBg} chart-card border p-5 rounded-2xl lg:col-span-1 transition-colors`}>
         <div className="chart-save-header mb-4"><h3 className={`text-xs font-semibold ${headingColor} tracking-wider uppercase`}>Asset Allocation</h3><ChartImageButton label="Asset Allocation" disabled={!assetPieData.length} onSave={() => saveAllocationImage({ title: 'Asset Allocation', data: assetPieData, currencyCode, theme, privateMode, sector: false })} /></div>
+        {assetPieData.length > 0 && <p className="chart-headline"><Money amount={formatMoney(assetTotal, currencyCode, { compact: true })} /><small>Total allocated</small></p>}
         {assetPieData.length > 0 && <p className="chart-summary">{assetPieData[0].name === 'Cash' ? 'Largest allocation' : 'Largest holding'}: <strong>{assetPieData[0].name}</strong> · {formatPercent(assetPieData[0].value / assetTotal * 100)} of portfolio</p>}
         {assetPieData.length > 0 && <p className="sr-only">Asset allocation contains {assetPieData.length} positions. The largest is {assetPieData[0].name} at {formatPercent(assetPieData[0].value / assetTotal * 100)}.</p>}
         <div className="chart-selection-slot no-print" aria-live="polite">{selectedAsset && <button className="secondary-button" onClick={() => { setSelectedAsset(null); setHoverAsset(null); }}>Pinned: {selectedAsset} · Clear</button>}</div>
@@ -170,7 +171,7 @@ export function PortfolioCharts({ performance, backtestHistory = [], summary, sn
                   </Pie>
                 </PieChart>
               </ResponsiveContainer>
-              <div className="chart-donut-center" aria-hidden="true"><span>Total value</span><strong><Money amount={formatMoney(assetTotal, currencyCode, { compact: true })} /></strong></div>
+              <div className="chart-donut-center" aria-hidden="true"><span>Positions</span><strong>{assetPieData.length}</strong></div>
             </div>
             <div className="chart-detail-slot">{activeAssetItem && <div className="chart-hover-card"><strong>{activeAssetItem.name}</strong><span><Money amount={formatMoney(activeAssetItem.value, currencyCode)} /> · {((activeAssetItem.value / assetTotal) * 100).toFixed(1)}%</span></div>}</div>
             <div className="chart-legend mt-2 space-y-2" aria-label="Asset allocation percentages">
@@ -195,6 +196,7 @@ export function PortfolioCharts({ performance, backtestHistory = [], summary, sn
       {/* Sector / Category Breakdown Pie Chart */}
       <DashboardCard as="div" cardId="sector-breakdown" label="Sector Breakdown"><div ref={sectorCard} onMouseLeave={() => setHoverSector(null)} className={`${cardBg} chart-card border p-5 rounded-2xl lg:col-span-1 transition-colors`}>
         <div className="chart-save-header mb-4"><h3 className={`text-xs font-semibold ${headingColor} tracking-wider uppercase`}>Sector Breakdown</h3><ChartImageButton label="Sector Breakdown" disabled={!sectorPieData.length} onSave={() => saveAllocationImage({ title: 'Sector Breakdown', data: sectorPieData, currencyCode, theme, privateMode, sector: true })} /></div>
+        {sectorTotal > 0 && <p className="chart-headline"><Money amount={formatMoney(sectorTotal, currencyCode, { compact: true })} /><small>Total allocated</small></p>}
         {sectorPieData.length > 0 && sectorTotal > 0 && <p className="chart-summary">{sectorPieData[0].name === 'Cash' ? 'Largest allocation' : 'Largest sector'}: <strong>{sectorPieData[0].name}</strong> · {formatPercent(sectorPieData[0].value / sectorTotal * 100)} {summary.cashValue > 0 ? 'of portfolio' : 'of holdings'}</p>}
         {sectorPieData.length > 0 && sectorTotal > 0 && <p className="sr-only">Sector allocation contains {sectorPieData.length} categories. The largest is {sectorPieData[0].name} at {formatPercent(sectorPieData[0].value / sectorTotal * 100)}.</p>}
         <div className="chart-selection-slot no-print" aria-live="polite">{selectedSector && <button className="secondary-button" onClick={() => { setSelectedSector(null); setHoverSector(null); }}>Pinned: {selectedSector} · Clear</button>}</div>
@@ -225,7 +227,7 @@ export function PortfolioCharts({ performance, backtestHistory = [], summary, sn
                 </Pie>
               </PieChart>
             </ResponsiveContainer>
-            <div className="chart-donut-center" aria-hidden="true"><span>Total value</span><strong><Money amount={formatMoney(sectorTotal, currencyCode, { compact: true })} /></strong></div>
+            <div className="chart-donut-center" aria-hidden="true"><span>Categories</span><strong>{sectorPieData.length}</strong></div>
           </div>
           <div className="chart-detail-slot">{activeSectorItem && <div className="chart-hover-card"><strong>{activeSectorItem.name}</strong><span><Money amount={formatMoney(activeSectorItem.value, currencyCode)} /> · {((activeSectorItem.value / sectorTotal) * 100).toFixed(1)}%</span></div>}</div>
             <div className="chart-legend mt-2 space-y-2" aria-label="Sector allocation percentages">

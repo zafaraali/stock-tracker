@@ -183,24 +183,6 @@ export default function App() {
     if (icon) icon.href = `data:image/svg+xml,${encodeURIComponent(svg)}`;
   }, [accent]);
   const isLight = effectiveTheme === 'light';
-  const latestPriceUpdatedAt = holdings.reduce((latest, item) => {
-    const timestamp = item.priceUpdatedAt ? Date.parse(item.priceUpdatedAt) : NaN;
-    return Number.isFinite(timestamp) && timestamp > latest ? timestamp : latest;
-  }, 0);
-  const latestPriceLabel = latestPriceUpdatedAt ? (() => {
-    const age = Date.now() - latestPriceUpdatedAt;
-    if (age < 60 * 1000) return 'just now';
-    if (age < 60 * 60 * 1000) return `${Math.floor(age / 60000)}m ago`;
-    if (age < 24 * 60 * 60 * 1000) return `${Math.floor(age / 3600000)}h ago`;
-    return new Date(latestPriceUpdatedAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
-  })() : 'No market prices saved yet';
-  const lastSavedLabel = lastSavedAt ? (() => {
-    const age = Date.now() - Date.parse(lastSavedAt);
-    if (!Number.isFinite(age) || age < 60 * 1000) return 'just now';
-    if (age < 60 * 60 * 1000) return `${Math.floor(age / 60000)}m ago`;
-    if (age < 24 * 60 * 60 * 1000) return `${Math.floor(age / 3600000)}h ago`;
-    return new Date(lastSavedAt).toLocaleDateString();
-  })() : 'Save pending';
   useEffect(() => {
     if (marketStatus?.loading) refreshWasLoading.current = true;
     if (refreshWasLoading.current && !marketStatus?.loading && (marketStatus?.lastUpdated || marketStatus?.error)) {
@@ -358,7 +340,7 @@ export default function App() {
         </StatusBar>
         {refreshNotice && <p className={`refresh-notice ${marketStatus?.error ? 'is-warning' : ''}`} role="status" aria-live="polite">{refreshNotice}</p>}
         {activeTab === 'dashboard' && <PortfolioHealth holdings={holdings} onReviewPrices={() => { const item = holdings.find(entry => !entry.priceUpdatedAt || Date.now() - Date.parse(entry.priceUpdatedAt) >= 24 * 60 * 60 * 1000); setReviewSymbol(item?.symbol || ''); changeTab('holdings'); }} onReviewTargets={() => { const item = holdings.find(entry => entry.targetPercent === '' || entry.targetPercent === null || entry.targetPercent === undefined); setReviewSymbol(item?.symbol || ''); changeTab('holdings'); }} />}
-        {activeTab === 'dashboard' && <div className="dashboard-quick-actions" aria-label="Quick actions"><button type="button" className="secondary-button" onClick={() => { showQuickActionFeedback('Holdings manager opened.'); changeTab('holdings'); }}><Briefcase className="h-4 w-4" />Manage holdings</button><button type="button" className="secondary-button" onClick={() => { setTransactionIntent({ type: 'DEPOSIT', id: Date.now() }); showQuickActionFeedback('Cash entry form opened.'); changeTab('history'); }}><DollarSign className="h-4 w-4" />Record cash</button><button type="button" className="secondary-button" onClick={() => { showQuickActionFeedback('Refreshing market prices…'); refreshMarketData(); }} disabled={marketStatus?.loading}><RefreshCw className={`h-4 w-4 ${marketStatus?.loading ? 'animate-spin' : ''}`} />{marketStatus?.loading ? 'Refreshing…' : 'Refresh prices'}</button>{quickActionFeedback && <span className="quick-action-feedback" role="status" aria-live="polite">{quickActionFeedback}</span>}</div>}
+        {activeTab === 'dashboard' && <div className="dashboard-quick-actions" aria-label="Quick actions"><button type="button" className="primary-button" onClick={() => { showQuickActionFeedback('Holdings manager opened.'); changeTab('holdings'); }}><Briefcase className="h-4 w-4" />Manage holdings</button><button type="button" className="secondary-button" onClick={() => { setTransactionIntent({ type: 'DEPOSIT', id: Date.now() }); showQuickActionFeedback('Cash entry form opened.'); changeTab('history'); }}><DollarSign className="h-4 w-4" />Record cash</button><button type="button" className="secondary-button" onClick={() => { showQuickActionFeedback('Refreshing market prices…'); refreshMarketData(); }} disabled={marketStatus?.loading}><RefreshCw className={`h-4 w-4 ${marketStatus?.loading ? 'animate-spin' : ''}`} />{marketStatus?.loading ? 'Refreshing…' : 'Refresh prices'}</button>{quickActionFeedback && <span className="quick-action-feedback" role="status" aria-live="polite">{quickActionFeedback}</span>}</div>}
 
         {/* Printable Executive Header (Only visible when printing/exporting PDF) */}
         <div className="hidden print:block mb-8 border-b border-slate-300 pb-4">
@@ -367,7 +349,7 @@ export default function App() {
           <p className="print-summary"><strong>Portfolio:</strong> {formatMoney(portfolioSummary.totalValue, currency)} · <strong>Cash:</strong> {formatMoney(portfolioSummary.cashValue, currency)} · <strong>Top holdings:</strong> {[...portfolioSummary.items].sort((a, b) => b.totalValue - a.totalValue).slice(0, 3).map(item => item.symbol).join(', ') || 'None'}</p>
         </div>
 
-        <header className="page-heading mb-6"><p className="account-context">Holdings list: <strong>{selectedAccountId === '__combined__' ? 'Combined · All lists' : accounts.find(account => account.id === selectedAccountId)?.name || 'Default list'}</strong><span>Display currency: {currency}</span><span className="freshness-label" title={lastSavedAt ? `Last saved ${new Date(lastSavedAt).toLocaleString()}` : 'No saved changes yet'}>Saved: {lastSavedLabel}</span>{activeTab === 'dashboard' && <span className="freshness-label" title={latestPriceUpdatedAt ? `Latest saved market price: ${latestPriceLabel}` : latestPriceLabel}>Prices updated: {latestPriceLabel}</span>}</p><h1 id="page-title" tabIndex={-1}>{({ dashboard: 'Portfolio overview', holdings: 'Holdings', history: 'Transactions', watchlist: 'Watchlist', dividends: 'Dividends', performance: 'Performance', rebalance: 'Rebalance', help: 'Help' })[activeTab]}</h1><p className="supporting-text">{({ dashboard: 'Your portfolio at a glance, from allocation to your largest positions.', holdings: 'Manage your holdings, prices, and investment notes.', history: 'Record trades, dividends, and cash movements.', watchlist: 'Track investment ideas before adding a holding.', dividends: 'Review income received and upcoming dividend estimates.', performance: 'Explore portfolio returns and compare with the market.', rebalance: 'Compare your current allocation with your targets.', help: 'Learn how each part of ApexFinance works and how your data is handled.' })[activeTab]}</p></header>
+        <header className="page-heading mb-6"><p className="account-context">Holdings list: <strong>{selectedAccountId === '__combined__' ? 'Combined · All lists' : accounts.find(account => account.id === selectedAccountId)?.name || 'Default list'}</strong><span>Display currency: {currency}</span></p><h1 id="page-title" tabIndex={-1}>{({ dashboard: 'Portfolio overview', holdings: 'Holdings', history: 'Transactions', watchlist: 'Watchlist', dividends: 'Dividends', performance: 'Performance', rebalance: 'Rebalance', help: 'Help' })[activeTab]}</h1><p className="supporting-text">{({ dashboard: 'Your portfolio at a glance, from allocation to your largest positions.', holdings: 'Manage your holdings, prices, and investment notes.', history: 'Record trades, dividends, and cash movements.', watchlist: 'Track investment ideas before adding a holding.', dividends: 'Review income received and upcoming dividend estimates.', performance: 'Explore portfolio returns and compare with the market.', rebalance: 'Compare your current allocation with your targets.', help: 'Learn how each part of ApexFinance works and how your data is handled.' })[activeTab]}</p></header>
         {/* Tab Switcher Content */}
         <div id="tab-content" className="tab-scroll-target">
         <Suspense fallback={activeTab === 'performance' ? <PerformanceLoadingView /> : <LoadingSkeleton variant={activeTab === 'dashboard' ? 'dashboard' : 'view'} />}>

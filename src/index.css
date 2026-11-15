@@ -1520,3 +1520,14 @@ nav a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 /* One quiet reveal; avoid sliding the panel and its links independently. */
 .mobile-drawer-overlay { animation: mobile-drawer-reveal .14s ease-out; }
 @keyframes mobile-drawer-reveal { from { opacity: 0; } to { opacity: 1; } }
+
+@media screen {
+  .app-shell .portfolio-health { margin: 0 0 1rem; padding: .65rem 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+  .app-shell .portfolio-health h2 { font-size: .8125rem; font-weight: 500; color: var(--muted); }
+  .app-shell .portfolio-health .supporting-text { margin-top: .15rem; }
+  .dashboard-quick-actions { margin-bottom: 1.25rem; }
+  .chart-headline { color: var(--foreground); font-size: clamp(1.5rem, 3vw, 2rem); font-weight: 600; letter-spacing: -.03em; line-height: 1.2; margin: .5rem 0 .75rem; overflow-wrap: anywhere; }
+  .chart-headline > small { display: block; font-size: .75rem; font-weight: 400; letter-spacing: normal; color: var(--muted); margin-top: .35rem; }
+  .app-shell .chart-summary { font-size: .75rem; color: var(--muted); }
+  .app-shell .chart-save-header h3 { text-transform: none; letter-spacing: normal; font-size: .875rem; color: var(--foreground); }
+}
