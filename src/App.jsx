@@ -456,6 +456,8 @@ export default function App() {
 
         {activeTab === 'holdings' && (
           <HoldingsTable
+            transactions={transactions}
+            history={backtestHistory}
             onBulkUpdate={updateHoldingsBulk}
             valueCurrencyMode={valueCurrencyMode}
             setValueCurrencyMode={setValueCurrencyMode}

@@ -1,3 +1,4 @@
+import { HoldingInspector } from './HoldingInspector';
 import { Money } from './Money';
 import { BulkHoldingEditor } from './BulkHoldingEditor';
 import { FilterPanel } from './FilterPanel';
@@ -19,7 +20,15 @@ import { fetchMarketFundamentals, isTseSymbol, searchMarketSymbols, inferSymbolM
 import { EmptyState } from './EmptyState';
 import { TickerLinks } from './TickerLinks';
 
-export function HoldingsTable({ summary, onBulkUpdate, initialFilter = '', reviewSymbol = '', currencyCode = 'USD', customCategories = [], valueCurrencyMode = 'display', setValueCurrencyMode, onAddHolding, onUpdateHolding, onUpdateHoldingPrice, onUpdateHoldingNotes, onRemoveHolding, onExportCSV, onImportCSV }) {
+export function HoldingsTable({ summary, history = [], transactions = [], onBulkUpdate, initialFilter = '', reviewSymbol = '', currencyCode = 'USD', customCategories = [], valueCurrencyMode = 'display', setValueCurrencyMode, onAddHolding, onUpdateHolding, onUpdateHoldingPrice, onUpdateHoldingNotes, onRemoveHolding, onExportCSV, onImportCSV }) {
+  const [selectedHoldingId, setSelectedHoldingId] = useState(null);
+  const selectedHolding = summary.items.find(item => item.id === selectedHoldingId);
+  const holdingSearch = useRef(null);
+  useEffect(() => {
+    const find = event => { if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'f' && !document.querySelector('[role="dialog"]')) { event.preventDefault(); const details = holdingSearch.current?.closest('details'); if (details) details.open = true; holdingSearch.current?.focus(); } };
+    window.addEventListener('keydown', find);
+    return () => window.removeEventListener('keydown', find);
+  }, []);
   const [formError, setFormError] = useState('');
   const [saveNotice, setSaveNotice] = useState('');
   const [savedHoldingId, setSavedHoldingId] = useState(null);
@@ -248,6 +257,7 @@ export function HoldingsTable({ summary, onBulkUpdate, initialFilter = '', revie
       <FilterPanel resetLabel="Reset filters & sort" resultCount={visibleItems.length} totalCount={summary.items.length} label="holdings" activeCount={Number(Boolean(filter)) + Number(staleOnly) + Number(sortBy !== 'symbol' || sortDirection !== 'asc')} onReset={() => { setFilter(''); setStaleOnly(false); setSortBy('symbol'); setSortDirection('asc'); }}>
         <div className="flex items-center gap-2">
           <input
+            ref={holdingSearch}
             type="search"
             value={filter}
             onChange={event => setFilter(event.target.value)}
@@ -271,6 +281,8 @@ export function HoldingsTable({ summary, onBulkUpdate, initialFilter = '', revie
       <div className="holdings-filter-chips"><button type="button" className={`filter-chip secondary-button ${staleOnly ? 'is-active' : ''}`} aria-pressed={staleOnly} onClick={() => setStaleOnly(value => !value)}>Stale prices{staleCount > 0 ? ` (${staleCount})` : ''}</button></div>
       </FilterPanel>
       <div className="holdings-mobile-summary" aria-label="Holdings summary"><div><span>Portfolio value</span><strong><Money amount={formatMoney(summary.totalValue || 0, currencyCode)} /></strong></div><div><span>Cash</span><strong><Money amount={formatMoney(summary.cashValue || 0, currencyCode)} /></strong></div><div><span>Holdings</span><strong>{summary.items.length}</strong></div></div>
+      <div className={selectedHolding ? 'holdings-workspace has-inspector' : 'holdings-workspace'}>
+      <div className="holdings-list-pane">
       {/* Desktop Table */}
       <div className="holdings-desktop-table overflow-x-auto hidden sm:block">
         <table className="financial-table w-full text-left text-sm text-slate-300">
@@ -300,11 +312,11 @@ export function HoldingsTable({ summary, onBulkUpdate, initialFilter = '', revie
                 const isEditing = editingId === item.id;
 
                 return (
-                  <tr key={item.id} data-holding-id={item.id} tabIndex={-1} className={`hover:bg-slate-800/40 transition ${savedHoldingId === item.id ? 'holding-row-saved' : ''}`}>
+                  <tr key={item.id} data-holding-id={item.id} tabIndex={-1} className={`hover:bg-slate-800/40 transition ${selectedHoldingId === item.id ? 'holding-selected' : ''} ${savedHoldingId === item.id ? 'holding-row-saved' : ''}`}>
                     <td data-label="Asset / Sector" className="holding-asset-cell py-3.5 px-4">
                       <div className="holding-asset-info">
                       <div className="holding-asset-heading">
-                        <span className="font-bold text-white text-base">{item.symbol}</span><TickerLinks symbol={item.symbol} />
+                        <button type="button" className="holding-select font-bold text-white text-base" aria-label={`View ${item.symbol} details`} aria-expanded={selectedHoldingId === item.id} onClick={() => setSelectedHoldingId(item.id)}>{item.symbol}</button><TickerLinks symbol={item.symbol} />
                       </div>
                       <div className="holding-asset-badges">
                         <span className="text-[10px] bg-indigo-500/10 text-indigo-300 border border-indigo-500/30 px-2 py-0.5 rounded-full">{item.category || 'Other'}</span>
@@ -412,7 +424,7 @@ export function HoldingsTable({ summary, onBulkUpdate, initialFilter = '', revie
               <div key={item.id} data-holding-id={item.id} tabIndex={-1} className={`p-4 space-y-3 ${savedHoldingId === item.id ? 'holding-row-saved' : ''}`}>
                 <div className="holdings-mobile-header flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <span className="font-bold text-base text-white">{item.symbol}</span><TickerLinks symbol={item.symbol} />
+                    <button type="button" className="holding-select font-bold text-base text-white" aria-label={`View ${item.symbol} details`} aria-expanded={selectedHoldingId === item.id} onClick={() => setSelectedHoldingId(item.id)}>{item.symbol}</button><TickerLinks symbol={item.symbol} />
                     <span className="text-[10px] bg-indigo-500/10 text-indigo-300 px-2 py-0.5 rounded-full border border-indigo-500/30">{item.category || 'Other'}</span>
                     {(item.currency === 'CAD' || isTseSymbol(item.symbol)) && (
                       <span className="text-[10px] bg-red-500/10 text-red-400 border border-red-500/30 px-1.5 py-0.5 rounded-full font-bold">
@@ -477,6 +489,9 @@ export function HoldingsTable({ summary, onBulkUpdate, initialFilter = '', revie
         )}
       </div>
 
+      </div>
+      {selectedHolding && <HoldingInspector key={selectedHolding.id} item={selectedHolding} history={history} transactions={transactions} currencyCode={currencyCode} valueCurrencyMode={valueCurrencyMode} onClose={() => setSelectedHoldingId(null)} onEdit={() => openEditHolding(selectedHolding)} />}
+      </div>
       <Pagination {...pagination} total={visibleItems.length} onPageChange={pagination.setPage} onPageSizeChange={setPageSize} label="Holdings" />
 
       {/* Add holding Modal */}

@@ -2,7 +2,7 @@ import { PREFERENCES_RESTORED } from '../services/backupPreferences';
 import React, { useEffect, useRef, useState } from 'react';
 import { Modal } from './Modal';
 import { BackupReminder, useBackupReminder } from './BackupReminder';
-import { TrendingUp, PieChart as PieIcon, ArrowDownUp, Sliders, History, Eye, EyeOff, Download, Upload, Sun, Moon, Monitor, Trash2, RefreshCw, Settings, CalendarDays, Activity, Menu, X } from 'lucide-react';
+import { TrendingUp, PieChart as PieIcon, ArrowDownUp, Sliders, History, Eye, EyeOff, Download, Upload, Sun, Moon, Monitor, Trash2, RefreshCw, Settings, CalendarDays, Activity, Menu, X, PanelLeft, MoreHorizontal, ChevronDown } from 'lucide-react';
 import { CURRENCY_RATES } from '../data/mockData';
 import { OverviewControls } from './OverviewControls';
 import { formatMoney } from '../services/formatMoney';
@@ -38,7 +38,16 @@ export function Navbar({ viewDensity = 'default', setViewDensity, reducedMotionP
   const [driveStatus, setDriveStatus] = useState('');
   const [driveBusy, setDriveBusy] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [desktopControlsOpen, setDesktopControlsOpen] = useState(true);
+  const [desktopControlsOpen, setDesktopControlsOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(() => { try { return localStorage.getItem('apex-sidebar') !== 'false'; } catch { return true; } });
+  useEffect(() => { try { localStorage.setItem('apex-sidebar', String(sidebarOpen)); } catch { /* Keep preference in memory. */ } }, [sidebarOpen]);
+  useEffect(() => {
+    const close = event => { if (event.key === 'Escape') { if (event.target.closest('#desktop-portfolio-controls')) document.querySelector('.desktop-controls-toggle')?.focus(); setDesktopControlsOpen(false); if (shortcutsRef.current) shortcutsRef.current.open = false; } };
+    const outside = event => { if (!event.target.closest('#desktop-portfolio-controls, .desktop-controls-toggle')) setDesktopControlsOpen(false); };
+    document.addEventListener('keydown', close);
+    document.addEventListener('pointerdown', outside);
+    return () => { document.removeEventListener('keydown', close); document.removeEventListener('pointerdown', outside); };
+  }, []);
   const [themePulse, setThemePulse] = useState(false);
   const [refreshPulse, setRefreshPulse] = useState(false);
   const [preferenceNotice, setPreferenceNotice] = useState('');
@@ -235,6 +244,9 @@ export function Navbar({ viewDensity = 'default', setViewDensity, reducedMotionP
   };
 
   const renderControls = () => <>
+          <div className="popover-heading"><strong>Portfolio controls</strong><span>Display and preferences</span></div>
+          <div className="popover-fields">
+          <label className="popover-field"><span>Display currency</span>
           <select
             aria-label="Display currency"
             value={currency}
@@ -246,7 +258,8 @@ export function Navbar({ viewDensity = 'default', setViewDensity, reducedMotionP
                 {code} ({CURRENCY_RATES[code].symbol})
               </option>
             ))}
-          </select>
+          </select></label>
+          <label className="popover-field"><span>Holdings list</span>
           <select
             aria-label="Holdings list"
             title="Select holdings list"
@@ -256,31 +269,32 @@ export function Navbar({ viewDensity = 'default', setViewDensity, reducedMotionP
           >
             <option value="__combined__">Combined</option>
             {accounts.map(account => <option key={account.id} value={account.id}>{account.name}</option>)}
-          </select>
-
+          </select></label>
+          </div>
+          <div className="popover-actions">
           {/* Theme Toggle Button */}
           <button
             onClick={handleRefresh}
             disabled={marketStatus?.loading}
             title="Refresh live market prices"
             aria-label="Refresh live market prices"
-            className={`refresh-market-button p-2 rounded-xl text-xs font-medium transition border ${refreshPulse ? 'refresh-pulse' : ''} ${isLight ? 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-300' : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700'} disabled:opacity-50`}
+            className={`popover-action refresh-market-button p-2 rounded-xl text-xs font-medium transition border ${refreshPulse ? 'refresh-pulse' : ''} ${isLight ? 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-300' : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700'} disabled:opacity-50`}
           >
-            <RefreshCw className={`w-4 h-4 ${marketStatus?.loading ? 'animate-spin' : ''}`} /><kbd className="shortcut-hint">R</kbd>
+            <RefreshCw className={`w-4 h-4 ${marketStatus?.loading ? 'animate-spin' : ''}`} /><span>{marketStatus?.loading ? 'Refreshing prices…' : 'Refresh prices'}</span><kbd className="shortcut-hint">R</kbd>
           </button>
           <button
             aria-label={`Current theme: ${themePreference === 'system' ? 'Match device' : isLight ? 'Light' : 'Dark'}. Switch to ${themePreference === 'system' ? 'Dark' : isLight ? 'Match device' : 'Light'} mode`}
             onClick={handleThemeToggle}
             title={`Current: ${themePreference === 'system' ? 'Match device' : isLight ? 'Light' : 'Dark'} · Switch to ${themePreference === 'system' ? 'Dark' : isLight ? 'Match device' : 'Light'}`}
-            className={`theme-toggle-button p-2 rounded-xl text-xs font-medium transition border ${themePulse ? 'theme-toggle-pulse' : ''} ${isLight ? 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-300' : 'bg-slate-800 hover:bg-slate-700 text-amber-400 border-slate-700'}`}
+            className={`popover-action theme-toggle-button p-2 rounded-xl text-xs font-medium transition border ${themePulse ? 'theme-toggle-pulse' : ''} ${isLight ? 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-300' : 'bg-slate-800 hover:bg-slate-700 text-amber-400 border-slate-700'}`}
           >
-            <span className="theme-toggle-icon inline-flex">{themePreference === 'system' ? <Monitor className="w-5 h-5 text-indigo-400" /> : isLight ? <Sun className="w-5 h-5 text-amber-400" /> : <Moon className="w-5 h-5 text-slate-300" />}</span>
+            <span className="theme-toggle-icon inline-flex">{themePreference === 'system' ? <Monitor className="w-5 h-5 text-indigo-400" /> : isLight ? <Sun className="w-5 h-5 text-amber-400" /> : <Moon className="w-5 h-5 text-slate-300" />}</span><span>Appearance</span><small>{themePreference === 'system' ? 'System' : isLight ? 'Light' : 'Dark'}</small>
           </button>
 
-          {installPrompt && <button aria-label="Install ApexFinance app" title="Install ApexFinance app" onClick={installApp} className="icon-button"><Download className="w-5 h-5" /></button>}
-          <button aria-label={reminder.due ? 'Open settings · Backup due' : 'Open settings'} title="Open settings" onClick={() => { setMobileMenuOpen(false); setSettingsOpen(true); }} className="icon-button"><Settings className="w-5 h-5" />{reminder.due && <span className="backup-due-dot" aria-hidden="true" />}</button>
+          {installPrompt && <button aria-label="Install ApexFinance app" title="Install ApexFinance app" onClick={installApp} className="popover-action icon-button"><Download className="w-5 h-5" /><span>Install app</span></button>}
+          <button aria-label={reminder.due ? 'Open settings · Backup due' : 'Open settings'} title="Open settings" onClick={() => { setMobileMenuOpen(false); setDesktopControlsOpen(false); setSettingsOpen(true); }} className="popover-action icon-button"><Settings className="w-5 h-5" /><span>Settings</span>{reminder.due && <span className="backup-due-dot" aria-hidden="true" />}</button>
           <details ref={shortcutsRef} className="keyboard-shortcuts">
-            <summary className="secondary-button" aria-label="Show keyboard shortcuts">? <span className="shortcut-label">Shortcuts</span></summary>
+            <summary className="popover-action secondary-button" aria-label="Show keyboard shortcuts"><span className="shortcut-symbol" aria-hidden="true">⌘</span><span>Keyboard shortcuts</span><ChevronDown size={14} aria-hidden="true" /></summary>
             <div className="keyboard-shortcuts-popover" role="note">
               <p><kbd>R</kbd><span>Refresh prices</span></p>
               <p><kbd>H</kbd><span>Open help</span></p>
@@ -294,15 +308,18 @@ export function Navbar({ viewDensity = 'default', setViewDensity, reducedMotionP
               <p><kbd>7</kbd><span>Rebalance</span></p>
             </div>
           </details>
+          </div>
           {preferenceNotice && <span className="preference-notice" role="status" aria-live="polite">{preferenceNotice}</span>}
 </>;
 
   return (
-    <nav className={`no-print ${isLight ? 'bg-white border-slate-200 text-slate-800' : 'bg-slate-900 border-slate-800 text-slate-100'} border-b sticky top-0 z-40 px-4 lg:px-8 py-3 transition-colors duration-200`}>
+    <nav data-sidebar-open={sidebarOpen} data-controls-open={desktopControlsOpen} className={`app-navigation no-print ${isLight ? 'bg-white border-slate-200 text-slate-800' : 'bg-slate-900 border-slate-800 text-slate-100'} border-b sticky top-0 z-40 px-4 lg:px-8 py-3 transition-colors duration-200`}>
       <div className={`navbar-top-row max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4 ${desktopControlsOpen ? '' : 'controls-collapsed'}`}>
         
+        <button type="button" className="sidebar-toggle icon-button" aria-label={sidebarOpen ? 'Hide sidebar' : 'Show sidebar'} aria-expanded={sidebarOpen} aria-controls="desktop-section-navigation" onClick={() => setSidebarOpen(open => !open)}><PanelLeft size={18} /></button>
+        <span className="toolbar-page-title">{({ dashboard: 'Dashboard', holdings: 'Holdings', history: 'Transactions', watchlist: 'Watchlist', dividends: 'Dividends', performance: 'Performance', rebalance: 'Rebalance', help: 'Help' })[activeTab]}</span>
         {/* Brand */}
-        <button aria-label="Go to dashboard" className="flex items-center gap-2 cursor-pointer" aria-current={activeTab === 'dashboard' ? 'page' : undefined} onClick={() => setActiveTab('dashboard')}>
+        <button aria-label="Go to dashboard" className="navbar-brand flex items-center gap-2 cursor-pointer" aria-current={activeTab === 'dashboard' ? 'page' : undefined} onClick={() => setActiveTab('dashboard')}>
           <div className="brand-logo p-2 rounded-xl text-white shadow-lg">
             <TrendingUp className="w-5 h-5" />
           </div>
@@ -311,7 +328,6 @@ export function Navbar({ viewDensity = 'default', setViewDensity, reducedMotionP
           </span>
         </button>
 
-        <button type="button" className={`navbar-privacy icon-button ${privateMode ? 'privacy-active' : ''}`} aria-label={privateMode ? 'Show balances' : 'Hide balances'} title={privateMode ? 'Privacy on · Show balances' : 'Hide balances'} aria-pressed={privateMode} onClick={onTogglePrivacy}>{privateMode ? <EyeOff aria-hidden="true" className="w-5 h-5" /> : <Eye aria-hidden="true" className="w-5 h-5" />}</button>
         <button
           type="button"
           aria-label={mobileMenuOpen ? 'Close navigation menu' : 'Open navigation menu'}
@@ -324,7 +340,7 @@ export function Navbar({ viewDensity = 'default', setViewDensity, reducedMotionP
         </button>
 
         {/* Desktop & Tablet Tabs */}
-        <div className={`desktop-section-links hidden lg:flex items-center gap-1 ${isLight ? 'bg-slate-100 border-slate-200' : 'bg-slate-950/60 border-slate-800'} p-1 rounded-xl border`}>
+        <div id="desktop-section-navigation" role="navigation" aria-label="Portfolio sections" className={`desktop-section-links hidden lg:flex items-center gap-1 ${isLight ? 'bg-slate-100 border-slate-200' : 'bg-slate-950/60 border-slate-800'} p-1 rounded-xl border`}>
           <a href="#/dashboard"
             aria-current={activeTab === 'dashboard' ? 'page' : undefined} onClick={event => handleSectionLink(event, 'dashboard')}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
@@ -348,12 +364,15 @@ export function Navbar({ viewDensity = 'default', setViewDensity, reducedMotionP
           {!hiddenTabs.includes('rebalance') && (<a href="#/rebalance" aria-current={activeTab === 'rebalance' ? 'page' : undefined} onClick={event => handleSectionLink(event, 'rebalance')} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${activeTab === 'rebalance' ? 'bg-indigo-600 text-white shadow' : `${isLight ? 'text-slate-600 hover:text-slate-900' : 'text-slate-400 hover:text-slate-200'}`}`}><Sliders className="w-4 h-4" /> Rebalance</a>)}
         </div>
 
-        {/* Actions & Currency & Theme Toggle */}
-        <button type="button" className={`desktop-controls-toggle secondary-button hidden lg:inline-flex ${desktopControlsOpen ? '' : 'controls-hidden-toggle'}`} aria-expanded={desktopControlsOpen} aria-controls="desktop-portfolio-controls" aria-label={desktopControlsOpen ? 'Hide portfolio controls' : 'Show portfolio controls'} title="Toggle portfolio controls (C)" onClick={() => setDesktopControlsOpen(open => !open)}>
-          <Sliders className="w-4 h-4" /> {desktopControlsOpen ? 'Visible' : 'Hidden'} <kbd className="shortcut-hint">C</kbd>
+        {/* Trailing toolbar controls and anchored disclosure. */}
+        <div className="toolbar-trailing">
+        <button type="button" className={`navbar-privacy icon-button ${privateMode ? 'privacy-active' : ''}`} aria-label={privateMode ? 'Show balances' : 'Hide balances'} title={privateMode ? 'Privacy on · Show balances' : 'Hide balances'} aria-pressed={privateMode} onClick={onTogglePrivacy}>{privateMode ? <EyeOff aria-hidden="true" className="w-5 h-5" /> : <Eye aria-hidden="true" className="w-5 h-5" />}</button>
+        <button type="button" className={`desktop-controls-toggle secondary-button hidden lg:inline-flex ${desktopControlsOpen ? '' : 'controls-hidden-toggle'}`} aria-expanded={desktopControlsOpen} aria-controls="desktop-portfolio-controls" onKeyDown={event => { if (event.key === 'ArrowDown') { event.preventDefault(); setDesktopControlsOpen(true); window.requestAnimationFrame(() => document.querySelector('#desktop-portfolio-controls select')?.focus()); } }} aria-label={desktopControlsOpen ? 'Hide portfolio controls' : 'Show portfolio controls'} title="Toggle portfolio controls (C)" onClick={() => setDesktopControlsOpen(open => !open)}>
+          <MoreHorizontal className="w-4 h-4" aria-hidden="true" /><span>More</span><ChevronDown className="more-chevron" aria-hidden="true" />
         </button>
-        <div id="desktop-portfolio-controls" className={`navbar-actions ${desktopControlsOpen ? 'hidden lg:flex' : 'hidden'} items-center gap-2.5 flex-wrap justify-start w-full border-t border-slate-800 pt-3`}>
+        <div id="desktop-portfolio-controls" role="group" aria-label="Portfolio controls" onBlur={event => { if (event.relatedTarget && !event.currentTarget.parentElement.contains(event.relatedTarget)) setDesktopControlsOpen(false); }} className={`navbar-actions ${desktopControlsOpen ? 'hidden lg:flex' : 'hidden'} items-center gap-2.5 flex-wrap justify-start w-full border-t border-slate-800 pt-3`}>
           {renderControls()}
+        </div>
         </div>
           {settingsOpen && <Modal title="Settings & data" onClose={() => setSettingsOpen(false)}>
             <p className="text-sm text-slate-400 mb-5">Your holdings, transactions, watchlist, settings, and snapshots stay in this browser's local storage. Keep an encrypted or otherwise secure copy of exported backups.</p>

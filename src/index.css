@@ -900,7 +900,7 @@ nav a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   .keyboard-shortcuts { display: none; }
 }
 @media (min-width: 1024px) {
-  .navbar-top-row.controls-collapsed { position: relative; flex-wrap: nowrap; padding-right: 11.5rem; }
+  .navbar-top-row.controls-collapsed { position: relative; flex-wrap: nowrap; }
   .navbar-top-row.controls-collapsed .desktop-section-links { min-width: 0; flex: 1 1 auto; overflow-x: auto; scrollbar-width: none; }
   .navbar-top-row.controls-collapsed .desktop-section-links::-webkit-scrollbar { display: none; }
   .navbar-top-row.controls-collapsed .desktop-controls-toggle { position: absolute; top: 50%; right: 0; margin: 0 !important; transform: translateY(-50%); white-space: nowrap; }
@@ -1239,4 +1239,132 @@ nav a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   @media (prefers-reduced-transparency: reduce) {
     .app-shell > nav { background: var(--surface-muted); -webkit-backdrop-filter: none; backdrop-filter: none; }
   }
+}
+
+/* Desktop workspace: navigation, content, and contextual inspector. */
+@media screen {
+  .sidebar-toggle, .toolbar-page-title { display: none; }
+  .holding-select { text-align: left; text-decoration: none; border-radius: 4px; }
+  .holding-select:hover { color: var(--accent-text, var(--accent)); }
+  .holding-selected { background: color-mix(in srgb, var(--accent) 10%, var(--surface)); box-shadow: inset 3px 0 var(--accent); }
+  .holdings-list-pane { min-width: 0; }
+  .holding-inspector { min-width: 0; padding: 1.5rem; background: var(--surface-muted); border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 1.25rem; }
+  .inspector-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; }
+  .inspector-header h2 { font-size: 1.5rem; font-weight: 650; letter-spacing: -.03em; }
+  .holding-inspector h3 { font-size: .8125rem; font-weight: 600; }
+  .inspector-value { font-size: 1.8rem; letter-spacing: -.035em; font-weight: 650; margin-bottom: -1rem; }
+  .inspector-chart { min-width: 0; }
+  .inspector-empty { padding-block: 2rem; }
+  .inspector-facts > div { display: flex; justify-content: space-between; gap: 1rem; padding-block: .65rem; border-bottom: 1px solid var(--border); font-size: .8125rem; }
+  .inspector-facts dt { color: var(--muted); }
+  .inspector-facts dd { text-align: right; font-variant-numeric: tabular-nums; }
+  .inspector-notes { white-space: pre-wrap; overflow-wrap: anywhere; }
+  .inspector-activity li { display: flex; justify-content: space-between; gap: .75rem; padding-block: .65rem; font-size: .8125rem; border-bottom: 1px solid var(--border); }
+  .inspector-activity small { display: block; margin-top: .2rem; color: var(--muted); }
+  .app-shell :is(.financial-table thead, .chart-card h3.uppercase, .chart-card h2.uppercase, .summary-grid .uppercase) { text-transform: none; letter-spacing: normal; }
+  .app-shell :is(.ticker-links a, .help-topic, .chart-legend-row, .primary-button, .secondary-button, .icon-button):hover { transform: none; }
+  .app-shell :is(.ticker-links a, .cash-action, .toast-undo, .danger-button):active { animation: none; }
+  .app-shell .brand-logo:hover { transform: none; box-shadow: none; }
+  .app-shell .ticker-links a:hover { animation: none; }
+}
+@media screen and (min-width: 1024px) {
+  .app-shell > .app-navigation { margin-left: 220px; padding: .75rem 1.5rem; }
+  .app-navigation[data-sidebar-open="true"]::before { content: ''; position: fixed; inset: 0 auto 0 0; width: 220px; background: var(--surface); border-right: 1px solid var(--border); z-index: -1; }
+  .app-navigation .navbar-top-row { min-height: 40px; max-width: none; flex-wrap: nowrap; gap: .75rem; }
+  .app-navigation .sidebar-toggle { display: inline-flex; flex-shrink: 0; }
+  .app-navigation .toolbar-page-title { display: block; font-size: 1rem; font-weight: 600; flex: 1; }
+  .app-navigation .navbar-brand { position: fixed; left: 20px; top: 22px; font-size: .875rem; }
+  .app-navigation .navbar-brand .brand-logo { padding: .4rem; }
+  .app-navigation .navbar-brand > span { font-size: 1rem; }
+  .app-navigation .desktop-section-links,
+  .app-navigation .controls-collapsed .desktop-section-links { position: fixed; left: 12px; top: 90px; bottom: 24px; width: 196px; flex: none; display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start; gap: 4px; overflow: auto; border: 0; border-radius: 0; background: transparent; padding: 0; }
+  .app-navigation .desktop-section-links a { flex: 0 0 auto; padding: .6rem .75rem; font-size: .8125rem; min-height: 38px; font-weight: 500; gap: .65rem; }
+  .app-navigation .desktop-section-links a[aria-current="page"] { box-shadow: none; background: color-mix(in srgb, var(--foreground) 9%, var(--surface)); }
+  .app-navigation .desktop-section-links a svg { color: var(--accent-text, var(--accent)); stroke-width: 1.7; }
+  .app-navigation .desktop-controls-toggle,
+  .app-navigation .controls-collapsed .desktop-controls-toggle { display: inline-flex; position: static; transform: none; margin: 0; white-space: nowrap; }
+  .app-navigation .controls-collapsed .desktop-controls-toggle:hover { transform: none; }
+  .app-navigation #desktop-portfolio-controls { position: absolute; right: 1rem; top: calc(100% + .5rem); width: min(440px, calc(100vw - 260px)); padding: 1rem; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); box-shadow: 0 12px 36px rgb(0 0 0 / .2); }
+  .app-shell:has(.app-navigation[data-sidebar-open="true"]) > main { margin-left: 220px; margin-right: 0; width: calc(100% - 220px); max-width: none; }
+  .app-shell:has(.app-navigation[data-sidebar-open="true"]) > footer { margin-left: 220px; }
+  .app-navigation[data-sidebar-open="false"] { margin-left: 0; }
+  .app-navigation[data-sidebar-open="false"] :is(.desktop-section-links, .navbar-brand) { display: none; }
+}
+@media screen and (min-width: 1440px) {
+  .holdings-workspace.has-inspector { display: grid; grid-template-columns: minmax(0, 1fr) 320px; align-items: start; }
+  .holding-inspector { border-top: 0; border-left: 1px solid var(--border); align-self: stretch; }
+  .has-inspector .financial-table { min-width: 790px; }
+}
+@media screen and (max-width: 1439px) {
+  .holdings-workspace.has-inspector { display: flex; flex-direction: column; }
+  .has-inspector .holding-inspector { order: -1; width: 100%; border-bottom: 1px solid var(--border); }
+}
+
+@media screen and (min-width: 1024px) {
+  /* Blur belongs to the toolbar material, so fixed sidebar links stay viewport-relative. */
+  .app-shell > .app-navigation { -webkit-backdrop-filter: none; backdrop-filter: none; background: transparent; }
+  .app-navigation::after { content: ''; position: absolute; inset: 0; background: var(--toolbar-material); -webkit-backdrop-filter: saturate(140%) blur(24px); backdrop-filter: saturate(140%) blur(24px); z-index: -1; pointer-events: none; }
+}
+@media screen and (prefers-reduced-transparency: reduce) {
+  .app-navigation::after { background: var(--surface-muted); -webkit-backdrop-filter: none; backdrop-filter: none; }
+}
+
+@media screen and (min-width: 1440px) {
+  /* Price and dividend details move to the inspector while it is open. */
+  .has-inspector .holdings-desktop-table .financial-table { min-width: 600px; }
+  .has-inspector .financial-table :is(th, td):nth-child(3),
+  .has-inspector .financial-table :is(th, td):nth-child(4) { display: none; }
+  .has-inspector .holdings-desktop-table .financial-table :is(th, td):nth-child(1) { width: 27%; }
+  .has-inspector .holdings-desktop-table .financial-table :is(th, td):nth-child(2) { width: 10%; }
+  .has-inspector .holdings-desktop-table .financial-table :is(th, td):nth-child(5) { width: 23%; }
+  .has-inspector .holdings-desktop-table .financial-table :is(th, td):nth-child(6) { width: 23%; }
+  .has-inspector .holdings-desktop-table .financial-table :is(th, td):nth-child(7) { width: 17%; }
+  .has-inspector .holding-asset-info .price-status-badge { display: none; }
+}
+
+/* A single trailing group anchors the portfolio disclosure to its trigger. */
+@media screen {
+  .toolbar-trailing { display: flex; align-items: center; gap: .4rem; flex: 0 0 auto; }
+  .popover-heading { display: flex; flex-direction: column; gap: .2rem; padding: .25rem .4rem .9rem; }
+  .popover-heading strong { font-size: .875rem; font-weight: 600; color: var(--foreground); }
+  .popover-heading > span { font-size: .75rem; color: var(--muted); }
+  .popover-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; padding: 0 .4rem 1rem; }
+  .popover-field { display: flex; flex-direction: column; min-width: 0; gap: .4rem; }
+  .popover-field > span { font-size: .75rem; color: var(--muted); font-weight: 500; }
+  .app-navigation .popover-field select { width: 100%; max-width: none; min-height: 36px; border-radius: 7px; font-size: .8125rem; color: var(--foreground); background-color: var(--surface-muted); border-color: var(--border); }
+  .popover-actions { display: grid; gap: 3px; padding-top: .5rem; border-top: 1px solid var(--border); width: 100%; }
+  .app-navigation .popover-actions .popover-action { display: flex; align-items: center; justify-content: flex-start; width: 100%; min-height: 38px; height: auto; padding: .55rem .6rem !important; gap: .7rem; border: 0; border-radius: 7px; box-shadow: none; background: transparent; color: var(--foreground); font-size: .8125rem; font-weight: 500; text-align: left; cursor: pointer; transform: none; }
+  .popover-action > svg, .popover-action > .theme-toggle-icon, .shortcut-symbol { flex: 0 0 18px; width: 18px; height: 18px; color: var(--muted); }
+  .popover-action > span:not(.theme-toggle-icon):not(.shortcut-symbol) { flex: 1; }
+  .popover-action > small { margin-left: auto; font-size: .75rem; color: var(--muted); }
+  .shortcut-symbol { text-align: center; line-height: 18px; }
+  .app-navigation .popover-actions .popover-action:hover { background: var(--surface-raised); color: var(--foreground); }
+  .app-navigation .popover-actions .keyboard-shortcuts { width: 100%; }
+  .popover-actions summary { list-style: none; }
+  .popover-actions summary::-webkit-details-marker { display: none; }
+  .app-navigation .popover-actions .keyboard-shortcuts-popover { position: static; width: 100%; max-width: none; margin-top: .35rem; padding: .6rem .75rem; border: 0; background: var(--surface-muted); box-shadow: none; }
+  .popover-actions .keyboard-shortcuts summary > svg { transition: transform .16s ease; }
+  .popover-actions .keyboard-shortcuts[open] summary > svg { transform: rotate(180deg); }
+  .app-navigation .preference-notice { margin: .6rem .4rem .2rem; font-size: .75rem; }
+  .drawer-controls .popover-heading { display: none; }
+  .drawer-controls .popover-fields { width: 100%; padding-inline: 0; }
+}
+@media screen and (min-width: 1024px) {
+  .toolbar-trailing { position: relative; margin-left: auto; }
+  .app-navigation .toolbar-trailing > .navbar-privacy,
+  .app-navigation .toolbar-trailing > .desktop-controls-toggle { min-height: 36px; height: 36px; border-radius: 8px; border: 1px solid transparent; background: transparent; color: var(--secondary-text); box-shadow: none; }
+  .app-navigation .toolbar-trailing > .navbar-privacy { width: 36px; padding: 8px; margin: 0; }
+  .app-navigation .toolbar-trailing > .desktop-controls-toggle { gap: .45rem; padding: .4rem .65rem; font-size: .8125rem; }
+  .app-navigation .toolbar-trailing > button:hover,
+  .app-navigation .toolbar-trailing > .desktop-controls-toggle[aria-expanded="true"] { background: var(--surface-raised); border-color: var(--border); color: var(--foreground); }
+  .app-navigation .toolbar-trailing > .navbar-privacy.privacy-active { color: var(--accent-text, var(--accent)); background: color-mix(in srgb, var(--accent) 12%, var(--surface)); }
+  .more-chevron { width: 12px !important; height: 12px !important; color: var(--muted); transition: transform .18s ease; }
+  .desktop-controls-toggle[aria-expanded="true"] .more-chevron { transform: rotate(180deg); }
+  .app-navigation .toolbar-trailing #desktop-portfolio-controls { top: calc(100% + 1.5rem); right: 0; width: 320px; max-width: calc(100vw - 2rem); max-height: calc(100dvh - 90px); overflow-y: auto; overscroll-behavior: contain; padding: .75rem; border-radius: 14px; border: 1px solid var(--border); background: var(--surface); box-shadow: 0 12px 36px rgb(0 0 0 / .22), 0 2px 6px rgb(0 0 0 / .08); transform-origin: top right; }
+  .app-navigation[data-controls-open="true"] #desktop-portfolio-controls { display: block; animation: controls-reveal .16s cubic-bezier(.2,.8,.2,1); }
+  @keyframes controls-reveal { from { opacity: 0; transform: translateY(-4px) scale(.98); } to { opacity: 1; transform: none; } }
+}
+@media (prefers-reduced-motion: reduce) {
+  .app-navigation[data-controls-open="true"] #desktop-portfolio-controls { animation: none; }
+  .more-chevron { transition: none; }
 }
